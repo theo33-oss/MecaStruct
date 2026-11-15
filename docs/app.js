@@ -22,8 +22,8 @@ const App = (() => {
   ];
   const PAGES = [
     { id: "accueil", titre: "Accueil", genre: "accueil" },
-    { id: "poutres", titre: "Poutres", famille: "structures", genre: "bureau", capture: "poutres", texte: "Poutre 2D isostatique ou hyperstatique, et ossature 3D : réactions, efforts, flèche, contraintes, Eurocode 3." },
-    { id: "treillis", titre: "Treillis", famille: "structures", genre: "bureau", capture: "treillis", texte: "Efforts dans les barres et déplacements des nœuds." },
+    { id: "poutres", titre: "Poutres", famille: "structures", genre: "machine", calculs: ["beam"], pont: "structures", texte: "Poutre 2D isostatique ou hyperstatique : réactions, efforts, flèche, contraintes. L'ossature 3D est dans l'application de bureau." },
+    { id: "treillis", titre: "Treillis", famille: "structures", genre: "machine", calculs: ["truss"], pont: "structures", texte: "Efforts dans les barres et déplacements des nœuds." },
     { id: "flambage", titre: "Flambage", famille: "structures", genre: "bureau", capture: "flambage", texte: "Charge critique d'Euler, élancement, conditions aux limites." },
     { id: "sections-page", titre: "Sections", famille: "sections", genre: "bureau", capture: "sections", texte: "Aire, centre de gravité, inerties et modules de sections simples, composées ou profilées." },
     { id: "sollicitations", titre: "Sollicitations", famille: "sections", genre: "bureau", capture: "sollicitations_0", texte: "Traction, cisaillement (clavette, goupille), torsion, flexion." },
@@ -261,6 +261,50 @@ const App = (() => {
     }
   }
 
+  // ---------- bibliothèques chargées à la demande ----------
+
+  const PAQUETS_PONT = { structures: ["scipy", "shapely", "jinja2"] }; // famille du pont → bibliothèques Pyodide
+  const charges = new Set();
+
+  // Charge des paquets Pyodide (une fois) ; vrai si c'est fait.
+  async function paquets(noms) {
+    const manquants = noms.filter((n) => !charges.has(n));
+    if (!manquants.length) return true;
+    try {
+      await App.pyodide.loadPackage(manquants);
+      manquants.forEach((n) => charges.add(n));
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  }
+
+  // Avant une page lourde : ses bibliothèques, puis sa famille du pont.
+  async function preparer(p) {
+    if (!p.pont || charges.has("pont:" + p.pont)) return true;
+    const t = performance.now();
+    if (!await paquets(PAQUETS_PONT[p.pont] || [])) return false;
+    try {
+      pont.charger(p.pont);
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+    charges.add("pont:" + p.pont);
+    mesures["pont_" + p.pont] = Math.round(performance.now() - t);
+    return true;
+  }
+
+  function telecharger(nomFichier, contenu, type = "application/json") {
+    const url = URL.createObjectURL(new Blob([contenu], { type }));
+    const a = el("a", { href: url, download: nomFichier });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
   // ---------- menu, adresses ----------
 
   let courante = null;
@@ -371,5 +415,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, get pret() { return !!pont; } };
 })();

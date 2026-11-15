@@ -4,31 +4,12 @@ Les formulaires reprennent les champs, unités et bornes des pages de bureau (bu
 avec formulaire(id) ; elle n'a aucun libellé en dur.
 """
 
-import json
-
 from mecastruct.core import bearings, fits, plain_bearing, planetary, shrink_fit
 from mecastruct.plots import machine_plots, machine_schemas
-from mecastruct.pont.noyau import calcul, dm
+from mecastruct.pont.formulaire import case, groupe, liste, nb
+from mecastruct.pont.noyau import calcul, dm, formulaires_de
 from mecastruct.services import machine
 from mecastruct.services import machine_courses as mc
-
-# ---------------------------------------------------------------------------------------- briques de formulaire
-
-
-def nb(ident, libelle, unite="", mini=None, maxi=None, aide=""):
-    return {"id": ident, "type": "nombre", "libelle": libelle, "unite": unite, "min": mini, "max": maxi, "aide": aide}
-
-
-def liste(ident, libelle, options, aide=""):
-    return {"id": ident, "type": "liste", "libelle": libelle, "options": list(options), "aide": aide}
-
-
-def case(ident, libelle, aide=""):
-    return {"id": ident, "type": "case", "libelle": libelle, "aide": aide}
-
-
-def groupe(titre, *champs, ouvert=True, ligne=False):
-    return {"titre": titre, "champs": list(champs), "ouvert": ouvert, "ligne": ligne}
 
 
 def materiaux():
@@ -211,18 +192,7 @@ def _formulaires() -> dict:
     }
 
 
-_cache: dict = {}
-
-
-@calcul("formulaires")
-def formulaires(_s: dict) -> dict:
-    if not _cache:
-        _cache.update(_formulaires())
-    return _cache
-
-
-def formulaire_json() -> str:
-    return json.dumps(formulaires({}), ensure_ascii=False)
+formulaires_de(_formulaires)
 
 
 # ------------------------------------------------------------------------------------------------------ calculs

@@ -25,3 +25,4 @@ ignore = ["E741"]
 "mecastruct/services/validation_report.py" = ["UP031"]
 # formulaires du pont : un champ par ligne, libellé et aide en entier (plus lisible que coupé)
 "mecastruct/pont/machines.py" = ["E501"]
+"mecastruct/pont/structures.py" = ["E501"]

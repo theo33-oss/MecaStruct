@@ -18,6 +18,7 @@ def appel(ident: str, saisie: dict | None = None) -> dict:
 
 
 def main() -> int:
+    pont.charger("structures")
     print("Calculs :", ", ".join(json.loads(pont.catalogue())))
     echecs = 0
     for ident, f in appel("formulaires")["sortie"].items():

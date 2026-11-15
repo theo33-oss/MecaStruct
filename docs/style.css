@@ -116,6 +116,25 @@ details.groupe > .grille { padding: 0 14px 14px; }
 .actions-saisie { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .note { max-width: 80ch; }
 
+/* tableaux éditables, actions, métriques, explications */
+.tableau-saisie { grid-column: 1 / -1; margin: 4px 0 10px; }
+.titre-tableau { font-weight: 600; font-size: .9rem; margin-bottom: 4px; }
+table.editable td { padding: 2px; border-bottom: none; }
+table.editable input, table.editable select { min-height: 34px; min-width: 70px; padding: 4px 6px; }
+table.editable th { font-size: .8rem; white-space: nowrap; }
+.action { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.action label { flex: 1 1 200px; }
+.cache { position: absolute; left: -9999px; }
+.metriques { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
+.metrique { background: var(--carte); border: 1px solid var(--bord); border-radius: 6px; padding: 6px 12px; }
+.metrique span { display: block; font-size: .8rem; color: var(--discret); }
+.metrique strong { font-size: 1.15rem; }
+.explication { margin: 10px 0 0; font-weight: 600; font-size: .92rem; }
+.concorde::before { content: "✓ "; color: var(--ok-texte); }
+.ecart { color: var(--err-texte); font-weight: 600; }
+.ecart::before { content: "✗ "; }
+.sous-titre { border-top: 1px solid var(--bord); padding-top: 8px; }
+
 /* tableaux, formules, figures, onglets */
 .defile { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; background: var(--carte); font-size: .92rem; }

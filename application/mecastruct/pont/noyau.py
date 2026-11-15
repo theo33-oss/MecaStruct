@@ -13,9 +13,17 @@ from typing import Any
 
 import numpy as np
 
-FAMILLES = ("machines", "outils")  # modules du pont chargés au premier appel
+FAMILLES = ("machines", "outils")  # modules du pont chargés au premier appel (numpy, pandas, plotly suffisent)
+FAMILLES_LOURDES = ("structures",)  # chargées par charger() : la page a d'abord chargé scipy et shapely
 _REGISTRE: dict[str, Callable[[dict], Any]] = {}
+_SOURCES: list[Callable[[], dict]] = []  # fonctions qui décrivent les formulaires d'une famille
+_formulaires: dict = {}
 _dm = None
+
+
+def formulaires_de(source: Callable[[], dict]) -> None:
+    """Déclare la fonction qui décrit les formulaires d'une famille (appelée une fois, au premier besoin)."""
+    _SOURCES.append(source)
 
 
 def calcul(ident: str) -> Callable:
@@ -41,6 +49,14 @@ def dm():
 def _charger() -> None:
     for nom in FAMILLES:
         importlib.import_module(f"mecastruct.pont.{nom}")
+
+    @calcul("formulaires")
+    def formulaires(_s: dict) -> dict:
+        """Tous les formulaires, par identifiant de calcul (décrits une seule fois)."""
+        if not _formulaires:
+            for source in _SOURCES:
+                _formulaires.update(source())
+        return _formulaires
 
 
 def nombreFr(x: float, chiffres: int = 5) -> str:
@@ -102,10 +118,25 @@ def versJson(o: Any) -> Any:
     return str(o)
 
 
+def charger(famille: str) -> str:
+    """Charge une famille lourde (ses bibliothèques doivent être là) ; les formulaires seront relus en entier."""
+    if not _REGISTRE:
+        _charger()
+    importlib.import_module(f"mecastruct.pont.{famille}")
+    _formulaires.clear()
+    return "ok"
+
+
 def appeler(ident: str, saisie_json: str = "{}") -> str:
     """Lance le calcul `ident` sur la saisie (texte JSON) ; rend un texte JSON, sans jamais lever d'exception."""
     if not _REGISTRE:
         _charger()
+    if ident not in _REGISTRE:  # Python ordinaire (tests, bureau) : les familles lourdes se chargent d'elles-mêmes
+        for famille in FAMILLES_LOURDES:
+            try:
+                charger(famille)
+            except ImportError:
+                pass
     try:
         f = _REGISTRE[ident]
     except KeyError:
