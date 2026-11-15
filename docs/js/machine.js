@@ -292,6 +292,63 @@
       }));
       if (auto) formulaire.append(el("button", { type: "submit", hidden: true, texte: "Calculer" }));
       if (f.note) formulaire.append(el("p", { class: "legende note", texte: f.note }));
+      formulaire.append(barreFichiers());
+    }
+
+    // ---------- fichiers : enregistrer, ouvrir, lien de partage, Excel ----------
+    const structure = !!f.dossier; // pages au format de fichier du bureau
+    const fichier = () => App.calculer(structure ? ident + ".enregistrer" : "machine.enregistrer", structure ? saisie : { ident, saisie });
+    function appliquer(texte, origine) {
+      const r = App.calculer(structure ? ident + ".ouvrir" : "machine.ouvrir", structure ? { texte } : { ident, texte });
+      if (!r.ok) return signaler("erreur", `${origine} : ${r.erreur}`);
+      saisie = { ...copie(f.defaut), ...r.sortie };
+      invalides.clear();
+      enregistrer();
+      dessinerChamps();
+      relancer();
+      signaler("succes", `${origine} : étude chargée.`);
+    }
+    function barreFichiers() {
+      const entree = el("input", { type: "file", accept: ".json,application/json", hidden: true });
+      entree.addEventListener("change", async () => {
+        const fic = entree.files[0];
+        entree.value = "";
+        if (!fic) return;
+        if (fic.size > 2_000_000) return signaler("erreur", "Fichier trop gros pour une étude MecaStruct.");
+        appliquer(await fic.text(), fic.name);
+      });
+      const boutons = [
+        el("button", { type: "button", class: "secondaire petit", texte: "Enregistrer l'étude", aide: structure
+          ? "Télécharge l'étude (.json). Le fichier est celui de l'application de bureau : il s'ouvre dans les deux versions."
+          : "Télécharge l'étude (.json), à rouvrir plus tard sur cette page.", onclick: () => {
+          const r = fichier();
+          if (r.ok) App.telecharger(r.sortie.nom, r.sortie.texte);
+          else signaler("erreur", r.erreur);
+        } }),
+        el("button", { type: "button", class: "secondaire petit", texte: "Ouvrir une étude", onclick: () => entree.click() }),
+        el("button", { type: "button", class: "secondaire petit", texte: "Copier le lien de l'étude",
+          aide: "Lien qui contient l'étude : la personne qui l'ouvre retrouve vos données. Rien n'est envoyé sur Internet, tout est dans l'adresse.",
+          onclick: async () => {
+            const r = fichier();
+            if (!r.ok) return signaler("erreur", r.erreur);
+            const code = await App.compresser(r.sortie.texte);
+            const lien = `${location.origin}${location.pathname}#/${App.pageCourante().id}?calcul=${ident}&etude=${code}`;
+            if (lien.length > 8000) return signaler("avertissement", "Étude trop grande pour un lien : enregistrez plutôt le fichier.");
+            const ok = await App.copier(lien);
+            signaler(ok ? "succes" : "erreur", ok ? "Lien copié : il contient toute l'étude." : "Copie impossible.");
+          } }),
+      ];
+      if (structure) {
+        boutons.push(el("button", { type: "button", class: "secondaire petit", texte: "Exporter les résultats (Excel)",
+          aide: "Classeur avec un onglet par tableau de résultats.", onclick: async () => {
+            if (!await App.paquets(["openpyxl"])) return signaler("erreur", "L'export Excel n'a pas pu se charger.");
+            const r = App.calculer(ident + ".excel", saisie);
+            if (!r.ok) return signaler("erreur", r.erreur);
+            const octets = Uint8Array.from(atob(r.sortie.base64), (c) => c.charCodeAt(0));
+            App.telecharger(r.sortie.nom, octets, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+          } }));
+      }
+      return el("div", { class: "fichiers" }, el("h4", { texte: "Fichiers" }), el("div", { class: "ligne" }, boutons), entree);
     }
 
     function apercu() {
@@ -401,7 +458,12 @@
       el("div", { class: "colonne-saisie" }, formulaire),
       el("div", { class: "colonne-resultat" }, f.apercu ? el("h3", { texte: "Schéma" }) : null, f.apercu ? zoneSchema : null,
         el("h3", { texte: "Résultat" }), zoneResultat));
-    if (App.pret) {
+    const lien = App.lienEtude();
+    if (lien && lien.calcul === ident && App.pret) {
+      App.oublierLien();
+      App.decompresser(lien.etude).then((texte) => appliquer(texte, "Lien de partage"))
+        .catch(() => signaler("erreur", "Lien de partage illisible ou incomplet."));
+    } else if (App.pret) {
       if (auto) requestAnimationFrame(relancer);
       else {
         requestAnimationFrame(apercu);
@@ -428,6 +490,8 @@
       lireFormulaires(true);
     }
     const tous = lireFormulaires();
+    const lien = App.lienEtude();
+    if (lien && page.calculs.includes(lien.calcul)) App.memoire.ecrire("onglet.page." + page.id, lien.calcul); // ouvre l'onglet du lien
     if (!tous || page.calculs.some((id) => !tous[id])) {
       contenu.append(App.message("erreur", "Les formulaires de cette page n'ont pas pu être lus."));
       return;

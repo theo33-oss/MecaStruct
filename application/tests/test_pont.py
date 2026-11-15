@@ -70,6 +70,35 @@ def test_dossier_de_validation(ident):
     assert r["sortie"]["nom"].endswith(".html") and "<html" in r["sortie"]["html"].lower()
 
 
+def test_fichier_de_probleme_identique_au_bureau_et_aller_retour():
+    """Le fichier enregistré sur le site est celui du bureau (project_io) : il se relit des deux côtés."""
+    from mecastruct.services import project_io
+
+    s = {**FORMULAIRES["beam"]["defaut"], "L": 7.5}
+    f = appel("beam.enregistrer", s)["sortie"]
+    assert project_io.problemFromJson(f["texte"], "Beam")[1]["L"] == 7.5  # lu par le bureau
+    assert appel("beam.ouvrir", {"texte": f["texte"]})["sortie"]["L"] == 7.5  # relu par le site
+    assert not appel("truss.ouvrir", {"texte": f["texte"]})["ok"]  # fichier d'une autre page : refusé
+    assert not appel("beam.ouvrir", {"texte": f["texte"].replace('"L": 7.5', '"L": "=1+1"')})["ok"]  # genre faux
+
+
+def test_etude_de_machine_aller_retour_et_refus():
+    s = {**FORMULAIRES["aju"]["defaut"], "d": 40.0}
+    texte = appel("machine.enregistrer", {"ident": "aju", "saisie": s})["sortie"]["texte"]
+    assert appel("machine.ouvrir", {"ident": "aju", "texte": texte})["sortie"]["d"] == 40.0
+    assert not appel("machine.ouvrir", {"ident": "fre", "texte": texte})["ok"]
+    assert not appel("machine.ouvrir", {"ident": "aju", "texte": texte.replace('"d"', '"inconnu"')})["ok"]
+    assert not appel("machine.ouvrir", {"ident": "aju", "texte": "x" * 300_000})["ok"]
+
+
+def test_export_excel():
+    import base64
+
+    r = appel("tra.excel", FORMULAIRES["tra"]["defaut"])
+    assert r["ok"], r.get("erreur")
+    assert base64.b64decode(r["sortie"]["base64"])[:2] == b"PK"
+
+
 def test_erreur_lisible_et_calcul_inconnu():
     r = appel("aju", {**FORMULAIRES["aju"]["defaut"], "d": -5})
     assert not r["ok"] and "ISO 286" in r["erreur"]

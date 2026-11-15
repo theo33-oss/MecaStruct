@@ -270,14 +270,21 @@ const App = (() => {
   async function paquets(noms) {
     const manquants = noms.filter((n) => !charges.has(n));
     if (!manquants.length) return true;
-    try {
-      await App.pyodide.loadPackage(manquants);
-      manquants.forEach((n) => charges.add(n));
-      return true;
-    } catch (e) {
-      console.error(e);
-      return false;
+    for (const nom of manquants) {
+      try {
+        await App.pyodide.loadPackage([nom]);
+        if (nom === "openpyxl") App.pyodide.pyimport("openpyxl"); // absent de la distribution : erreur ici
+      } catch (e) {
+        try { // paquet en pur Python absent de Pyodide : pris sur PyPI
+          await App.pyodide.pyimport("micropip").install(nom);
+        } catch (e2) {
+          console.error(e2);
+          return false;
+        }
+      }
+      charges.add(nom);
     }
+    return true;
   }
 
   // Avant une page lourde : ses bibliothèques, puis sa famille du pont.
@@ -295,6 +302,36 @@ const App = (() => {
     charges.add("pont:" + p.pont);
     mesures["pont_" + p.pont] = Math.round(performance.now() - t);
     return true;
+  }
+
+  // ---------- lien de partage : l'étude compressée dans l'adresse, rien ne passe par un serveur ----------
+
+  const base64url = (octets) => btoa(String.fromCharCode(...octets)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  async function compresser(texte) {
+    const flux = new Blob([texte]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    return base64url(new Uint8Array(await new Response(flux).arrayBuffer()));
+  }
+  async function decompresser(code) {
+    if (code.length > 10000) throw new Error("lien trop long");
+    const binaire = atob(code.replace(/-/g, "+").replace(/_/g, "/"));
+    const octets = Uint8Array.from(binaire, (c) => c.charCodeAt(0));
+    const flux = new Blob([octets]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    const texte = await new Response(flux).text();
+    if (texte.length > 200000) throw new Error("étude trop grande");
+    return texte;
+  }
+  let lienLu = null;
+  function lienEtude() {
+    if (lienLu === null) {
+      const m = location.hash.match(/\?(.*)$/);
+      const p = new URLSearchParams(m ? m[1] : "");
+      lienLu = p.get("calcul") && p.get("etude") ? { calcul: p.get("calcul"), etude: p.get("etude") } : false;
+    }
+    return lienLu || null;
+  }
+  function oublierLien() { // l'étude est chargée : l'adresse redevient celle de la page (pas de rechargement en boucle)
+    lienLu = false;
+    history.replaceState(null, "", location.pathname + location.hash.replace(/\?.*$/, ""));
   }
 
   function telecharger(nomFichier, contenu, type = "application/json") {
@@ -416,5 +453,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();

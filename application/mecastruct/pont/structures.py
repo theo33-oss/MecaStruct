@@ -4,6 +4,7 @@ Ces calculs demandent scipy et shapely : la page web les charge avant le premier
 les explications et le dossier passent par services.validation_report, comme dans l'application de bureau.
 """
 
+import base64
 import copy
 import math
 import re
@@ -16,7 +17,7 @@ from mecastruct.core.pp import asPP
 from mecastruct.plots import beam_plots, other_plots, section_plots, sollicitation_plots
 from mecastruct.pont.formulaire import case, col, groupe, liste, nb, tableau, texte
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
-from mecastruct.services import beam_services, compute, validation_report
+from mecastruct.services import beam_services, compute, project_io, validation_report
 from mecastruct.services.examples import exampleNames, loadExample
 
 TYPES_APPUI = ["appui_simple", "rotule", "pivot", "pivot_glissant", "encastrement"]
@@ -82,6 +83,25 @@ def _enregistrer_communs(ident: str, tab: str) -> None:
     def dossierValidation(s):
         calc = validation_report.recompute(tab, copy.deepcopy(s), dm(), None)
         return {"nom": validation_report.fileName(tab), "html": validation_report.generate(tab, s, calc, dm())}
+
+    @calcul(f"{ident}.enregistrer")
+    def enregistrer(s):
+        """Fichier de problème de l'application de bureau (même format : il s'ouvre dans les deux versions)."""
+        return {"nom": f"MecaStruct_{validation_report.meta(tab)['title'].replace(' ', '_')}.json",
+                "texte": project_io.problemToJson(tab, s)}  # fmt: skip
+
+    @calcul(f"{ident}.ouvrir")
+    def ouvrir(s):
+        """Saisie d'un fichier de problème, vérifiée (onglet, taille, genre de chaque champ)."""
+        return project_io.problemFromJson(s["texte"], tab)[1]
+
+    @calcul(f"{ident}.excel")
+    def excel(s):
+        """Classeur Excel des tableaux de résultats (base64) ; un texte ne devient jamais une formule."""
+        calc = validation_report.recompute(tab, copy.deepcopy(s), dm(), None)
+        donnees = project_io.toXlsx(project_io.resultSheets(tab, calc))
+        return {"nom": f"MecaStruct_{validation_report.meta(tab)['title'].replace(' ', '_')}_resultats.xlsx",
+                "base64": base64.b64encode(donnees).decode("ascii")}  # fmt: skip
 
 
 @calcul("materiau")

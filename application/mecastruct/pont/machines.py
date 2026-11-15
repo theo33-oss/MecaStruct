@@ -4,6 +4,8 @@ Les formulaires reprennent les champs, unités et bornes des pages de bureau (bu
 avec formulaire(id) ; elle n'a aucun libellé en dur.
 """
 
+import json
+
 from mecastruct.core import bearings, fits, plain_bearing, planetary, shrink_fit
 from mecastruct.plots import machine_plots, machine_schemas
 from mecastruct.pont.formulaire import case, groupe, liste, nb
@@ -193,6 +195,48 @@ def _formulaires() -> dict:
 
 
 formulaires_de(_formulaires)
+
+
+# ------------------------------------------------------------------------------- fichiers d'étude (pages machines)
+
+FORMAT = 1
+TAILLE_MAXI = 200_000  # caractères : une saisie de machine en fait quelques centaines
+
+
+def _genre(v) -> str:
+    return "bool" if isinstance(v, bool) else "nombre" if isinstance(v, (int, float)) else type(v).__name__
+
+
+@calcul("machine.enregistrer")
+def machineEnregistrer(s):
+    """Fichier d'étude d'une page d'éléments de machines : {app, version, page, saisie}."""
+    ident = s["ident"]
+    return {"nom": f"MecaStruct_{ident}.json",
+            "texte": json.dumps({"app": "MecaStruct RdM Pro", "version": FORMAT, "page": ident, "saisie": s["saisie"]},
+                                ensure_ascii=False, indent=1)}  # fmt: skip
+
+
+@calcul("machine.ouvrir")
+def machineOuvrir(s):
+    """Saisie d'un fichier d'étude, vérifiée : taille, page, champs connus et de même genre que l'exemple."""
+    texte, ident = s["texte"], s["ident"]
+    if len(texte) > TAILLE_MAXI:
+        raise ValueError("Fichier trop gros pour une étude MecaStruct.")
+    try:
+        d = json.loads(texte)
+    except ValueError as err:
+        raise ValueError(f"Ce fichier n'est pas une étude MecaStruct (JSON illisible : {err}).") from err
+    if not isinstance(d, dict) or d.get("app") != "MecaStruct RdM Pro" or not isinstance(d.get("saisie"), dict):
+        raise ValueError("Ce fichier n'est pas une étude MecaStruct.")
+    if d.get("page") != ident:
+        raise ValueError(f"Cette étude vient d'une autre page (« {d.get('page')} »).")
+    defaut = _formulaires()[ident]["defaut"]
+    for cle, v in d["saisie"].items():
+        if cle not in defaut:
+            raise ValueError(f"Champ inconnu dans l'étude : « {cle} ».")
+        if _genre(v) != _genre(defaut[cle]):
+            raise ValueError(f"Champ « {cle} » invalide dans l'étude.")
+    return {**defaut, **d["saisie"]}
 
 
 # ------------------------------------------------------------------------------------------------------ calculs
