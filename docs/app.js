@@ -24,11 +24,11 @@ const App = (() => {
     { id: "accueil", titre: "Accueil", genre: "accueil" },
     { id: "poutres", titre: "Poutres", famille: "structures", genre: "machine", calculs: ["beam"], pont: "structures", texte: "Poutre 2D isostatique ou hyperstatique : réactions, efforts, flèche, contraintes. L'ossature 3D est dans l'application de bureau." },
     { id: "treillis", titre: "Treillis", famille: "structures", genre: "machine", calculs: ["truss"], pont: "structures", texte: "Efforts dans les barres et déplacements des nœuds." },
-    { id: "flambage", titre: "Flambage", famille: "structures", genre: "bureau", capture: "flambage", texte: "Charge critique d'Euler, élancement, conditions aux limites." },
-    { id: "sections-page", titre: "Sections", famille: "sections", genre: "bureau", capture: "sections", texte: "Aire, centre de gravité, inerties et modules de sections simples, composées ou profilées." },
-    { id: "sollicitations", titre: "Sollicitations", famille: "sections", genre: "bureau", capture: "sollicitations_0", texte: "Traction, cisaillement (clavette, goupille), torsion, flexion." },
-    { id: "tenseurs", titre: "Tenseurs et critères", famille: "sections", genre: "bureau", capture: "tenseurs", texte: "Contraintes principales, cercle de Mohr, Von Mises et Tresca." },
-    { id: "hooke", titre: "Hooke et jauges", famille: "sections", genre: "bureau", capture: "hooke_jauges_0", texte: "Loi de Hooke généralisée et rosettes de jauges." },
+    { id: "flambage", titre: "Flambage", famille: "structures", genre: "machine", calculs: ["fla"], pont: "structures", texte: "Charge critique d'Euler, élancement, conditions aux limites." },
+    { id: "sections-page", titre: "Sections", famille: "sections", genre: "machine", calculs: ["sec"], pont: "structures", paquets: ["sympy"], texte: "Aire, centre de gravité, inerties et modules de sections simples, composées ou profilées." },
+    { id: "sollicitations", titre: "Sollicitations", famille: "sections", genre: "machine", calculs: ["tra", "cis", "tor", "fle"], pont: "structures", texte: "Traction, cisaillement (clavette, goupille), torsion, flexion." },
+    { id: "tenseurs", titre: "Tenseurs et critères", famille: "sections", genre: "machine", calculs: ["ten"], pont: "structures", paquets: ["sympy"], texte: "Contraintes principales, cercle de Mohr, Von Mises et Tresca." },
+    { id: "hooke", titre: "Hooke et jauges", famille: "sections", genre: "machine", calculs: ["hoo", "jau"], pont: "structures", texte: "Loi de Hooke généralisée et rosettes de jauges." },
     { id: "ajustements", titre: "Ajustements ISO 286", famille: "liaisons", genre: "machine", calculs: ["aju"], texte: "Écarts, cotes limites, jeu ou serrage d'un ajustement." },
     { id: "frettage", titre: "Frettage", famille: "liaisons", genre: "machine", calculs: ["fre"], texte: "Serrage nécessaire, ajustement normalisé, contraintes, température de chauffe." },
     { id: "paliers", titre: "Paliers lisses", famille: "liaisons", genre: "machine", calculs: ["pal"], texte: "Pression, vitesse et produit PV face aux limites du matériau." },
@@ -282,9 +282,10 @@ const App = (() => {
 
   // Avant une page lourde : ses bibliothèques, puis sa famille du pont.
   async function preparer(p) {
-    if (!p.pont || charges.has("pont:" + p.pont)) return true;
+    if (!p.pont) return true;
+    if (charges.has("pont:" + p.pont)) return paquets(p.paquets || []);
     const t = performance.now();
-    if (!await paquets(PAQUETS_PONT[p.pont] || [])) return false;
+    if (!await paquets([...(PAQUETS_PONT[p.pont] || []), ...(p.paquets || [])])) return false;
     try {
       pont.charger(p.pont);
     } catch (e) {

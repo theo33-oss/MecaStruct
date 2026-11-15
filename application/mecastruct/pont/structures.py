@@ -10,9 +10,10 @@ import re
 
 import numpy as np
 
-from mecastruct.core import geometry
+from mecastruct.core import buckling, geometry
+from mecastruct.core.data_manager import sectionPresets
 from mecastruct.core.pp import asPP
-from mecastruct.plots import beam_plots, other_plots
+from mecastruct.plots import beam_plots, other_plots, section_plots, sollicitation_plots
 from mecastruct.pont.formulaire import case, col, groupe, liste, nb, tableau, texte
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
 from mecastruct.services import beam_services, compute, validation_report
@@ -164,6 +165,110 @@ def treillisApercu(s):
 _enregistrer_communs("truss", "Tr")
 
 
+# ----------------------------------------------------------------------- sections, sollicitations, flambage…
+
+
+def _simple(ident: str, tab: str, figures) -> None:
+    """Calcul `ident` : recalcul de l'onglet `tab`, puis graphiques figures(saisie, calc) → [(titre, figure)]."""
+
+    @calcul(ident)
+    def f(s):
+        calc = validation_report.recompute(tab, s, dm(), None)
+        r = calc["result"]
+        return _sortie(tab, s, calc, [(t, _figure(g)) for t, g in figures(s, calc)], latex=list(r.get("latex", []) or []))
+
+    _enregistrer_communs(ident, tab)
+
+
+def _figuresSection(s, calc):
+    r = calc["result"]
+    return [("Section", lambda: section_plots.section(r["sec"], r["P"])),
+            ("Contraintes σ(y) et τ(y)", lambda: section_plots.sectionStress(r["sec"], r["P"], r["bend"], r["jour"]))]
+
+
+def _figuresTraction(s, calc):
+    r = calc["result"]
+    return [("Contrainte σ(x)", lambda: sollicitation_plots.tractionStress(r["x"], s["N"] * 1e3, r["Sx"], s["Kt"], r["sigmaAdm"])),
+            ("Allongements", lambda: sollicitation_plots.elongations(r["dL"]))]
+
+
+def _figuresCisaillement(s, calc):
+    r, sec = calc["result"], s["section"]
+    P = geometry.analytical(sec)
+    taux = [abs(r["shear"]["tauMax"]) / r["shear"]["tauAdm"], abs(r["jour"]["tauMax"]) / r["shear"]["tauAdm"],
+            abs(r["bearing"]["P"]) / (s["Padm"] * 1e6)]
+    return [("Taux d'utilisation", lambda: sollicitation_plots.ratios(["τmax/τadm", "τJourawski/τadm", "P/Padm"], taux,
+                                                                      "Taux d'utilisation (cisaillement et matage)")),
+            ("Section", lambda: section_plots.section(sec, P)),
+            ("Jourawski τ(y)", lambda: section_plots.sectionStress(sec, P, None, r["jour"]))]
+
+
+def _figuresTorsion(s, calc):
+    r = calc["result"]
+    return [("Contrainte τ(r)", lambda: sollicitation_plots.torsionStress(r, s["D"] * 1e-3)),
+            ("Angle de torsion", lambda: sollicitation_plots.torsionAngle(s["L"], r["theta"], r["phi"]["analytique"]))]
+
+
+def _figuresFlexion(s, calc):
+    r = calc["result"]
+    return [("Section et axe neutre", lambda: sollicitation_plots.bendingMarks(section_plots.section(r["sec"], r["P"]), r["P"], r["bend"])),
+            ("Contrainte σ(y)", lambda: section_plots.sectionStress(r["sec"], r["P"], r["bend"], None))]
+
+
+def _figuresFlambage(s, calc):
+    r = calc["result"]
+    return [("Courbe de flambement", lambda: other_plots.bucklingCurve(r["curve"], r["analysis"])),
+            ("Mode de flambement", lambda: other_plots.bucklingMode(r["analysis"]))]
+
+
+def _figuresTenseur(s, calc):
+    r = calc["result"]
+    fa, pr = r["facet"], r["principal"]
+    sig = np.array(s["sig"], dtype=float)
+    if np.all(np.abs(sig[2, :]) <= 1e-12 * max(1.0, np.max(np.abs(sig)))):
+        point = [r["plane2D"]["sigma1"], r["plane2D"]["sigma2"]]
+    else:
+        point = [pr["sigmaI"] - pr["sigmaII"], pr["sigmaIII"] - pr["sigmaII"]]
+    return [("Tricercle de Mohr", lambda: other_plots.mohr3D(r["mohr3D"], [fa["sigmaN"], fa["tauNorm"]])),
+            ("Mohr 2D (plan x, y)", lambda: other_plots.mohr2D(r["plane2D"], r["plane2D"]["theta"])),
+            ("Lieu de plasticité", lambda: other_plots.yieldLocus(r["loci"], point))]
+
+
+def _figuresHooke(s, calc):
+    return [("Cercle de Mohr", lambda: other_plots.mohr2D(calc["result"]["mohr"]))]
+
+
+def _figuresJauges(s, calc):
+    r = calc["result"]
+    return [("Mohr des déformations (rosette)", lambda: other_plots.mohr2D(r["mohrDeformations"])),
+            ("Mohr des contraintes (rosette)", lambda: other_plots.mohr2D(r["mohrContraintes"]))]
+
+
+for _ident, _tab, _figures in (("sec", "Sec", _figuresSection), ("tra", "Tra", _figuresTraction),
+                               ("cis", "Cis", _figuresCisaillement), ("tor", "Tor", _figuresTorsion),
+                               ("fle", "Fle", _figuresFlexion), ("fla", "Fla", _figuresFlambage),
+                               ("ten", "Ten", _figuresTenseur), ("hoo", "Hoo", _figuresHooke), ("jau", "Jau", _figuresJauges)):
+    _simple(_ident, _tab, _figures)
+
+
+@calcul("sec.apercu")
+def sectionApercu(s):
+    sec = compute._sectionFromSaisie(s, dm())
+    return section_plots.section(sec, geometry.analytical(sec))
+
+
+@calcul("sec.preset")
+def sectionPreset(s):
+    p = next(p for p in sectionPresets() if p["name"] == s["choix"])
+    return {"type": p["type"], **{k: float(v) for k, v in p["dims"].items()}}
+
+
+@calcul("fla.profil")
+def flambageProfil(s):
+    p = dm().getProfile(s["fam"], s["prof"])
+    return {"S": p["S"] * 1e6, "Iz": p["Iz"] * 1e12, "Iy": p["Iy"] * 1e12}
+
+
 # -------------------------------------------------------------------------------------------------- formulaires
 
 
@@ -239,5 +344,155 @@ def _formulaires() -> dict:
     }
 
 
+CRITERES = (["Tresca", "VonMises"], ["Tresca (τe = Re/2)", "Von Mises (τe = Re/√3)"])
+DIMENSIONS = {"b": "b, largeur selon z", "h": "h, hauteur selon y", "D": "D, diamètre extérieur", "d": "d, diamètre intérieur",
+              "B": "B, largeur", "H": "H, hauteur", "t": "t, épaisseur", "tw": "tw = a, âme", "tf": "tf = e, aile"}
+TYPES_PAR_DIMENSION = {"b": ["rectangle", "I", "T", "U", "L"], "h": ["rectangle", "I", "T", "U", "L"], "D": ["disque", "couronne"],
+                       "d": ["couronne"], "B": ["rectangle_creux"], "H": ["rectangle_creux"], "t": ["rectangle_creux", "L"],
+                       "tw": ["I", "T", "U"], "tf": ["I", "T", "U"]}
+
+
+def si(champ, ident, *valeurs):
+    """Champ affiché seulement si le champ `ident` vaut l'une des `valeurs`."""
+    return {**champ, "si": {"id": ident, "valeurs": list(valeurs)}}
+
+
+def _formulaires_rdm() -> dict:
+    noms = dm().listMaterials()
+    familles = dm().listProfileFamilies()
+    types = geometry.sectionTypes()
+    conditions = buckling.listConditions()
+    commun = {"apercu": False, "auto": False, "dossier": True, "paquets": ["scipy", "shapely"]}
+    return {
+        "sec": {
+            **commun, "titre": "Section", "defaut": loadExample("Sec"), "apercu": True, "exemples": exampleNames("Sec"),
+            "caches": ["s0"],
+            "groupes": [
+                groupe("Type de section",
+                       liste("type", "Type de section", [t["type"] for t in types], etiquettes=[t["label"] for t in types]),
+                       si(liste("fam", "Famille de profilé", familles), "type", "profile"),
+                       si({**liste("prof", "Profilé du catalogue", []), "options_de": {"calcul": "profils", "cle": "famille", "depuis": "fam"}}, "type", "profile"),
+                       {"id": "preset", "type": "action", "libelle": "Tube ou cornière courant", "options": [p["name"] for p in sectionPresets()],
+                        "bouton": "Remplir les dimensions", "calcul": "sec.preset"},
+                       *[si(nb(k, v, "mm", 0.0), "type", *TYPES_PAR_DIMENSION[k]) for k, v in DIMENSIONS.items()],
+                       si(tableau("rects", "Rectangles pleins (repère O1, coin bas-gauche)", [col(k, f"{k} (mm)") for k in ("z1", "z2", "y1", "y2")]), "type", "composite"),
+                       si(tableau("holes", "Trous rectangulaires", [col(k, f"{k} (mm)") for k in ("z1", "z2", "y1", "y2")]), "type", "composite")),
+                groupe("Matériau, méthode et efforts pour σ(y) et τ(y)",
+                       liste("mode", "Méthode intégrale", ["symbolique", "numerique"], etiquettes=["symbolique (int)", "numérique (integral2)"]),
+                       liste("mat", "Matériau", noms),
+                       nb("N", "N : traction > 0", "kN"), nb("Mfz", "Mfz : plan (x, y), fibres du haut comprimées si > 0", "kN·m"),
+                       nb("Mfy", "Mfy : plan (x, z), fibres z > 0 tendues si > 0", "kN·m"), nb("Ty", "Ty : tranchant en y", "kN"),
+                       nb("Kt", "Kt", "", 1.0)),
+            ],
+        },
+        "tra": {
+            **commun, "titre": "Traction", "defaut": loadExample("Tra"), "exemples": exampleNames("Tra"),
+            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "nu", "alpha", "Re"]}},
+            "groupes": [
+                groupe("Barre et chargement", nb("N", "N (> 0 traction)", "kN"), nb("S0", "S0", "mm²", 0.0), nb("L0", "L0", "m", 0.0),
+                       liste("mat", "Matériau", noms), nb("E", "E", "GPa"), nb("nu", "ν", ""), nb("alpha", "α", "10⁻⁶/°C"), nb("Re", "Re", "MPa"),
+                       nb("dT", "ΔT", "°C"), nb("Kt", "Kt", "", 1.0), nb("s", "Coefficient de sécurité s", ""),
+                       nb("dLmax", "ΔL max (0 = sans limite)", "mm", 0.0)),
+                groupe("Section variable", case("varS", "Utiliser S(x)"), texte("Sexpr", "S(x) (mm², x en m)"), ouvert=False),
+            ],
+        },
+        "cis": {
+            **commun, "titre": "Cisaillement", "defaut": loadExample("Cis"), "caches": ["section"],
+            "suites": {"mat": {"calcul": "materiau", "champs": ["Re", "G"]}},
+            "groupes": [
+                groupe("Matériau et critère", liste("mat", "Matériau", noms), nb("Re", "Re", "MPa"), nb("G", "G", "GPa"),
+                       liste("crit", "Critère (τe)", CRITERES[0], etiquettes=CRITERES[1]), nb("s", "Coefficient de sécurité s", "")),
+                groupe("Cisaillement simple et Jourawski", nb("T", "T", "kN"), nb("S", "S cisaillée", "mm²", 0.0), nb("k", "k = τmax/τmoy", ""),
+                       note="Jourawski : section de l'exemple (dans l'application de bureau, celle de la page Sections), Ty = T."),
+                groupe("Matage", nb("Fm", "F", "kN"), nb("Sm", "S matée", "mm²", 0.0), nb("Padm", "P_adm", "MPa", 0.0)),
+                groupe("Clavette", nb("C", "Couple C", "kN·m"), nb("Dk", "Diamètre d'arbre D", "mm"), nb("ak", "Largeur a", "mm"),
+                       nb("bk", "Hauteur b", "mm"), nb("Lk", "Longueur L (0 = dimensionner)", "mm", 0.0), ouvert=False),
+                groupe("Goupille", nb("Fp", "F", "kN"), nb("dp", "d", "mm"), nb("ep", "e, épaisseur matée", "mm"),
+                       nb("np", "Sections cisaillées n", "", 1, entier=True), ouvert=False),
+            ],
+        },
+        "tor": {
+            **commun, "titre": "Torsion", "defaut": loadExample("Tor"),
+            "suites": {"mat": {"calcul": "materiau", "champs": ["G", "Re"]}},
+            "groupes": [groupe("Arbre circulaire", nb("Mt", "Mt", "kN·m"), nb("D", "D", "mm", 0.0), nb("d", "d, alésage (0 = plein)", "mm", 0.0),
+                               nb("L", "L", "m", 0.0), liste("mat", "Matériau", noms), nb("G", "G", "GPa"), nb("Re", "Re", "MPa"),
+                               liste("crit", "Critère (τe)", CRITERES[0], etiquettes=CRITERES[1]), nb("s", "Coefficient de sécurité s", ""),
+                               nb("Kt", "Kt", "", 1.0), nb("thetaAdm", "θ admissible (0 = sans)", "°/m", 0.0))],
+        },
+        "fle": {
+            **commun, "titre": "Flexion", "defaut": loadExample("Fle"), "caches": ["s0", "section"],
+            "suites": {"mat": {"calcul": "materiau", "champs": ["Re"]}},
+            "groupes": [
+                groupe("Efforts dans la section étudiée", nb("N", "N : traction > 0", "kN"), nb("Mfz", "Mfz : plan (x,y)", "kN·m"),
+                       nb("Mfy", "Mfy : plan (x,z)", "kN·m"),
+                       note="Section de l'exemple ; dans l'application de bureau, celle de la page Sections et les efforts de la poutre."),
+                groupe("Kt, matériau et sécurité", nb("Kt", "Kt", "", 1.0), liste("mat", "Matériau", noms), nb("Re", "Re", "MPa"),
+                       nb("s", "Coefficient de sécurité s", "")),
+            ],
+        },
+        "fla": {
+            **commun, "titre": "Flambage", "defaut": loadExample("Fla"), "exemples": exampleNames("Fla"),
+            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "Re"]}},
+            "groupes": [
+                groupe("Section", liste("fam", "Famille de profilé", familles),
+                       {**liste("prof", "Profilé", []), "options_de": {"calcul": "profils", "cle": "famille", "depuis": "fam"}},
+                       {"id": "charger", "type": "bouton", "libelle": "Charger le profilé", "calcul": "fla.profil",
+                        "aide": "Remplit S, Iz et Iy avec les valeurs du catalogue."},
+                       nb("S", "S", "mm²", 0.0), nb("Iz", "Iz", "mm⁴", 0.0), nb("Iy", "Iy", "mm⁴", 0.0)),
+                groupe("Poutre comprimée", liste("mat", "Matériau", noms), nb("E", "E", "GPa"), nb("Re", "Re", "MPa"),
+                       nb("L", "Longueur L", "m", 0.0),
+                       liste("cond", "Conditions aux limites", [c["Condition"] for c in conditions],
+                             etiquettes=[f"{c['Libelle']} (L' = {c['CoefficientTexte']} L)" for c in conditions]),
+                       nb("P", "P appliquée (compression > 0, 0 = aucune)", "kN"), nb("s", "Coefficient de sécurité s", "")),
+            ],
+        },
+        "ten": {
+            **commun, "titre": "Tenseurs", "defaut": loadExample("Ten"),
+            "suites": {"mat": {"calcul": "materiau", "champs": ["Re", "Rm"]}},
+            "groupes": [
+                groupe("Tenseur des contraintes σ (MPa)", {"id": "sig", "type": "matrice", "libelle": "σ (MPa)", "noms": ["x", "y", "z"], "symetrique": True,
+                                                           "aide": "Une case modifiée est recopiée en position symétrique (σij = σji)."}),
+                groupe("Facette", liste("fmode", "Définition", ["theta", "n"], etiquettes=["Angle θ dans le plan (x, y)", "Normale n (nx, ny, nz)"]),
+                       si(nb("theta", "θ", "°"), "fmode", "theta"),
+                       si(nb("nx", "nx", ""), "fmode", "n"), si(nb("ny", "ny", ""), "fmode", "n"), si(nb("nz", "nz", ""), "fmode", "n")),
+                groupe("Critères", liste("mat", "Matériau", noms), nb("Re", "Re = σe", "MPa"), nb("Rm", "σR (fragiles : Rm)", "MPa"),
+                       nb("s", "Coefficient de sécurité s", "")),
+            ],
+        },
+        "hoo": {
+            **commun, "titre": "Loi de Hooke", "defaut": loadExample("Hoo"), "exemples": exampleNames("Hoo"),
+            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "nu", "alpha"]}},
+            "groupes": [
+                groupe("Loi", liste("mode", "Loi", ["iso3D", "planeStress", "planeStrain", "ortho"],
+                                    etiquettes=["Hooke 3D isotrope", "Contraintes planes", "Déformations planes", "Orthotrope (9 constantes)"])),
+                groupe("Matériau isotrope", si(liste("mat", "Matériau", noms), "mode", "iso3D", "planeStress", "planeStrain"),
+                       si(nb("E", "E", "GPa"), "mode", "iso3D", "planeStress", "planeStrain"),
+                       si(nb("nu", "ν", ""), "mode", "iso3D", "planeStress", "planeStrain"),
+                       si(nb("alpha", "α", "10⁻⁶/°C"), "mode", "iso3D"), si(nb("dT", "ΔT", "°C"), "mode", "iso3D")),
+                groupe("Contraintes (MPa)", *[si(nb(k, n, "MPa"), "mode", *m) for k, n, m in (
+                    ("sxx", "σxx", ("iso3D", "planeStress", "ortho")), ("syy", "σyy", ("iso3D", "planeStress", "ortho")),
+                    ("szz", "σzz", ("iso3D", "ortho")), ("syz", "σyz", ("iso3D", "ortho")), ("sxz", "σxz", ("iso3D", "ortho")),
+                    ("sxy", "σxy", ("iso3D", "planeStress", "ortho")))]),
+                groupe("Déformations planes (µdéf)", *[si(nb(k, n, "µdéf"), "mode", "planeStrain") for k, n in (("exx", "εxx"), ("eyy", "εyy"), ("gxy", "γxy = 2εxy"))]),
+                groupe("Orthotrope (axes 1, 2, 3 = x, y, z)", *[si(nb(k, n, u), "mode", "ortho") for k, n, u in (
+                    ("E1", "E1", "GPa"), ("E2", "E2", "GPa"), ("E3", "E3", "GPa"), ("nu12", "ν12", ""), ("nu13", "ν13", ""), ("nu23", "ν23", ""),
+                    ("G12", "G12", "GPa"), ("G13", "G13", "GPa"), ("G23", "G23", "GPa"))]),
+            ],
+        },
+        "jau": {
+            **commun, "titre": "Jauges et rosettes", "defaut": loadExample("Jau"),
+            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "nu"]}},
+            "groupes": [
+                groupe("Jauge (loi de Bridgman)", nb("K", "Facteur de jauge K", ""), nb("eps", "ε", "µdéf"), nb("R0", "R0", "Ω")),
+                groupe("Pont de Wheatstone", liste("cfg", "Montage", ["quart", "demi", "complet"], etiquettes=["Quart de pont", "Demi-pont", "Pont complet"]),
+                       nb("Vin", "Alimentation Vin", "V"), *[nb(f"e{i}", f"ε{i}", "µdéf") for i in range(1, 5)], nb("Vout", "Vout mesurée", "mV")),
+                groupe("Rosette", liste("rtype", "Type", ["45", "60"], etiquettes=["Rectangulaire 0°/90°/45°", "Delta 0°/60°/120°"]),
+                       nb("ra", "ε à 0°", "µdéf"), nb("rb", "ε à 90° (rect.) / 60° (delta)", "µdéf"), nb("rc", "ε à 45° (rect.) / 120° (delta)", "µdéf"),
+                       liste("mat", "Matériau", noms), nb("E", "E", "GPa"), nb("nu", "ν", "")),
+            ],
+        },
+    }
+
+
 formulaires_de(_formulaires)
-_ = texte  # brique disponible pour les pages suivantes
+formulaires_de(_formulaires_rdm)

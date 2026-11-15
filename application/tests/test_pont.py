@@ -26,6 +26,10 @@ def test_chaque_calcul_repond_avec_ses_valeurs_de_depart(ident):
     r = appel(ident, f["defaut"])
     assert r["ok"], r.get("erreur")
     assert r["sortie"]["status"]
+    if f.get("dossier"):  # pages de structure : chaque graphique se dessine, les explications sont là
+        attendus = {"tra": 2, "cis": 3, "tor": 2, "fle": 2, "fla": 2, "ten": 3, "hoo": 1, "jau": 2, "sec": 2, "beam": 3, "truss": 1}
+        assert len(r["sortie"]["figures"]) == attendus[ident]
+        assert r["sortie"]["explications"]
     if f.get("apercu"):
         a = appel(ident + ".apercu", f["defaut"])
         assert a["ok"] and a["sortie"]["data"], a.get("erreur")
@@ -35,7 +39,8 @@ def test_chaque_calcul_repond_avec_ses_valeurs_de_depart(ident):
 def test_les_champs_couvrent_la_saisie(ident):
     """Chaque valeur de départ a son champ, et chaque champ a sa valeur de départ (sinon la page perd une donnée)."""
     f = FORMULAIRES[ident]
-    champs = {c["id"] for g in f["groupes"] for c in g["champs"] if c["type"] != "action"} | set(f.get("caches", []))
+    boutons = ("action", "bouton")
+    champs = {c["id"] for g in f["groupes"] for c in g["champs"] if c["type"] not in boutons} | set(f.get("caches", []))
     assert champs == set(f["defaut"]), champs ^ set(f["defaut"])
 
 
@@ -56,6 +61,13 @@ def test_memes_resultats_que_le_service(ident, service):
     assert sortie["status"] == attendu["status"]
     assert sortie["ok"] == attendu["ok"]
     assert sortie["latex"] == list(attendu["result"]["latex"])
+
+
+@pytest.mark.parametrize("ident", ["beam", "sec", "cis"])
+def test_dossier_de_validation(ident):
+    r = appel(ident + ".dossier", FORMULAIRES[ident]["defaut"])
+    assert r["ok"], r.get("erreur")
+    assert r["sortie"]["nom"].endswith(".html") and "<html" in r["sortie"]["html"].lower()
 
 
 def test_erreur_lisible_et_calcul_inconnu():

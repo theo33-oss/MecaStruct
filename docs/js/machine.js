@@ -49,6 +49,27 @@
       return el("label", { class: "case", aide }, input, " " + c.libelle);
     }
     if (c.type === "liste") {
+      let options = c.options;
+      if (c.options_de) { // liste qui dépend d'un autre champ (profilés de la famille choisie)
+        const r = App.calculer(c.options_de.calcul, { [c.options_de.cle]: saisie[c.options_de.depuis] });
+        options = r.ok ? r.sortie : [];
+        if (options.length && !options.includes(valeur)) saisie[c.id] = options[0];
+      }
+      const select = el("select", {}, options.map((o, i) => el("option", { value: String(o), texte: c.etiquettes ? c.etiquettes[i] : String(o) })));
+      select.value = String(saisie[c.id]);
+      select.addEventListener("change", () => changer(c.id, typeof options[0] === "number" ? Number(select.value) : select.value));
+      select.dataset.id = c.id;
+      return el("label", { aide }, titre, select);
+    }
+    if (c.type === "matrice") return matrice(c, saisie, changer);
+    if (c.type === "bouton") {
+      return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => {
+        const r = App.calculer(c.calcul, saisie);
+        if (r.ok) outils.fusionner(r.sortie, `${c.libelle} : fait.`);
+        else outils.signaler("erreur", r.erreur);
+      } }));
+    }
+    if (c.type === "liste-fixe") {
       const select = el("select", {}, c.options.map((o, i) => el("option", { value: String(o), texte: c.etiquettes ? c.etiquettes[i] : String(o) })));
       select.value = String(valeur);
       select.addEventListener("change", () => changer(c.id, typeof c.options[0] === "number" ? Number(select.value) : select.value));
@@ -92,6 +113,31 @@
       else outils.signaler("erreur", r.erreur);
     } });
     return el("div", { class: "action", aide: c.aide || undefined }, el("label", {}, c.libelle, select), bouton);
+  }
+
+  // Matrice carrée (tenseur) : une case modifiée est recopiée en position symétrique si demandé.
+  function matrice(c, saisie, changer) {
+    const m = copie(saisie[c.id]);
+    const n = m.length;
+    const cases = [];
+    const publier = () => changer(c.id, cases.flat().some((i) => i.classList.contains("invalide")) ? NaN : copie(m));
+    const corps = el("tbody", {}, m.map((ligne, i) => el("tr", {}, el("th", { scope: "row", texte: c.noms[i] }), ligne.map((v, j) => {
+      const input = el("input", { type: "text", inputmode: "decimal", "aria-label": `σ${c.noms[i]}${c.noms[j]}` });
+      input.value = affiche(v);
+      (cases[i] = cases[i] || [])[j] = input;
+      input.addEventListener("input", () => {
+        const [x, texte] = verifierNombre({}, input.value);
+        input.classList.toggle("invalide", !!texte);
+        if (!texte) {
+          m[i][j] = x;
+          if (c.symetrique && i !== j) { m[j][i] = x; cases[j][i].value = input.value; cases[j][i].classList.remove("invalide"); }
+        }
+        publier();
+      });
+      return el("td", {}, input);
+    }))));
+    return el("div", { class: "tableau-saisie", aide: c.aide || undefined }, el("div", { class: "titre-tableau", texte: c.libelle }),
+      el("table", { class: "editable matrice" }, el("thead", {}, el("tr", {}, el("th"), c.noms.map((x) => el("th", { scope: "col", texte: x })))), corps));
   }
 
   // Tableau éditable : une ligne par élément, ajout et retrait de lignes, collage depuis Excel (tabulations).
@@ -176,6 +222,9 @@
     const zoneResultat = el("div", { class: "resultat", "aria-live": "polite" });
     let minuterie = null;
     const enregistrer = () => App.memoire.ecrire("saisie." + ident, saisie);
+    const tousChamps = f.groupes.flatMap((g) => g.champs);
+    const controleurs = new Set(tousChamps.flatMap((c) => [c.si && c.si.id, c.options_de && c.type === "liste" && c.options_de.depuis].filter(Boolean)));
+    const visible = (c) => !c.si || c.si.valeurs.includes(saisie[c.si.id]);
 
     const changer = (id, v) => {
       if (typeof v === "number" && Number.isNaN(v)) invalides.add(id);
@@ -189,6 +238,7 @@
           if (r.ok) { for (const [k, x] of Object.entries(r.sortie)) if (x !== null) saisie[k] = x; enregistrer(); dessinerChamps(); }
         }
         abonnes.forEach((a) => a(id));
+        if (controleurs.has(id)) dessinerChamps(); // champs affichés ou listes qui dépendent de celui-ci
       }
       clearTimeout(minuterie);
       minuterie = setTimeout(() => (auto ? relancer() : apercu()), auto ? 250 : 400);
@@ -231,11 +281,14 @@
             else signaler("avertissement", "Diamètre hors table : saisissez les valeurs.");
           } }));
       }
-      formulaire.replaceChildren(haut, zoneMessage, ...f.groupes.map((g) => {
-        const champs = g.champs.map((c) => champ(c, saisie, changer, outils));
-        return el("details", { class: "groupe", open: g.ouvert !== false }, el("summary", { texte: g.titre }),
+      const ouverts = Object.fromEntries([...formulaire.querySelectorAll("details.groupe")].map((d) => [d.dataset.titre, d.open]));
+      formulaire.replaceChildren(haut, zoneMessage, ...f.groupes.filter((g) => g.champs.some(visible)).map((g) => {
+        const champs = g.champs.filter(visible).map((c) => champ(c, saisie, changer, outils));
+        const d = el("details", { class: "groupe", open: g.titre in ouverts ? ouverts[g.titre] : g.ouvert !== false }, el("summary", { texte: g.titre }),
           el("div", { class: g.ligne ? "grille ligne-champs" : "grille" }, champs),
           g.note ? el("p", { class: "legende note", texte: g.note }) : null);
+        d.dataset.titre = g.titre;
+        return d;
       }));
       if (auto) formulaire.append(el("button", { type: "submit", hidden: true, texte: "Calculer" }));
       if (f.note) formulaire.append(el("p", { class: "legende note", texte: f.note }));
