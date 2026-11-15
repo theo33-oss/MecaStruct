@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.tmp
+application/tools/out/
+# fabriqués par les scripts, jamais suivis
+/build/
+/dist/
+/*.zip
+essai_web/mesures.json
+# consignes et notes privées
+.claude/

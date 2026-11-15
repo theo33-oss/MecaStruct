@@ -1,0 +1,16 @@
+# Dépendances de l'application de bureau (Python 3.11 ou plus récent, 3.12 conseillé).
+# Plafond = prochaine version majeure, pour qu'une rupture future ne casse pas une installation.
+# PySide6 complet (et non PySide6-Essentials) : il apporte QtWebEngine, qui affiche les graphiques.
+PySide6>=6.8,<7
+numpy>=1.26,<3
+scipy>=1.12,<2
+sympy>=1.12,<2
+pandas>=2.1,<4
+plotly>=5.20,<8
+openpyxl>=3.1,<4
+jinja2>=3.1,<4
+shapely>=2.0,<3
+# Dossier de validation en PDF (reportlab) et en Word (python-docx) ; formules dessinées par matplotlib (mathtext)
+reportlab>=4.0,<5
+python-docx>=1.1,<2
+matplotlib>=3.8,<4
