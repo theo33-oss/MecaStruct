@@ -9,7 +9,9 @@ PAGES = [ident for ident, libelle, _ in main.MENU if libelle is not None]
 
 def test_la_fenetre_s_ouvre_sur_l_accueil(bureau):
     assert bureau.fenetre.isVisible()
-    assert bureau.fenetre.windowTitle() == "MecaStruct RdM Pro"
+    from mecastruct import __version__
+
+    assert bureau.fenetre.windowTitle() == f"MecaStruct RdM Pro {__version__}"
     assert bureau.fenetre.menu.currentRow() == bureau.fenetre.pages["accueil"][0]
     assert bureau.a_texte("Bienvenue dans MecaStruct RdM Pro")
 

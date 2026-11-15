@@ -57,6 +57,15 @@ try:
 except ImportError:
     print("captures : Pillow absent, images non refaites")
 
+# numéro de version : une seule source, mecastruct/__init__.py
+version = re.search(r'__version__ = "([^"]+)"', (appli / "mecastruct" / "__init__.py").read_text(encoding="utf-8")).group(1)
+app_js = docs / "app.js"
+texte_app = app_js.read_text(encoding="utf-8")
+nouveau_app = re.sub(r'const VERSION = "[^"]*";', f'const VERSION = "{version}";', texte_app)
+if nouveau_app != texte_app:
+    app_js.write_text(nouveau_app, encoding="utf-8", newline="\n")
+print(f"version {version}")
+
 index = docs / "index.html"
 page = index.read_text(encoding="utf-8")
 

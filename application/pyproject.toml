@@ -1,6 +1,6 @@
 [project]
 name = "mecastruct-bureau"
-version = "0.1.0"
+dynamic = ["version"]  # mecastruct/__init__.py : __version__
 description = "MecaStruct RdM Pro - application de bureau Windows (Python / PySide6) de l'application MATLAB de Theo Brun"
 requires-python = ">=3.11"
 

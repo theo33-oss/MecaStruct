@@ -1,32 +1,25 @@
 MECASTRUCT RDM PRO - MODE D'EMPLOI
 
-1. Installer Python 3.12 (une seule fois)
-   https://www.python.org/downloads/
-   Dans l'installateur, laisser "py launcher" coché.
+Deux façons de l'utiliser :
 
-2. Décompresser le dossier reçu
-   Clic droit sur le .zip > Extraire tout.
-   Ne pas lancer l'application depuis l'intérieur du .zip.
+A. Dans le navigateur, sans rien installer
+   https://theo33-oss.github.io/MecaStruct/
 
-3. Double-cliquer sur 1_Ouvrir_application.bat
-   Si Windows affiche "Windows a protégé votre ordinateur" :
-   Informations complémentaires > Exécuter quand même.
-   Le premier lancement installe les bibliothèques : 5 à 10 minutes,
-   environ 1 Go, Internet nécessaire. Une fenêtre noire reste ouverte
-   pendant l'installation, ne la fermez pas.
-   Les fois suivantes, l'application s'ouvre en quelques secondes,
-   même sans Internet.
+B. Sur le bureau Windows (toutes les pages, hors ligne, dossiers PDF et Word)
+   1. Télécharger MecaStruct_Installation_x.y.z.exe
+      https://github.com/theo33-oss/MecaStruct/releases/latest
+   2. Le lancer. Si Windows affiche "Windows a protégé votre ordinateur" :
+      Informations complémentaires > Exécuter quand même.
+   3. L'installation se fait pour vous seul (pas de droits d'administrateur)
+      et crée une icône sur le Bureau. Rien d'autre à installer : Python
+      et les bibliothèques sont inclus.
+   Désinstaller : Paramètres de Windows > Applications > MecaStruct RdM Pro.
 
-4. Utiliser l'application
-   Elle s'ouvre dans sa propre fenêtre, sans navigateur.
-   Le menu à gauche donne accès aux calculs (poutres, treillis, sections,
-   sollicitations, flambage, tenseurs, Hooke et jauges), aux éléments de
-   machines et aux outils (base de données, convertisseur, références).
-   Pour l'arrêter, fermez cette fenêtre.
+Pour les développeurs, depuis le code source : double-cliquer sur
+1_Ouvrir_application.bat (il installe Python et les bibliothèques au premier
+lancement, 5 à 10 minutes, environ 1 Go).
 
 Vos données restent sur votre ordinateur : rien n'est envoyé sur Internet.
-Les fichiers que vous enregistrez (problèmes, projets, ajouts à la base,
-dossiers de validation) vont à l'endroit que vous choisissez.
 
 Outil pédagogique et d'aide au pré-dimensionnement : les résultats doivent
-être vérifiés avant tout usage réel.
+être vérifiés avant tout usage réel. Limites connues : LIMITES.md.

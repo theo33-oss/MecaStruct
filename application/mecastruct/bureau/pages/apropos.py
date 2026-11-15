@@ -1,5 +1,6 @@
 """Page « À propos » : auteur, limites et confidentialité (remplace les quatre pages légales du site web)."""
 
+from mecastruct import __version__
 from mecastruct.bureau.widgets import Page, Zone
 
 
@@ -7,8 +8,12 @@ class PageAPropos(Page):
     def rendre(self, z: Zone) -> None:
         z.titre("À propos")
         z.texte(
-            "**MecaStruct RdM Pro** — application de **Théo Brun**, portage de son application MATLAB de Résistance "
-            "des Matériaux et d'éléments de machines, basée sur son cours."
+            f"**MecaStruct RdM Pro**, version {__version__}. Application de **Théo Brun**, portage de son application "
+            "MATLAB de Résistance des Matériaux et d'éléments de machines, basée sur son cours."
+        )
+        z.texte(
+            "Version en ligne, mises à jour et signalement d'erreurs : https://github.com/theo33-oss/MecaStruct. "
+            "Licence PolyForm Noncommercial 1.0.0."
         )
         z.sousTitre("Confidentialité")
         z.texte(

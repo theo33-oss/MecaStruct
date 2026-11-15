@@ -58,7 +58,9 @@ class Fenetre(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("MecaStruct RdM Pro")
+        from mecastruct import __version__
+
+        self.setWindowTitle(f"MecaStruct RdM Pro {__version__}")
         self.resize(1500, 900)
         centre = QWidget()
         h = QHBoxLayout(centre)
@@ -136,14 +138,74 @@ def _signalerErreur(genre: type, erreur: BaseException, trace: object) -> None:
     QMessageBox.critical(None, "Erreur de l'application", f"{erreur}\n\n{detail[-1500:]}")
 
 
+def verifier(app: QApplication, fenetre: "Fenetre", sortie: str) -> int:
+    """Auto-vérification (main.py --verifier fichier.txt) : ouvre et calcule chaque page, écrit les erreurs, quitte.
+
+    Sert à contrôler l'application empaquetée (modules ou données oubliés), en local et sur GitHub.
+    """
+    from PySide6.QtCore import QTimer
+
+    from mecastruct.bureau import tache
+
+    erreurs: list[str] = []
+    sys.excepthook = lambda g, e, t: erreurs.append("".join(traceback.format_exception(g, e, t))[-1500:])
+
+    def pause(ms: int) -> None:
+        fin: list[int] = []
+        QTimer.singleShot(ms, lambda: fin.append(1))
+        while not fin:
+            app.processEvents()
+
+    lignes = []
+    for ident, libelle, _ in MENU:
+        if libelle is None:
+            continue
+        avant = len(erreurs)
+        try:
+            fenetre.aller(ident)
+            pause(300)
+            p = fenetre.page(ident)
+            for k, c in enumerate(getattr(p, "pages", [p])):
+                if hasattr(p, "onglets"):
+                    p.onglets.setCurrentIndex(k)
+                    pause(200)
+                if hasattr(c, "calculer"):
+                    c.calculer()
+                    while tache.occupe():
+                        app.processEvents()
+                    pause(600)
+        except Exception:  # noqa: BLE001 : toute erreur est notée, la vérification continue
+            erreurs.append(traceback.format_exc()[-1500:])
+        lignes.append(f"{ident} : {'OK' if len(erreurs) == avant else 'ERREUR'}")
+    try:  # dossiers PDF et Word : polices, matplotlib (formules), reportlab, python-docx
+        from mecastruct.services import dossier_export
+
+        html = "<h1>Essai</h1><h2>Formules</h2><p>Contrainte $\\sigma = \\frac{N}{S} = 12.5$ MPa</p>"
+        pdf, docx = dossier_export.export(html, "PDF"), dossier_export.export(html, "Word")
+        lignes.append(f"dossier PDF et Word : {'OK' if pdf[:4] == b'%PDF' and docx[:2] == b'PK' else 'ERREUR'}")
+    except Exception:  # noqa: BLE001
+        erreurs.append(traceback.format_exc()[-1500:])
+        lignes.append("dossier PDF et Word : ERREUR")
+    with open(sortie, "w", encoding="utf-8") as f:
+        f.write("\n".join(lignes) + "\n\n" + "\n\n".join(erreurs))
+    return 1 if erreurs else 0
+
+
 def main() -> int:
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv)
     sys.excepthook = _signalerErreur
     state.init()
     widgets.appliquerTheme(app)
+    from pathlib import Path
+
+    from PySide6.QtGui import QIcon
+
+    app.setWindowIcon(QIcon(str(Path(__file__).resolve().parent / "data" / "icone.svg")))
     fenetre = Fenetre()
     fenetre.show()
+    if "--verifier" in sys.argv:
+        return verifier(app, fenetre, sys.argv[sys.argv.index("--verifier") + 1])
     return app.exec()
 
 
