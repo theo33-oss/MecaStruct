@@ -210,3 +210,14 @@ def test_abaques_kt_comme_le_bureau():
     assert abs(r["Kt"] - kt_mohr.evalKt("arbre_epaulement_flexion", [0.1, 1.5])) < 1e-12 and r["dansLeDomaine"]
     assert abs(appel("kt", {"id": "plaque_trou_traction", "p1": 0.3, "p2": 0})["sortie"]["Kt"] - 2.34909) < 1e-4
     assert not appel("kt", {"id": "arbre_epaulement_flexion", "p1": -1, "p2": 1.5})["ok"]
+
+
+@pytest.mark.parametrize("ident", ["rlt", "rlt_ens", "eng", "trn", "epi", "frn", "emb", "mot"])
+def test_dossier_de_validation_des_pages_de_machines(ident):
+    """Chaque contrôle refait à la main concorde avec le solveur (aucun écart, aucune hypothèse non satisfaite)."""
+    assert FORMULAIRES[ident]["dossierMachine"]
+    r = appel(ident + ".dossier", FORMULAIRES[ident]["defaut"])
+    assert r["ok"], r.get("erreur")
+    html = r["sortie"]["html"]
+    assert "contrôles de calcul concordent" in html and "écart(s) à examiner" not in html
+    assert "NON satisfaite" not in html and "non exécutée" not in html

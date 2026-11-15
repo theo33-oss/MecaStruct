@@ -438,7 +438,7 @@
     }
 
     function afficherResultat(s) {
-      zoneResultat.replaceChildren(...construireResultat(s, ident), f.dossier ? boutonDossier() : "");
+      zoneResultat.replaceChildren(...construireResultat(s, ident), (f.dossier || f.dossierMachine) ? boutonDossier() : "");
     }
 
     // Verdict, métriques et onglets (graphiques, tableaux, explications) d'une sortie du pont.
@@ -493,22 +493,33 @@
       if ((s.rapport || []).length) p.append(el("h4", { texte: "Démarche" }), el("ul", {}, s.rapport.filter((l) => String(l).trim()).map((l) => el("li", { texte: App.decimalesFr(l) }))));
     }
 
+    // Dossier de validation : télécharger le fichier HTML, ou l'ouvrir prêt à imprimer (Imprimer, Enregistrer en PDF).
     function boutonDossier() {
-      const b = el("button", { type: "button", class: "secondaire", texte: "Dossier de validation (HTML)",
-        aide: "Refait chaque grandeur à la main, la compare au solveur et réunit données, hypothèses et résultats dans un fichier à joindre à votre note de calcul. Pour un PDF : ouvrez le fichier, puis Imprimer, Enregistrer en PDF." });
-      b.addEventListener("click", () => {
+      const aide = "Refait chaque grandeur à la main, la compare au solveur et réunit données, hypothèses et résultats dans un fichier à joindre à votre note de calcul.";
+      const fabriquer = (b, titre, suite, fenetre) => {
         b.disabled = true;
         b.textContent = "Préparation du dossier…";
+        const fin = () => { b.disabled = false; b.textContent = titre; };
         setTimeout(async () => {
-          if (!await App.paquets(["jinja2"])) { b.disabled = false; b.textContent = "Dossier de validation (HTML)"; return signaler("erreur", "Le générateur de dossier n'a pas pu se charger."); }
+          if (!await App.paquets(["jinja2", "scipy", "shapely"])) { fin(); fenetre?.close(); return signaler("erreur", "Le générateur de dossier n'a pas pu se charger."); }
           const r = App.calculer(ident + ".dossier", saisie);
-          b.disabled = false;
-          b.textContent = "Dossier de validation (HTML)";
-          if (!r.ok) return signaler("erreur", r.erreur);
-          App.telecharger(r.sortie.nom, r.sortie.html, "text/html");
+          fin();
+          if (!r.ok) { fenetre?.close(); return signaler("erreur", r.erreur); }
+          suite(r.sortie, fenetre);
         }, 30);
+      };
+      const telecharger = el("button", { type: "button", class: "secondaire", texte: "Dossier de validation (HTML)", aide });
+      telecharger.addEventListener("click", () => fabriquer(telecharger, "Dossier de validation (HTML)", (d) => App.telecharger(d.nom, d.html, "text/html")));
+      const imprimer = el("button", { type: "button", class: "secondaire", texte: "Dossier prêt à imprimer (PDF)",
+        aide: aide + " S'ouvre dans un nouvel onglet : Imprimer, puis Enregistrer en PDF. Les formules sont dessinées avec une connexion Internet." });
+      imprimer.addEventListener("click", () => {
+        const fenetre = window.open("", "_blank"); // ouverte tout de suite : après un calcul, le navigateur la bloquerait
+        fabriquer(imprimer, "Dossier prêt à imprimer (PDF)", (d, w) => {
+          if (!w) return App.telecharger(d.nom, d.html, "text/html"); // fenêtre bloquée : téléchargement à la place
+          w.location.href = URL.createObjectURL(new Blob([d.html], { type: "text/html" }));
+        }, fenetre);
       });
-      return el("p", { class: "ligne" }, b);
+      return el("p", { class: "ligne" }, telecharger, imprimer);
     }
 
     dessinerChamps();

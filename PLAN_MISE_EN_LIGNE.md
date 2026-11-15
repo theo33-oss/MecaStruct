@@ -12,7 +12,7 @@ Rédigé le 15 novembre 2026, d'après la lecture du dossier `5.1_MecaStruct_Bur
 | 3. Installateur Windows | fait : `MecaStruct_Installation_1.0.0.exe`, 185 Mo, publié dans les Releases, auto-vérification des 20 pages et des dossiers PDF et Word |
 | 4 à 6. Pages du site | toutes faites : les 20 pages du bureau ont leur équivalent dans le navigateur (ossature 3D, combinaisons, Eurocode 3, base de données, références ajoutées le 15 novembre au soir) |
 | 7. Ce qui traverse les pages | fait : fichier d'étude commun au bureau, lien de partage, dossier HTML, export Excel, ajouts de matériaux et de profilés gardés dans le navigateur. Transferts entre pages (boutons) et abaques Kt faits. Reste : MathJax servi par le site dans le dossier |
-| 8. Interface unique | **à décider** (voir 6, étape 8) : le site a maintenant presque tout le bureau ; il ne manque plus que les dossiers PDF et Word et le suivi automatique de la page Sections par Cisaillement et Flexion |
+| 8. Interface unique | **à décider** (voir 6, étape 8) : le site a maintenant presque tout le bureau ; il ne manque plus que les dossiers PDF et Word natifs, le dossier de l'ossature 3D et le suivi automatique de la page Sections par Cisaillement et Flexion |
 | 9. Finitions | hors ligne après la première visite, icône, aperçu de partage, page des limites. Reste : contrôle complet au clavier et sur téléphone |
 | GitHub Pages | activé par Théo ; le dossier de publication doit être `/docs` (Settings, Pages, Branch `main`, `/docs`), pas la racine |
 

@@ -89,7 +89,7 @@ def _formulaires() -> dict:
                     "du fabricant du coussinet.",
         },
         "rlt": {
-            "titre": "Durée de vie", "defaut": mc.defaultBearingInput(), "apercu": True,
+            "dossierMachine": True, "titre": "Durée de vie", "defaut": mc.defaultBearingInput(), "apercu": True,
             "groupes": [
                 groupe("Charges et vitesse", nb("Fr", "Charge radiale Fr", "N", 0.0), nb("Fa", "Charge axiale Fa", "N", 0.0),
                        nb("N", "Fréquence de rotation", "tr/min", 0.0)),
@@ -104,7 +104,7 @@ def _formulaires() -> dict:
                     "autres roulements, saisir e, X et Y du constructeur. Fa/Fr ≤ e : P = Fr ; sinon P = X·Fr + Y·Fa.",
         },
         "rlt_ens": {
-            "titre": "Ensemble de roulements", "defaut": mc.defaultBearingSetInput(), "apercu": True,
+            "dossierMachine": True, "titre": "Ensemble de roulements", "defaut": mc.defaultBearingSetInput(), "apercu": True,
             "groupes": [
                 groupe("Durées des roulements en série", nb("L1", "Durée du roulement 1", "h", 0.0), nb("L2", "Durée du roulement 2", "h", 0.0),
                        nb("L3", "Durée du roulement 3 (0 = absent)", "h", 0.0)),
@@ -123,7 +123,7 @@ def _formulaires() -> dict:
                     "glissante. Immobilisation axiale : anneau élastique, épaulement, entretoise, écrou à encoche, chapeau.",
         },
         "eng": {
-            "titre": "Engrènement", "defaut": mc.defaultGearInput(), "apercu": True,
+            "dossierMachine": True, "titre": "Engrènement", "defaut": mc.defaultGearInput(), "apercu": True,
             "groupes": [
                 groupe("Géométrie", nb("m", "Module m", "mm", 0.1), nb("Z1", "Dents du pignon Z1", "", 1.0, 1000.0),
                        nb("Z2", "Dents de la roue Z2", "", 1.0, 1000.0), ligne=True),
@@ -135,7 +135,7 @@ def _formulaires() -> dict:
                     "comparée à Rpe = Re/s. Usuellement k entre 6 et 10 et s = 1,5 si l'effort est mal connu.",
         },
         "trn": {
-            "titre": "Train d'engrenages", "defaut": mc.defaultGearTrainInput(), "apercu": True,
+            "dossierMachine": True, "titre": "Train d'engrenages", "defaut": mc.defaultGearTrainInput(), "apercu": True,
             "groupes": [
                 groupe("Entrée", nb("P", "Puissance d'entrée P", "W", 0.0), nb("N", "Fréquence de rotation d'entrée", "tr/min", 0.1),
                        nb("eta", "Rendement d'un engrènement η", "", 0.01, 1.0)),
@@ -146,7 +146,7 @@ def _formulaires() -> dict:
                     "engrènement et le couple se calcule par C = P/ω.",
         },
         "epi": {
-            "titre": "Train épicycloïdal", "defaut": mc.defaultPlanetaryInput(), "apercu": True,
+            "dossierMachine": True, "titre": "Train épicycloïdal", "defaut": mc.defaultPlanetaryInput(), "apercu": True,
             "groupes": [
                 groupe("Dentures", nb("Z1", "Planétaire Z1", "", 1.0, 1000.0), nb("Z21", "Satellite engrenant le planétaire Z21", "", 1.0, 1000.0),
                        nb("Z22", "Satellite engrenant la couronne Z22 (= Z21 si satellite simple)", "", 1.0, 1000.0),
@@ -157,7 +157,7 @@ def _formulaires() -> dict:
             "note": "L'élément restant est la sortie. Montage : Z4 = Z1 + Z21 + Z22 et (Z1 + Z4)/n_sat entier.",
         },
         "frn": {
-            "titre": "Frein à disque", "defaut": mc.defaultBrakeInput(), "apercu": True,
+            "dossierMachine": True, "titre": "Frein à disque", "defaut": mc.defaultBrakeInput(), "apercu": True,
             "groupes": [
                 groupe("Effort et garniture", nb("F", "Effort presseur F par surface", "N", 0.0), nb("f", "Coefficient de frottement f", "", 0.0, 1.0),
                        nb("n", "Nombre de surfaces frottantes n", "", 1.0)),
@@ -168,7 +168,7 @@ def _formulaires() -> dict:
                     "constante. La puissance spécifique moyenne est à comparer à la limite du fabricant de la garniture.",
         },
         "emb": {
-            "titre": "Embrayage", "defaut": mc.defaultClutchInput(), "apercu": True,
+            "dossierMachine": True, "titre": "Embrayage", "defaut": mc.defaultClutchInput(), "apercu": True,
             "groupes": [
                 groupe("Moteur et récepteur", nb("CM", "Couple moteur CM", "N·m", 0.0), nb("NM", "Fréquence de rotation du moteur", "tr/min", 0.0),
                        nb("JR", "Inertie du récepteur JR", "kg·m²", 0.0), nb("CR", "Couple résistant CR (négatif)", "N·m", None, 0.0)),
@@ -178,7 +178,7 @@ def _formulaires() -> dict:
                     "|CR| + JR·ω/ts. Il doit rester inférieur au couple moteur.",
         },
         "mot": {
-            "titre": "Choix du moteur", "defaut": mc.defaultMotorInput(), "apercu": True,
+            "dossierMachine": True, "titre": "Choix du moteur", "defaut": mc.defaultMotorInput(), "apercu": True,
             "groupes": [
                 groupe("Cycle (couple et durée de chaque phase)", nb("Ca", "Couple en accélération Ca", "N·m"), nb("ta", "Durée de l'accélération", "s", 0.0),
                        nb("Cc", "Couple en régime établi Cc", "N·m"), nb("tc", "Durée du régime établi", "s", 0.0),
@@ -196,6 +196,38 @@ def _formulaires() -> dict:
 
 
 formulaires_de(_formulaires)
+
+
+# ------------------------------------------------------------------------------- dossier de validation (HTML)
+
+# identifiant du calcul → (titre du dossier, type pour machine_validation, calcul du service, le calcul demande-t-il la base ?)
+DOSSIERS = {
+    "rlt": ("Roulements, durée de vie", "bearing", mc.computeBearingLife, False),
+    "rlt_ens": ("Roulements, ensemble", "bearingSet", mc.computeBearingSet, False),
+    "eng": ("Engrenages, engrènement", "gearMesh", mc.computeGearMesh, True),
+    "trn": ("Engrenages, train", "gearTrain", mc.computeGearTrain, False),
+    "epi": ("Trains épicycloïdaux", "planetary", mc.computePlanetary, False),
+    "frn": ("Freins et embrayages, frein à disque", "brake", mc.computeBrake, False),
+    "emb": ("Freins et embrayages, embrayage", "clutch", mc.computeClutch, False),
+    "mot": ("Dimensionnement moteur", "motor", mc.computeMotor, False),
+}
+
+
+def _dossier(ident: str):
+    titre, typ, calcul_service, avec_base = DOSSIERS[ident]
+
+    @calcul(f"{ident}.dossier")
+    def dossierMachine(s):
+        """Dossier de validation : chaque grandeur refaite à la main avec la formule du cours, puis comparée au solveur."""
+        from mecastruct.services import machine_validation
+
+        res = calcul_service(s, dm()) if avec_base else calcul_service(s)
+        html = machine_validation.generate(titre, [(titre, typ, s, res)], dm())
+        return {"nom": machine_validation.fileName(titre), "html": html}
+
+
+for _ident in DOSSIERS:
+    _dossier(_ident)
 
 
 # ------------------------------------------------------------------------------- fichiers d'étude (pages machines)
