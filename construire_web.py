@@ -66,12 +66,20 @@ if nouveau_app != texte_app:
     app_js.write_text(nouveau_app, encoding="utf-8", newline="\n")
 print(f"version {version}")
 
-index = docs / "index.html"
-page = index.read_text(encoding="utf-8")
-
-
 def empreinte(chemin: str) -> str:
     return hashlib.sha1((docs / chemin).read_bytes()).hexdigest()[:8]
+
+
+# service worker : un nom de cache par version du site, les anciennes copies sont effacées
+sw = docs / "sw.js"
+texte_sw = sw.read_text(encoding="utf-8")
+cle = hashlib.sha1(b"".join((docs / f).read_bytes() for f in ("mecastruct.zip", "app.js", "style.css"))).hexdigest()[:8]
+nouveau_sw = re.sub(r'const VERSION = "[^"]*";', f'const VERSION = "mecastruct-{version}-{cle}";', texte_sw)
+if nouveau_sw != texte_sw:
+    sw.write_text(nouveau_sw, encoding="utf-8", newline="\n")
+
+index = docs / "index.html"
+page = index.read_text(encoding="utf-8")
 
 
 def versionner(m: re.Match) -> str:

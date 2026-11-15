@@ -3,6 +3,19 @@
 Rédigé le 15 novembre 2026, d'après la lecture du dossier `5.1_MecaStruct_Bureau` et du compte rendu du projet
 « Chaînes de cotes 1D ». Rien n'est encore modifié dans le code : ce dossier est une copie de travail.
 
+## 0. Où en est le plan (15 novembre 2026, soir)
+
+| Étape | État |
+|---|---|
+| 1. Rangement, git, dépôt | fait : https://github.com/theo33-oss/MecaStruct, tests sur GitHub à chaque envoi |
+| 2. Essai du calcul dans le navigateur | fait : premier chargement 11 à 17 s, 7 à 9 s ensuite ; pages de RdM + 2 à 10 s (scipy, shapely) ; résultats identiques au bureau ; pandas gardé |
+| 3. Installateur Windows | fait : `MecaStruct_Installation_1.0.0.exe`, 185 Mo, publié dans les Releases, auto-vérification des 20 pages et des dossiers PDF et Word |
+| 4 à 6. Pages du site | faites, sauf ossature 3D, base de données, références (renvoi vers le bureau) |
+| 7. Ce qui traverse les pages | fait : fichier d'étude commun au bureau, lien de partage, dossier HTML, export Excel. Reste : base de données, MathJax et Plotly servis par le site dans le dossier |
+| 8. Interface unique | **pas faite, à décider** (voir 6, étape 8) : le site n'a pas encore tout le bureau |
+| 9. Finitions | hors ligne après la première visite, icône, aperçu de partage, page des limites. Reste : contrôle complet au clavier et sur téléphone |
+| GitHub Pages | **à activer à la main** : Settings, Pages, Deploy from a branch, `main`, dossier `/docs` |
+
 ## 1. Hypothèses et décisions à prendre
 
 **Hypothèse sur la taille de l'entreprise** (à corriger si elle est fausse) : une seule personne développe et

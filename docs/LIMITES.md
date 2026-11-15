@@ -28,6 +28,14 @@ avant tout usage réel. Cette page dit ce qui a été vérifié, et contre quoi.
 - Pour Fa/C0 = 0,064 le cours écrit Y = 1,59 ; l'interpolation donne 1,66.
 - Exemple du roulement : le cours annonce L10 = 185,3 M tours ; (C/P)³ avec C = 35,8 kN et P = 10,84 kN donne 36 M tours.
 
+## Différences entre le site et l'application de bureau
+
+Les deux versions exécutent le même code de calcul : pour une même saisie, elles donnent les mêmes nombres (un test
+le vérifie pour chaque page). Le site n'a pas encore : l'ossature 3D, la base de matériaux et de profilés (ajouts),
+les références, les dossiers PDF et Word (le dossier HTML s'imprime en PDF depuis le navigateur), et sur Poutres les
+combinaisons, l'Eurocode 3, la fatigue, la charge mobile et la recherche du profilé le plus léger. Sur le site, les
+pages Cisaillement et Flexion utilisent la section de l'exemple ; le bureau reprend celle de la page Sections.
+
 ## Non disponible
 
 Cannelures, goupilles en chape ou radiales dans un tube, denture hélicoïdale ou déportée, catalogues de fabricants.

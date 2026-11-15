@@ -444,6 +444,9 @@ const App = (() => {
       return;
     }
     mesures.total = Math.round(performance.now() - debut);
+    if ("serviceWorker" in navigator && location.protocol === "https:") {
+      navigator.serviceWorker.register("sw.js").catch((e) => console.warn("Hors ligne indisponible :", e));
+    }
     console.info("MecaStruct prêt", mesures);
     etat("");
     afficher();
