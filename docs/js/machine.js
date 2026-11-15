@@ -501,9 +501,9 @@
       App.decompresser(lien.etude).then((texte) => appliquer(texte, "Lien de partage"))
         .catch(() => signaler("erreur", "Lien de partage illisible ou incomplet."));
     } else if (App.pret) {
-      if (auto) requestAnimationFrame(relancer);
+      if (auto) setTimeout(relancer, 0);
       else {
-        requestAnimationFrame(apercu);
+        setTimeout(apercu, 0);
         zoneResultat.replaceChildren(App.message("info", "Renseignez les données, puis cliquez sur « Calculer »."));
       }
     }
