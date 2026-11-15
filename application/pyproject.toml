@@ -23,3 +23,5 @@ ignore = ["E741"]
 "tests/*" = ["B"]
 # formules LaTeX : le formatage % évite de doubler chaque accolade (comme sprintf de ValidationReport.m)
 "mecastruct/services/validation_report.py" = ["UP031"]
+# formulaires du pont : un champ par ligne, libellé et aide en entier (plus lisible que coupé)
+"mecastruct/pont/machines.py" = ["E501"]

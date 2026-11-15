@@ -11,25 +11,14 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from mecastruct.core import geometry
-from mecastruct.plots._common import COULEUR, arrow, legende, num, polyShape, rgb, teinte
+from mecastruct.plots._common import COULEUR, arrow, cote, legende, num, polyShape, rgb, teinte
 
 _VERT = (0.10, 0.55, 0.20)
 _CONTOUR = (0.55, 0.70, 0.90)
 _AXES = (0.85, 0.15, 0.15)
 
 
-def _cote(fig: go.Figure, p1, p2, texte: str, ou: str) -> None:
-    """Cote entre p1 et p2 (mm) : double flèche et texte au milieu, décalé côté ou (below, above, left ou right)."""
-    milieu = ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
-    arrow(fig, milieu, p1, COULEUR["trait"], 1)
-    arrow(fig, milieu, p2, COULEUR["trait"], 1)
-    ancrage = {
-        "below": dict(xanchor="center", yanchor="top", yshift=-4),
-        "above": dict(xanchor="center", yanchor="bottom", yshift=4),
-        "left": dict(xanchor="right", yanchor="middle", xshift=-4),
-        "right": dict(xanchor="left", yanchor="middle", xshift=4),
-    }[ou]
-    fig.add_annotation(x=milieu[0], y=milieu[1], text=texte, showarrow=False, font=dict(size=10), **ancrage)
+_cote = cote  # nom historique, utilisé dans ce module
 
 
 def section(sec: dict, P: dict | None = None) -> go.Figure:

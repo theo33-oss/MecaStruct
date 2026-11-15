@@ -79,6 +79,20 @@ def arrow(fig: go.Figure, p1, p2, couleur: str, largeur: float = 2.0) -> None:
     )
 
 
+def cote(fig: go.Figure, p1, p2, texte: str, ou: str) -> None:
+    """Cote entre p1 et p2 (mm) : double flèche et texte au milieu, décalé côté ou (below, above, left ou right)."""
+    milieu = ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
+    arrow(fig, milieu, p1, COULEUR["trait"], 1)
+    arrow(fig, milieu, p2, COULEUR["trait"], 1)
+    ancrage = {
+        "below": dict(xanchor="center", yanchor="top", yshift=-4),
+        "above": dict(xanchor="center", yanchor="bottom", yshift=4),
+        "left": dict(xanchor="right", yanchor="middle", xshift=-4),
+        "right": dict(xanchor="left", yanchor="middle", xshift=4),
+    }[ou]
+    fig.add_annotation(x=milieu[0], y=milieu[1], text=texte, showarrow=False, font=dict(size=10), **ancrage)
+
+
 def polyShape(
     fig: go.Figure, pts, couleur: str, largeur: float = 1.5, remplissage: str | None = None, ferme=False
 ) -> None:

@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from mecastruct.core import bearings, brake_clutch, gears, planetary, transmission
 from mecastruct.core.errors import MecaStructError
 from mecastruct.plots._common import COULEUR, arrow, num, teinte
-from mecastruct.plots.section_plots import _cote
+from mecastruct.plots._common import cote as _cote
 
 _ID = "MecaStruct:Schema:invalidInput"
 _ALPHA = math.radians(gears.ALPHA)
