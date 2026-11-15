@@ -39,7 +39,7 @@ def test_chaque_calcul_repond_avec_ses_valeurs_de_depart(ident):
 def test_les_champs_couvrent_la_saisie(ident):
     """Chaque valeur de départ a son champ, et chaque champ a sa valeur de départ (sinon la page perd une donnée)."""
     f = FORMULAIRES[ident]
-    boutons = ("action", "bouton")
+    boutons = ("action", "bouton", "extra")
     champs = {c["id"] for g in f["groupes"] for c in g["champs"] if c["type"] not in boutons} | set(f.get("caches", []))
     assert champs == set(f["defaut"]), champs ^ set(f["defaut"])
 
@@ -99,6 +99,20 @@ def test_export_excel():
     assert base64.b64decode(r["sortie"]["base64"])[:2] == b"PK"
 
 
+@pytest.mark.parametrize("ident", ["beam.combos", "beam.ec3", "beam.fatigue", "beam.mobile", "beam.leger"])
+def test_calculs_complementaires_de_poutres(ident):
+    r = appel(ident, FORMULAIRES["beam"]["defaut"])
+    assert r["ok"], r.get("erreur")
+    assert r["sortie"]["status"] and r["sortie"]["tables"]
+
+
+def test_les_boutons_de_calcul_complementaire_existent():
+    """Chaque bouton « extra » d'un formulaire désigne un calcul du pont."""
+    calculs = set(json.loads(pont.catalogue()))
+    boutons = {c["calcul"] for f in FORMULAIRES.values() for g in f["groupes"] for c in g["champs"] if c["type"] in ("extra", "bouton", "action")}
+    assert boutons <= calculs, boutons - calculs
+
+
 def test_erreur_lisible_et_calcul_inconnu():
     r = appel("aju", {**FORMULAIRES["aju"]["defaut"], "d": -5})
     assert not r["ok"] and "ISO 286" in r["erreur"]
@@ -130,3 +144,31 @@ def test_la_page_ne_demande_que_des_calculs_existants():
     demandes = {c for bloc in re.findall(r"calculs: \[([^\]]*)\]", app) for c in re.findall(r'"([\w.]+)"', bloc)}
     assert demandes, "aucune page de calcul trouvée dans app.js"
     assert demandes <= set(json.loads(pont.catalogue()))
+
+
+def test_ossature_3d_tous_les_exemples_sont_a_l_equilibre():
+    from mecastruct.services import ossature3d
+
+    f = FORMULAIRES["ossature"]
+    for nom in f["exemples"]:
+        e = appel("ossature.exemple", {"nom": nom})["sortie"]
+        r = appel("ossature", {**f["defaut"], **e})
+        assert r["ok"], f"{nom} : {r.get('erreur')}"
+        assert r["sortie"]["ok"], nom
+    assert set(f["exemples"]) == set(ossature3d.exemples(pont.noyau.dm()))
+
+
+def test_ossature_3d_console_flexion_theorique():
+    """Console IPE 200 de 2 m, 10 kN en bout : flèche P·L³/(3·E·I) = 6,535 mm."""
+    f = FORMULAIRES["ossature"]
+    e = appel("ossature.exemple", {"nom": "Console"})["sortie"]
+    s = appel("ossature", {**f["defaut"], **e, "pp": False})["sortie"]  # sans poids propre : le calcul à la main n'en a pas
+    assert "6,535 mm" in s["metriques"][0][1].replace(".", ",")
+
+
+def test_ossature_3d_erreurs_lisibles():
+    f = FORMULAIRES["ossature"]
+    r = appel("ossature", {**f["defaut"], "noeuds": [], "pieces": []})
+    assert not r["ok"] and "nœud" in r["erreur"]
+    m = {**f["defaut"], "noeuds": [{"id": 1, "x": 0, "y": 0, "z": 0, "appui": "libre", "ddl": ""}, {"id": 2, "x": 1000, "y": 0, "z": 0, "appui": "libre", "ddl": ""}]}
+    assert not appel("ossature", m)["ok"]  # structure libre : mécanisme, message en français

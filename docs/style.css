@@ -180,6 +180,12 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
 
 @media (max-width: 640px) {
   h1, .vedette h1 { font-size: 1.45rem; }
+  /* menu sur une ligne qui défile (le menu fixe ne mange pas le quart de l'écran) */
+  #menu, #sous { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+  #menu a, #sous a { white-space: nowrap; flex: 0 0 auto; }
+  html { scroll-padding-top: 100px; }
+  .entete { gap: 4px 12px; }
+  .entete .confiance { font-size: .78rem; }
   .confiance { flex-basis: 100%; }
 }
 @media print {

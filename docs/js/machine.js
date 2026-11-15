@@ -83,6 +83,9 @@
     }
     if (c.type === "tableau") return tableauEditable(c, saisie, changer);
     if (c.type === "action") return action(c, saisie, outils);
+    if (c.type === "extra") { // calcul complémentaire (combinaisons, Eurocode 3…) : son résultat s'affiche sous le résultat principal
+      return el("div", { class: "action" }, el("button", { type: "button", class: "primaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.extra(c) }));
+    }
     const input = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false" });
     input.value = affiche(valeur);
     const erreur = el("span", { class: "erreur-champ", hidden: true });
@@ -238,12 +241,28 @@
           if (r.ok) { for (const [k, x] of Object.entries(r.sortie)) if (x !== null) saisie[k] = x; enregistrer(); dessinerChamps(); }
         }
         abonnes.forEach((a) => a(id));
+        marquerExtras();
         if (controleurs.has(id)) dessinerChamps(); // champs affichés ou listes qui dépendent de celui-ci
       }
       clearTimeout(minuterie);
       minuterie = setTimeout(() => (auto ? relancer() : apercu()), auto ? 250 : 400);
     };
+    const zoneExtras = el("div", { class: "extras", "aria-live": "polite" });
+    const extras = {}; // calcul → { saisie au moment du calcul, bloc affiché }
     const outils = {
+      extra: (c) => {
+        if (invalides.size) return signaler("avertissement", "Corrigez d'abord les champs signalés en rouge.");
+        const bloc = el("section", { class: "extra" }, el("h3", { texte: c.titre || c.libelle }), App.message("info", "Calcul en cours…"));
+        extras[c.calcul]?.bloc.remove();
+        zoneExtras.prepend(bloc);
+        setTimeout(() => {
+          const r = App.calculer(c.calcul, saisie);
+          bloc.replaceChildren(el("h3", { texte: c.titre || c.libelle }));
+          if (!r.ok) return bloc.append(App.message("erreur", r.erreur));
+          bloc.append(...construireResultat(r.sortie, c.calcul));
+          extras[c.calcul] = { empreinte: JSON.stringify(saisie), bloc };
+        }, 30);
+      },
       surChangement: (a) => abonnes.push(a),
       fusionner: (valeurs, texte) => { Object.assign(saisie, valeurs); enregistrer(); dessinerChamps(); apercu(); signaler("succes", texte); },
       signaler: (n, t) => signaler(n, t),
@@ -398,6 +417,11 @@
     }
 
     function afficherResultat(s) {
+      zoneResultat.replaceChildren(...construireResultat(s, ident), f.dossier ? boutonDossier() : "");
+    }
+
+    // Verdict, métriques et onglets (graphiques, tableaux, explications) d'une sortie du pont.
+    function construireResultat(s, cle) {
       const niveau = s.ok === true ? "succes" : s.ok === false ? "erreur" : "info";
       const prefixe = s.ok === true ? "Vérifié. " : s.ok === false ? "Non vérifié. " : "";
       const verdict = App.message(niveau, prefixe + App.decimalesFr(s.status));
@@ -413,7 +437,20 @@
       const metriques = (s.metriques || []).length
         ? el("div", { class: "metriques" }, s.metriques.map(([n, v]) => el("div", { class: "metrique" }, el("span", { texte: n }), el("strong", { texte: App.decimalesFr(v) }))))
         : null;
-      zoneResultat.replaceChildren(verdict, metriques || "", liste.length ? App.onglets(liste, ident) : "", f.dossier ? boutonDossier() : "");
+      return [verdict, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
+    }
+
+    // Un résultat complémentaire dont la saisie a changé depuis le calcul est signalé (jamais effacé en silence).
+    function marquerExtras() {
+      for (const { empreinte, bloc } of Object.values(extras)) {
+        const ancien = bloc.querySelector(".perime");
+        if (empreinte === JSON.stringify(saisie)) ancien?.remove();
+        else if (!ancien) {
+          const m = App.message("avertissement", "Saisie modifiée depuis ce calcul : relancez-le pour l'actualiser.");
+          m.classList.add("perime");
+          bloc.querySelector("h3").after(m);
+        }
+      }
     }
 
     function explications(p, s) {
@@ -457,7 +494,7 @@
     const bloc = el("div", { class: "calcul" },
       el("div", { class: "colonne-saisie" }, formulaire),
       el("div", { class: "colonne-resultat" }, f.apercu ? el("h3", { texte: "Schéma" }) : null, f.apercu ? zoneSchema : null,
-        el("h3", { texte: "Résultat" }), zoneResultat));
+        el("h3", { texte: "Résultat" }), zoneResultat, zoneExtras));
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {
       App.oublierLien();
@@ -489,7 +526,7 @@
       attente.remove();
       lireFormulaires(true);
     }
-    const tous = lireFormulaires();
+    const tous = lireFormulaires(true); // toujours à jour : un matériau ajouté dans la base doit apparaître ici
     const lien = App.lienEtude();
     if (lien && page.calculs.includes(lien.calcul)) App.memoire.ecrire("onglet.page." + page.id, lien.calcul); // ouvre l'onglet du lien
     if (!tous || page.calculs.some((id) => !tous[id])) {

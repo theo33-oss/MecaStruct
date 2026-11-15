@@ -13,12 +13,17 @@ from typing import Any
 
 import numpy as np
 
-FAMILLES = ("machines", "outils")  # modules du pont chargés au premier appel (numpy, pandas, plotly suffisent)
+FAMILLES = ("machines", "outils", "base")  # modules du pont chargés au premier appel (numpy, pandas, plotly suffisent)
 FAMILLES_LOURDES = ("structures",)  # chargées par charger() : la page a d'abord chargé scipy et shapely
 _REGISTRE: dict[str, Callable[[dict], Any]] = {}
 _SOURCES: list[Callable[[], dict]] = []  # fonctions qui décrivent les formulaires d'une famille
 _formulaires: dict = {}
 _dm = None
+
+
+def invalider_formulaires() -> None:
+    """Les formulaires reprennent la base de matériaux au prochain besoin (après un ajout de l'utilisateur)."""
+    _formulaires.clear()
 
 
 def formulaires_de(source: Callable[[], dict]) -> None:
@@ -154,3 +159,10 @@ def catalogue() -> str:
     if not _REGISTRE:
         _charger()
     return json.dumps(sorted(_REGISTRE), ensure_ascii=False)
+
+
+def tous_formulaires() -> dict:
+    """Tous les formulaires chargés, par identifiant de calcul (décrits une seule fois)."""
+    if not _REGISTRE:
+        _charger()
+    return json.loads(appeler("formulaires"))["sortie"]

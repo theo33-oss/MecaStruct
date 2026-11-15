@@ -10,11 +10,11 @@ Rédigé le 15 novembre 2026, d'après la lecture du dossier `5.1_MecaStruct_Bur
 | 1. Rangement, git, dépôt | fait : https://github.com/theo33-oss/MecaStruct, tests sur GitHub à chaque envoi |
 | 2. Essai du calcul dans le navigateur | fait : premier chargement 11 à 17 s, 7 à 9 s ensuite ; pages de RdM + 2 à 10 s (scipy, shapely) ; résultats identiques au bureau ; pandas gardé |
 | 3. Installateur Windows | fait : `MecaStruct_Installation_1.0.0.exe`, 185 Mo, publié dans les Releases, auto-vérification des 20 pages et des dossiers PDF et Word |
-| 4 à 6. Pages du site | faites, sauf ossature 3D, base de données, références (renvoi vers le bureau) |
-| 7. Ce qui traverse les pages | fait : fichier d'étude commun au bureau, lien de partage, dossier HTML, export Excel. Reste : base de données, MathJax et Plotly servis par le site dans le dossier |
-| 8. Interface unique | **pas faite, à décider** (voir 6, étape 8) : le site n'a pas encore tout le bureau |
+| 4 à 6. Pages du site | toutes faites : les 20 pages du bureau ont leur équivalent dans le navigateur (ossature 3D, combinaisons, Eurocode 3, base de données, références ajoutées le 15 novembre au soir) |
+| 7. Ce qui traverse les pages | fait : fichier d'étude commun au bureau, lien de partage, dossier HTML, export Excel, ajouts de matériaux et de profilés gardés dans le navigateur. Reste : MathJax servi par le site dans le dossier, transferts entre pages |
+| 8. Interface unique | **à décider** (voir 6, étape 8) : le site a maintenant presque tout le bureau ; il manque les abaques Kt, les transferts entre pages et les dossiers PDF et Word |
 | 9. Finitions | hors ligne après la première visite, icône, aperçu de partage, page des limites. Reste : contrôle complet au clavier et sur téléphone |
-| GitHub Pages | **à activer à la main** : Settings, Pages, Deploy from a branch, `main`, dossier `/docs` |
+| GitHub Pages | activé par Théo ; le dossier de publication doit être `/docs` (Settings, Pages, Branch `main`, `/docs`), pas la racine |
 
 ## 1. Hypothèses et décisions à prendre
 

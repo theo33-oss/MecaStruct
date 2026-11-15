@@ -18,7 +18,7 @@ verdict, les formules remplies avec vos valeurs, et un dossier de validation qui
 | Démarrage | quelques dizaines de secondes la première fois | quelques secondes |
 | Internet | au premier chargement | jamais après l'installation |
 | Données | restent dans votre navigateur | restent sur votre ordinateur |
-| En plus | lien de partage d'une étude, hors ligne après la première visite | ossature 3D, dossiers PDF et Word, Eurocode 3, combinaisons |
+| En plus | lien de partage d'une étude, hors ligne après la première visite | dossiers PDF et Word, démarrage immédiat |
 
 Dans les deux cas, rien n'est envoyé à un serveur : tout est calculé sur votre poste. Une étude enregistrée sur le
 site (pages de RdM) s'ouvre dans l'application de bureau, et inversement.
@@ -27,12 +27,11 @@ site (pages de RdM) s'ouvre dans l'application de bureau, et inversement.
 
 | Famille | Pages | Dans le navigateur |
 |---|---|---|
-| Structures | Poutres 2D, Treillis, Flambage | oui (ossature 3D : bureau) |
+| Structures | Poutres 2D (combinaisons, Eurocode 3, fatigue, charge mobile, profilé le plus léger), Ossature 3D, Treillis, Flambage | oui |
 | Sections et contraintes | Sections, Sollicitations (traction, cisaillement, torsion, flexion), Tenseurs et critères, Hooke et jauges | oui |
 | Liaisons et guidages | Ajustements ISO 286, Frettage, Paliers lisses, Roulements | oui |
 | Transmission | Engrenages, Trains épicycloïdaux, Freins et embrayages, Dimensionnement moteur | oui |
-| Données et aide | Convertisseur d'unités, Limites et vérifications | oui |
-| | Base de matériaux et de profilés, Références | bureau |
+| Données et aide | Matériaux et profilés (ajouts gardés dans le navigateur), Convertisseur, Références, Limites | oui |
 
 Sur chaque page de calcul : verdict en toutes lettres, graphiques, tableaux à copier dans Excel, formules remplies
 avec vos valeurs, et pour la RdM un dossier de validation qui refait chaque grandeur à la main.

@@ -1,6 +1,7 @@
 """Pont des pages « Données et aide » : convertisseur d'unités."""
 
 from mecastruct.core import units
+from mecastruct.core.utils import load_json
 from mecastruct.pont.noyau import calcul
 
 UNITES_ATTENDUES = [
@@ -40,6 +41,12 @@ EQUIVALENCES = [
 
 def _tableau(lignes, entetes):
     return {"entetes": entetes, "lignes": [list(x) for x in lignes]}
+
+
+@calcul("references")
+def references(_s):
+    """Normes citées par l'application (numéro, titre, année, rôle) : data/references.json, comme sur le bureau."""
+    return load_json("references.json")
 
 
 @calcul("conv.catalogue")

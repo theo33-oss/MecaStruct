@@ -10,14 +10,17 @@ import math
 import re
 
 import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-from mecastruct.core import buckling, geometry
+from mecastruct.core import buckling, frame3d, geometry
 from mecastruct.core.data_manager import sectionPresets
 from mecastruct.core.pp import asPP
 from mecastruct.plots import beam_plots, other_plots, section_plots, sollicitation_plots
 from mecastruct.pont.formulaire import case, col, groupe, liste, nb, tableau, texte
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
-from mecastruct.services import beam_services, compute, project_io, validation_report
+from mecastruct.services import beam_design, beam_services, compute, ossature3d, project_io, validation_report
 from mecastruct.services.examples import exampleNames, loadExample
 
 TYPES_APPUI = ["appui_simple", "rotule", "pivot", "pivot_glissant", "encastrement"]
@@ -166,6 +169,67 @@ def poutreProfil(s):
 _enregistrer_communs("beam", "Beam")
 
 
+def _complement(status, ok, tables, figures=()):
+    return {"status": status, "ok": ok, "tables": tables, "figures": [{"titre": t, "figure": f} for t, f in figures if f is not None],
+            "metriques": [], "rapport": [], "latex": [], "explications": [], "blocs": []}  # fmt: skip
+
+
+@calcul("annexe")
+def annexe(s):
+    """Annexe nationale EN ou FR : γM0 = γM1 = 1 (champs libres pour « autre »)."""
+    return {"gM0": 1.0, "gM1": 1.0} if s["nom"] in ("EN", "FR") else {}
+
+
+@calcul("beam.combos")
+def poutreCombinaisons(s):
+    T = beam_services.computeCombinations(s, dm())
+    env = T.iloc[-1]
+    ok = env["Résistance"] == "vérifié"
+    status = f"Combinaisons : {len(T) - 1} calculée(s), enveloppe Kt·σ max = {env['Kt·σ max (MPa)']:.4g} MPa ({env['Résistance']})"
+    return _complement(status, ok, {"Combinaisons": T}, [("Combinaisons", _figure(lambda: beam_plots.combinations(T)))])
+
+
+@calcul("beam.ec3")
+def poutreEurocode(s):
+    source = "enveloppe" if s["ecsrc"] == "enveloppe" else "poutre"
+    e, T = beam_design.checkEurocode(s, dm(), source)
+    if not e["okAll"]:
+        verdict, ok = "NON vérifié", False
+    elif e["pondere"]:
+        verdict, ok = "vérifié", True
+    else:  # efforts non pondérés : pas de verdict « vérifié »
+        verdict, ok = "indicatif, efforts non pondérés : refaire avec l'enveloppe ELU", None
+    status = (f"Eurocode 3 : classe {e['class']['class']}, MEd/MRd = {e['ratioM']:.3f}, VEd/Vpl,Rd = {e['ratioV']:.3f}, "
+              f"MEd/Mb,Rd = {e['ltb']['ratio']:.3f} ({verdict})")  # fmt: skip
+    if e["inter"]:
+        status += f", N + M (6.61/6.62) = {e['inter']['ratio']:.3f}"
+    return _complement(status, ok, {"Eurocode 3": T})
+
+
+@calcul("beam.fatigue")
+def poutreFatigue(s):
+    r, T = beam_design.checkFatigue(s, dm())
+    ok = r["n"] >= s["s"]
+    return _complement(f"Fatigue (Goodman) : n = {r['n']:.3g} pour s = {s['s']:.3g} ({'vérifié' if ok else 'NON vérifié'})", ok, {"Fatigue": T})
+
+
+@calcul("beam.mobile")
+def poutreMobile(s):
+    T, d = beam_design.computeMovingLoad(s, dm())
+    e = d["extrema"]
+    status = (f"Charge mobile ({d['positions']} positions) : Mfz de {e['Mmin'] / 1e3:.4g} à {e['Mmax'] / 1e3:.4g} kN·m, "
+              f"Ty de {e['Tmin'] / 1e3:.4g} à {e['Tmax'] / 1e3:.4g} kN")  # fmt: skip
+    return _complement(status, None, {"Enveloppe": T}, [("Enveloppe", _figure(lambda: beam_plots.movingEnvelope(d)))])
+
+
+@calcul("beam.leger")
+def poutreLeger(s):
+    T, best = beam_design.findLightestProfile(s, dm(), s["pfam"], s["pdef"])
+    if best is None:
+        return _complement(f"Aucun profilé {s['pfam']} ne vérifie ce chargement : essayez une autre famille.", False, {"Profilés": T})
+    return _complement(f"Profilé {s['pfam']} le plus léger qui vérifie : {best['Name']}. La saisie de la section est inchangée.", True, {"Profilés": T})
+
+
 # ---------------------------------------------------------------------------------------------------- treillis
 
 
@@ -183,6 +247,60 @@ def treillisApercu(s):
 
 
 _enregistrer_communs("truss", "Tr")
+
+
+# ------------------------------------------------------------------------------------------------- ossature 3D
+
+
+def _tables_3d(s: dict) -> dict:
+    return {k: pd.DataFrame(s.get(k) or []) for k in ossature3d.TABLES}
+
+
+@calcul("ossature")
+def ossature(s):
+    """Ossature 3D : solveur de poutres 3D (frame3d), vue 3D, efforts internes, vérification à la main."""
+    base = dm()
+    data = ossature3d._donnees(_tables_3d(s), bool(s.get("pp")), base)
+    if not data["noeuds"] or not data["elements"]:
+        raise ValueError("Saisissez au moins deux nœuds et une pièce.")
+    res = frame3d.solveFrame3D(data)
+    ampli = float(s.get("ampli") or 0) or ossature3d._amplification_auto(res, data)
+    sig = [c["sigma_max"] for c in res["contraintes"].values() if c["sigma_max"] is not None]
+    dmax, eq = res["deplacement_max"], res["equilibre"]
+    formules, contraintes, manquante = ossature3d.bilan_latex(res, data)
+    piece = int(s.get("piece") or 0)
+    if piece not in res["efforts"]:
+        piece = next(iter(res["efforts"]))
+    ef, s_mm = res["efforts"][piece], np.array(res["efforts"][piece]["s"]) * 1e3
+    titres = [f"{c} ({u})" for c, u in ossature3d.COMPOSANTES]
+    fig = make_subplots(rows=3, cols=2, subplot_titles=titres, vertical_spacing=0.12)
+    for k, (c, _u) in enumerate(ossature3d.COMPOSANTES):
+        trace = go.Scatter(x=s_mm, y=ef[c], mode="lines", fill="tozeroy", line={"color": ossature3d.C_DEFORMEE}, showlegend=False)
+        fig.add_trace(trace, row=k // 2 + 1, col=k % 2 + 1)
+    fig.update_layout(height=640, margin={"l": 50, "r": 10, "t": 60, "b": 30}, title=f"Efforts internes de la pièce {piece}")
+    fig.update_xaxes(title_text="s (mm)")
+    if eq["ok"]:
+        status = "Équilibre global vérifié (réactions + charges = 0)."
+    else:
+        status = f"Écart d'équilibre : ΣF = {np.round(eq['forces'], 6).tolist()} N, ΣM = {np.round(eq['moments'], 6).tolist()} N·m."
+    tables = {"Déplacements": ossature3d._table_deplacements(res), "Réactions": ossature3d._table_reactions(res),
+              "Contraintes": ossature3d._table_contraintes(res), "Contraintes refaites à la main": contraintes}  # fmt: skip
+    rapport = list(res["rapport"])
+    if manquante:
+        rapport.append("σ non calculée pour une pièce sans module de flexion Wy ou Wz : saisissez-les (section « perso »).")
+    metriques = [["Déplacement max", f"{dmax['valeur'] * 1e3:.4g} mm (nœud {dmax['noeud']})"],
+                 ["σmax", f"{max(sig) / 1e6:.4g} MPa" if sig else "non calculée"], ["Amplification de la vue", f"× {ampli:g}"]]  # fmt: skip
+    return {"status": status, "ok": bool(eq["ok"]), "metriques": metriques,
+            "figures": [{"titre": "Vue 3D", "figure": ossature3d._vue_3d(res, data, ampli)}, {"titre": "Efforts internes", "figure": fig}],
+            "tables": tables, "latex": [*formules, *res["latex"]], "rapport": rapport, "explications": [], "blocs": []}  # fmt: skip
+
+
+@calcul("ossature.exemple")
+def ossatureExemple(s):
+    base = dm()
+    exemples = ossature3d.exemples(base)
+    nom = s.get("nom") or next(iter(exemples))
+    return {**ossature3d._tables_exemple(nom, base), "pp": bool(exemples[nom].get("poids_propre", False)), "piece": 0, "ampli": 0}
 
 
 # ----------------------------------------------------------------------- sections, sollicitations, flambage…
@@ -298,9 +416,8 @@ def _formulaires() -> dict:
         "beam": {
             "titre": "Poutre 2D", "defaut": loadExample("Beam"), "apercu": True, "auto": False, "dossier": True,
             "exemples": exampleNames("Beam"), "paquets": ["scipy", "shapely"],
-            "caches": ["supx", "hg", "combo", "na", "gM0", "gM1", "Cmy", "CmLT", "Lcr", "LcrF", "C1", "ecsrc", "fR", "fka",
-                       "fkb", "mvP", "mvE", "mvN", "mvFixed", "pdef", "secTabulated", "section"],
-            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "G", "Re"]}},
+            "caches": ["secTabulated", "section"],
+            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "G", "Re"]}, "na": {"calcul": "annexe", "champs": []}},
             "groupes": [
                 groupe("Poutre et matériau",
                        nb("L", "Longueur L", "m", 0.0, aide="Longueur de la poutre entre ses deux extrémités."),
@@ -342,8 +459,65 @@ def _formulaires() -> dict:
                        nb("thDT", "ΔT uniforme", "°C"), nb("thGy", "Gradient selon y : T(+y) − T(−y)", "°C"),
                        nb("thGz", "Gradient selon z : T(+z) − T(−z)", "°C"),
                        case("selfw", "Poids propre (ρ·S·g, cas G)"), ouvert=False),
+                groupe("Ressorts, tassements, rotules",
+                       tableau("supx", "Appuis élastiques et tassements (appui désigné par son nom)",
+                               [col("name", "Appui (nom)", "texte", defaut=""), col("k", "Ressort k (kN/m)"), col("dx", "Tassement x (mm)"),
+                                col("dy", "Tassement y (mm)"), col("dz", "Tassement z (mm)")],
+                               aide="Ressort : appui élastique de raideur k (0 = appui rigide). Tassement : déplacement imposé de l'appui."),
+                       tableau("hg", "Rotules intermédiaires (poutre Gerber)", [col("pos", "Position (m)"), col("name", "Nom", "texte", defaut="")],
+                               aide="Le moment de flexion y est nul au point choisi. Pas sur un appui."), ouvert=False),
+                groupe("Combinaisons de cas",
+                       tableau("combo", "Combinaisons (G permanentes, Q exploitation, W vent, S neige)",
+                               [col("name", "Combinaison", "texte", defaut=""), col("gG", "γG"), col("gQ", "γQ"), col("gW", "γW"), col("gS", "γS")],
+                               aide="Chaque charge porte un cas. Le calcul principal additionne tous les cas avec le coefficient 1 ; ici chaque ligne est résolue avec ses coefficients, puis on donne l'enveloppe."),
+                       {"id": "b-combos", "type": "extra", "libelle": "Calculer les combinaisons", "calcul": "beam.combos", "titre": "Combinaisons"}, ouvert=False),
+                groupe("Eurocode 3 simplifié",
+                       liste("na", "Annexe nationale", ["EN", "FR", "autre"], etiquettes=["Valeurs recommandées de l'EN", "France (NF EN 1993-1-1/NA)", "Autre : saisir γM0 et γM1"]),
+                       nb("gM0", "γM0, résistance des sections"), nb("gM1", "γM1, stabilité (déversement)"),
+                       nb("Cmy", "Cmy, moment équivalent (flambement)", "", aide="Tableau B.3 de l'EN 1993-1-1 : entre 0,4 et 1. 1 = prudent."),
+                       nb("CmLT", "CmLT, moment équivalent (déversement)", "", aide="Entre 0,4 et 1 ; 1 est toujours du côté de la sécurité."),
+                       nb("Lcr", "Lcr : longueur entre maintiens latéraux (0 = L)", "m"),
+                       nb("LcrF", "Lcr,y : longueur de flambement, plan fort (0 = L)", "m"),
+                       nb("C1", "C1 : forme du moment (1 = uniforme, prudent)", "", aide="NCCI SN003 : 1,13 charge uniforme sur appuis simples ; 1,35 charge ponctuelle centrée."),
+                       liste("ecsrc", "Efforts de calcul", ["enveloppe", "courant"], etiquettes=["Enveloppe des combinaisons (ELU)", "Dernier calcul (non pondéré, indicatif)"]),
+                       {"id": "b-ec3", "type": "extra", "libelle": "Vérifier selon l'Eurocode 3", "calcul": "beam.ec3", "titre": "Eurocode 3"},
+                       note="Profilés IPE, HEA, HEB, IPN et sections en I, classes 1 à 3, fy = Re. Non vérifiés : voilement sous charges concentrées, flexion déviée, ELS, classe 4. Seules γM0 et γM1 sont paramétrables.",
+                       ouvert=False),
+                groupe("Fatigue (Goodman)", nb("fR", "R = σmin / σmax (−1 alterné, 0 répété)", ""),
+                       nb("fka", "ka : état de surface", "", aide="Poli 1 ; usiné 0,7 à 0,9 ; laminé 0,6 à 0,8 ; brut de forge 0,4 à 0,6."),
+                       nb("fkb", "kb : effet de taille", "", aide="d ≤ 8 mm : 1 ; 0,85 à 0,9 pour 10 à 50 mm ; 0,7 à 0,8 au-delà."),
+                       {"id": "b-fat", "type": "extra", "libelle": "Vérifier la fatigue", "calcul": "beam.fatigue", "titre": "Fatigue"}, ouvert=False),
+                groupe("Charge mobile (convoi d'essieux)",
+                       texte("mvP", "Essieux (kN, de gauche à droite)", "F < 0 = vers le bas."), texte("mvE", "Écartement(s) entre essieux (m)"),
+                       nb("mvN", "Positions de base du convoi", "", 2, entier=True), case("mvFixed", "Ajouter les charges fixes saisies"),
+                       {"id": "b-mob", "type": "extra", "libelle": "Calculer l'enveloppe de la charge mobile", "calcul": "beam.mobile", "titre": "Charge mobile"},
+                       ouvert=False),
+                groupe("Profilé le plus léger", nb("pdef", "Flèche max L / … (0 = ignorée)", "", 0.0, aide="300 impose f ≤ L/300, en plus de Kt·σ ≤ Re/s."),
+                       {"id": "b-leger", "type": "extra", "libelle": "Chercher le profilé le plus léger (famille choisie dans Section)", "calcul": "beam.leger", "titre": "Profilé le plus léger"},
+                       ouvert=False),
             ],
-            "note": "Combinaisons, Eurocode 3, fatigue, charge mobile et recherche du profilé le plus léger : dans l'application de bureau.",
+            "note": "Pour une structure en 3D : onglet Ossature 3D.",
+        },
+        "ossature": {
+            "titre": "Ossature 3D", "defaut": {**ossature3d._tables_exemple(next(iter(ossature3d.exemples(dm()))), dm()), "pp": False, "piece": 0, "ampli": 0},
+            "apercu": False, "auto": False, "dossier": False, "exemples": list(ossature3d.exemples(dm())), "paquets": ["scipy", "shapely"],
+            "groupes": [
+                groupe("Nœuds et pièces",
+                       tableau("noeuds", "Nœuds (mm)", [col("id", "id", defaut=1, entier=True), col("x", "x (mm)"), col("y", "y (mm)"), col("z", "z (mm)"),
+                                                          col("appui", "Appui", "liste", ossature3d.APPUIS, "libre"), col("ddl", "DDL perso", "texte", defaut="")],
+                               aide="Appui « perso » : 6 chiffres 0/1 pour ux uy uz θx θy θz (1 = bloqué)."),
+                       tableau("pieces", "Pièces", [col("id", "id", defaut=1, entier=True), col("debut", "Nœud début", defaut=1, entier=True), col("fin", "Nœud fin", defaut=2, entier=True),
+                                                    col("materiau", "Matériau", "liste", noms, "S235"), col("section", "Section", "liste", ossature3d.SECTIONS, "rond"),
+                                                    col("dimensions", "Dimensions (mm)", "texte", defaut="d=40"), col("beta", "β (°)"),
+                                                    col("liaison_debut", "Liaison début", "liste", ossature3d.LIAISONS, "rigide"), col("liaison_fin", "Liaison fin", "liste", ossature3d.LIAISONS, "rigide")],
+                               aide="Dimensions : " + " ; ".join(f"{k} : « {v} »" for k, v in ossature3d.EXEMPLES_DIM.items()))),
+                groupe("Charges (repère global)",
+                       tableau("charges_nodales", "Charges nodales", [col("noeud", "Nœud", defaut=1, entier=True), *[col(c, f"{c} (N)") for c in ("Fx", "Fy", "Fz")], *[col(c, f"{c} (N·m)") for c in ("Mx", "My", "Mz")]]),
+                       tableau("charges_reparties", "Charges réparties", [col("piece", "Pièce", defaut=1, entier=True), *[col(c, f"{c} (N/m)") for c in ("qx", "qy", "qz")]]),
+                       case("pp", "Poids propre (ρ·g·A selon −Z, g = 9,81 m/s²)")),
+                groupe("Affichage", nb("ampli", "Amplification de la déformée (0 = automatique)", "", 0.0), nb("piece", "Pièce des efforts internes (0 = première)", "", 0.0, entier=True), ouvert=False),
+            ],
+            "note": "Poutres d'Euler-Bernoulli (déformation d'effort tranchant négligée). Repère local : x de début vers fin, z vertical pour une pièce horizontale (Iy = axe fort). β tourne la section autour de son axe. Exemples : " + " ; ".join(f"{n} : {t}" for n, t in ossature3d.EXPLICATIONS.items()),
         },
         "truss": {
             "titre": "Treillis", "defaut": loadExample("Tr"), "apercu": True, "auto": False, "dossier": True,

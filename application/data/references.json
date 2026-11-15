@@ -1,0 +1,38 @@
+[
+ {
+  "numero": "NF EN 1993-1-1",
+  "titre": "Eurocode 3 : calcul des structures en acier. Partie 1-1 : règles générales et règles pour les bâtiments",
+  "annee": "2005 + A1:2014",
+  "role": "Base de la flexion, du tranchant et du flambement : classes de section, résistances de flexion et de cisaillement, flambement par flexion, déversement, flexion + effort normal (page Poutres, Eurocode 3). Indice de classement AFNOR : à compléter."
+ },
+ {
+  "numero": "NF EN 1993-1-1/NA",
+  "titre": "Annexe nationale française à l'Eurocode 3, partie 1-1",
+  "annee": "à compléter",
+  "role": "Proposée dans la page Poutres pour les coefficients partiels γM0 et γM1 (valeurs de l'EN). Les autres paramètres de l'annexe ne sont pas appliqués."
+ },
+ {
+  "numero": "EN 1993-1-5",
+  "titre": "Eurocode 3 : calcul des structures en acier. Partie 1-5 : plaques planes",
+  "annee": "2006",
+  "role": "Voilement de l'âme par cisaillement (§5), signalé dans les résultats Eurocode 3 de la page Poutres."
+ },
+ {
+  "numero": "EN 1993-1-9",
+  "titre": "Eurocode 3 : calcul des structures en acier. Partie 1-9 : fatigue",
+  "annee": "2005",
+  "role": "Citée seulement pour dire qu'elle n'est pas traitée : la fatigue de la page Poutres est une droite de Goodman, pas la vérification par catégories de détail."
+ },
+ {
+  "numero": "EN 338",
+  "titre": "Bois de structure : classes de résistance",
+  "annee": "2016",
+  "role": "Source du bois C24 de la base de matériaux."
+ },
+ {
+  "numero": "EN 1992-1-1",
+  "titre": "Eurocode 2 : calcul des structures en béton. Partie 1-1 : règles générales et règles pour les bâtiments",
+  "annee": "2004",
+  "role": "Source des bétons C25/30 et C30/37 de la base de matériaux (tableau 3.1)."
+ }
+]

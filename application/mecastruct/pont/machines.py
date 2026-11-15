@@ -8,6 +8,7 @@ import json
 
 from mecastruct.core import bearings, fits, plain_bearing, planetary, shrink_fit
 from mecastruct.plots import machine_plots, machine_schemas
+from mecastruct.pont import noyau
 from mecastruct.pont.formulaire import case, groupe, liste, nb
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
 from mecastruct.services import machine
@@ -230,7 +231,7 @@ def machineOuvrir(s):
         raise ValueError("Ce fichier n'est pas une étude MecaStruct.")
     if d.get("page") != ident:
         raise ValueError(f"Cette étude vient d'une autre page (« {d.get('page')} »).")
-    defaut = _formulaires()[ident]["defaut"]
+    defaut = noyau.tous_formulaires()[ident]["defaut"]
     for cle, v in d["saisie"].items():
         if cle not in defaut:
             raise ValueError(f"Champ inconnu dans l'étude : « {cle} ».")

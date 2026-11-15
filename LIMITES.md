@@ -31,10 +31,12 @@ avant tout usage réel. Cette page dit ce qui a été vérifié, et contre quoi.
 ## Différences entre le site et l'application de bureau
 
 Les deux versions exécutent le même code de calcul : pour une même saisie, elles donnent les mêmes nombres (un test
-le vérifie pour chaque page). Le site n'a pas encore : l'ossature 3D, la base de matériaux et de profilés (ajouts),
-les références, les dossiers PDF et Word (le dossier HTML s'imprime en PDF depuis le navigateur), et sur Poutres les
-combinaisons, l'Eurocode 3, la fatigue, la charge mobile et la recherche du profilé le plus léger. Sur le site, les
-pages Cisaillement et Flexion utilisent la section de l'exemple ; le bureau reprend celle de la page Sections.
+le vérifie pour chaque page). Le site n'a pas encore : les dossiers PDF et Word (le dossier HTML, pour les pages de
+RdM, s'imprime en PDF depuis le navigateur), les abaques de concentration de contrainte, les transferts automatiques
+entre pages (section vers Poutres, poutre vers Tenseurs), le dossier de validation des pages de machines et de
+l'ossature 3D. Sur le site, les pages Cisaillement et Flexion utilisent la section de l'exemple ; le bureau reprend
+celle de la page Sections. Les ajouts de matériaux et de profilés faits sur le site restent dans ce navigateur : pour
+les retrouver ailleurs, enregistrez-les dans un fichier (page Matériaux et profilés, onglet Mes ajouts).
 
 ## Non disponible
 

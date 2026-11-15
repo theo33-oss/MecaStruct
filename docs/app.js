@@ -5,7 +5,7 @@
 
 const App = (() => {
   const $ = (id) => document.getElementById(id);
-  const VERSION = "1.0.0";
+  const VERSION = "1.1.0";
   const DEPOT = "https://github.com/theo33-oss/MecaStruct";
   let pont = null;
   const genres = {};
@@ -22,7 +22,7 @@ const App = (() => {
   ];
   const PAGES = [
     { id: "accueil", titre: "Accueil", genre: "accueil" },
-    { id: "poutres", titre: "Poutres", famille: "structures", genre: "machine", calculs: ["beam"], pont: "structures", texte: "Poutre 2D isostatique ou hyperstatique : réactions, efforts, flèche, contraintes. L'ossature 3D est dans l'application de bureau." },
+    { id: "poutres", titre: "Poutres", famille: "structures", genre: "machine", calculs: ["beam", "ossature"], pont: "structures", texte: "Poutre 2D isostatique ou hyperstatique, ou ossature 3D : réactions, efforts, flèche, contraintes, Eurocode 3 (2D)." },
     { id: "treillis", titre: "Treillis", famille: "structures", genre: "machine", calculs: ["truss"], pont: "structures", texte: "Efforts dans les barres et déplacements des nœuds." },
     { id: "flambage", titre: "Flambage", famille: "structures", genre: "machine", calculs: ["fla"], pont: "structures", texte: "Charge critique d'Euler, élancement, conditions aux limites." },
     { id: "sections-page", titre: "Sections", famille: "sections", genre: "machine", calculs: ["sec"], pont: "structures", paquets: ["sympy"], texte: "Aire, centre de gravité, inerties et modules de sections simples, composées ou profilées." },
@@ -37,8 +37,8 @@ const App = (() => {
     { id: "freins", titre: "Freins et embrayages", famille: "transmission", genre: "machine", calculs: ["frn", "emb"], texte: "Couple de freinage d'un disque, synchronisation d'un embrayage." },
     { id: "moteur", titre: "Dimensionnement moteur", famille: "transmission", genre: "machine", calculs: ["mot"], texte: "Couple thermique équivalent, couple de pointe, inertie ramenée." },
     { id: "convertisseur", titre: "Convertisseur", famille: "donnees", genre: "convertisseur", texte: "Conversion entre unités de toutes les grandeurs." },
-    { id: "base", titre: "Matériaux et profilés", famille: "donnees", genre: "bureau", capture: "base_de_donnees", texte: "Base de matériaux et de profilés normalisés." },
-    { id: "references", titre: "Références", famille: "donnees", genre: "bureau", capture: "references", texte: "Formulaires de RdM et abaques." },
+    { id: "base", titre: "Matériaux et profilés", famille: "donnees", genre: "base", texte: "Base de matériaux et de profilés normalisés." },
+    { id: "references", titre: "Références", famille: "donnees", genre: "references", texte: "Normes citées par l'application." },
     { id: "limites", titre: "Limites et vérifications", famille: "donnees", genre: "texte", source: "LIMITES.md", texte: "Ce qui est vérifié, contre quoi, et ce qui ne l'est pas." },
   ];
   const page = (id) => PAGES.find((p) => p.id === id);
@@ -433,6 +433,9 @@ const App = (() => {
         pyodide.unpackArchive(archive, "zip", { extractDir: "/app" });
         pyodide.runPython("import sys; sys.path.insert(0, '/app')");
         pont = pyodide.pyimport("mecastruct.pont");
+        // ajouts de l'utilisateur (matériaux, profilés) gardés dans ce navigateur : rejoués avant tout calcul
+        const u = memoire.lire("utilisateur", null);
+        if (u) pont.appeler("base.restaurer", JSON.stringify({ utilisateur: u }));
         pont.appeler("formulaires"); // premier appel : charge les modules de calcul
       });
       App.pyodide = pyodide;
