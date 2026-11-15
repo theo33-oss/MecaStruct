@@ -39,7 +39,7 @@ def test_chaque_calcul_repond_avec_ses_valeurs_de_depart(ident):
 def test_les_champs_couvrent_la_saisie(ident):
     """Chaque valeur de départ a son champ, et chaque champ a sa valeur de départ (sinon la page perd une donnée)."""
     f = FORMULAIRES[ident]
-    boutons = ("action", "bouton", "extra")
+    boutons = ("action", "bouton", "extra", "transfert")
     champs = {c["id"] for g in f["groupes"] for c in g["champs"] if c["type"] not in boutons} | set(f.get("caches", []))
     assert champs == set(f["defaut"]), champs ^ set(f["defaut"])
 
@@ -109,7 +109,7 @@ def test_calculs_complementaires_de_poutres(ident):
 def test_les_boutons_de_calcul_complementaire_existent():
     """Chaque bouton « extra » d'un formulaire désigne un calcul du pont."""
     calculs = set(json.loads(pont.catalogue()))
-    boutons = {c["calcul"] for f in FORMULAIRES.values() for g in f["groupes"] for c in g["champs"] if c["type"] in ("extra", "bouton", "action")}
+    boutons = {c["calcul"] for f in FORMULAIRES.values() for g in f["groupes"] for c in g["champs"] if c["type"] in ("extra", "bouton", "action", "transfert")}
     assert boutons <= calculs, boutons - calculs
 
 
@@ -172,3 +172,41 @@ def test_ossature_3d_erreurs_lisibles():
     assert not r["ok"] and "nœud" in r["erreur"]
     m = {**f["defaut"], "noeuds": [{"id": 1, "x": 0, "y": 0, "z": 0, "appui": "libre", "ddl": ""}, {"id": 2, "x": 1000, "y": 0, "z": 0, "appui": "libre", "ddl": ""}]}
     assert not appel("ossature", m)["ok"]  # structure libre : mécanisme, message en français
+
+
+def test_transferts_entre_pages_comme_le_bureau():
+    from mecastruct.core.data_manager import DataManager
+    from mecastruct.services import beam_design, beam_services, compute
+
+    dm = DataManager()
+    sec, beam = FORMULAIRES["sec"]["defaut"], FORMULAIRES["beam"]["defaut"]
+    t = appel("transfert.section", {"sec": sec, "beam": beam})["sortie"]
+    res = compute.computeSection(sec, dm)["result"]
+    attendu = beam_design.sectionToBeamInput(beam, res["sec"], res["P"], dm.getMaterial(sec["mat"]))
+    assert abs(t["beam"]["Iz"] - attendu["Iz"]) < 1e-6 * attendu["Iz"] and t["beam"]["mat"] == sec["mat"]
+    assert t["fla"]["S"] == t["beam"]["S"] and "Sections" in t["info"]
+    # la saisie transmise reste calculable (la section a fait l'aller-retour JSON)
+    assert appel("beam", t["beam"])["ok"]
+    # efforts de la poutre → Sections, en s puis au point le plus sollicité
+    e = appel("transfert.efforts", {"beam": beam, "cible": {**sec, "s0": 2.0}, "key": "Sec", "mode": "abscisse"})["sortie"]
+    ref = beam_design.loadFromBeam({**sec, "s0": 2.0}, beam_services.computeBeam(beam, dm), "Sec", "abscisse")
+    assert abs(e["cible"]["Mfz"] - ref["Mfz"]) < 1e-9 and e["cible"]["s0"] == 2.0
+    assert appel("transfert.efforts", {"beam": beam, "cible": {**sec, "s0": 99.0}, "key": "Sec", "mode": "abscisse"})["ok"] is False
+    # poutre → tenseurs : σxx seul non nul
+    ten = appel("transfert.tenseur", {"beam": beam})["sortie"]["ten"]
+    assert ten["sig"][0][0] != 0 and ten["sig"][1][1] == 0 and ten["mat"] == beam["mat"]
+    assert appel("ten", {**FORMULAIRES["ten"]["defaut"], **ten})["ok"]
+    # section → cisaillement, flexion
+    c = appel("transfert.section_seule", {"sec": sec})["sortie"]["cible"]
+    assert appel("fle", {**FORMULAIRES["fle"]["defaut"], **c})["ok"]
+
+
+def test_abaques_kt_comme_le_bureau():
+    from mecastruct.core import kt_mohr
+
+    cat = appel("kt.catalogue")["sortie"]
+    assert {c["id"] for c in cat} == {c["id"] for c in kt_mohr.ktCharts()}
+    r = appel("kt", {"id": "arbre_epaulement_flexion", "p1": 0.1, "p2": 1.5})["sortie"]
+    assert abs(r["Kt"] - kt_mohr.evalKt("arbre_epaulement_flexion", [0.1, 1.5])) < 1e-12 and r["dansLeDomaine"]
+    assert abs(appel("kt", {"id": "plaque_trou_traction", "p1": 0.3, "p2": 0})["sortie"]["Kt"] - 2.34909) < 1e-4
+    assert not appel("kt", {"id": "arbre_epaulement_flexion", "p1": -1, "p2": 1.5})["ok"]

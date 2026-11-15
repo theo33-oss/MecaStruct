@@ -31,7 +31,7 @@ site (pages de RdM) s'ouvre dans l'application de bureau, et inversement.
 | Sections et contraintes | Sections, Sollicitations (traction, cisaillement, torsion, flexion), Tenseurs et critères, Hooke et jauges | oui |
 | Liaisons et guidages | Ajustements ISO 286, Frettage, Paliers lisses, Roulements | oui |
 | Transmission | Engrenages, Trains épicycloïdaux, Freins et embrayages, Dimensionnement moteur | oui |
-| Données et aide | Matériaux et profilés (ajouts gardés dans le navigateur), Convertisseur, Références, Limites | oui |
+| Données et aide | Matériaux et profilés (ajouts gardés dans le navigateur), abaques Kt, Convertisseur, Références, Limites | oui |
 
 Sur chaque page de calcul : verdict en toutes lettres, graphiques, tableaux à copier dans Excel, formules remplies
 avec vos valeurs, et pour la RdM un dossier de validation qui refait chaque grandeur à la main.

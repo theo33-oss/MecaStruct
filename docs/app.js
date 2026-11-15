@@ -261,6 +261,21 @@ const App = (() => {
     }
   }
 
+  // ---------- saisies des pages, partagées pour les échanges entre pages (section → Poutres…) ----------
+
+  // Saisie courante d'un calcul : celle gardée dans le navigateur, sinon les valeurs de l'exemple.
+  function lireSaisie(ident) {
+    const r = calculer("formulaires");
+    const defaut = r.ok && r.sortie[ident] ? r.sortie[ident].defaut : {};
+    const gardee = memoire.lire("saisie." + ident, {});
+    const s = JSON.parse(JSON.stringify(defaut));
+    for (const k of Object.keys(s)) if (k in gardee) s[k] = gardee[k];
+    return s;
+  }
+  function ecrireSaisie(ident, saisie) {
+    memoire.ecrire("saisie." + ident, saisie);
+  }
+
   // ---------- bibliothèques chargées à la demande ----------
 
   const PAQUETS_PONT = { structures: ["scipy", "shapely", "jinja2"] }; // famille du pont → bibliothèques Pyodide
@@ -459,5 +474,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();

@@ -26,3 +26,5 @@ ignore = ["E741"]
 # formulaires du pont : un champ par ligne, libellé et aide en entier (plus lisible que coupé)
 "mecastruct/pont/machines.py" = ["E501"]
 "mecastruct/pont/structures.py" = ["E501"]
+"mecastruct/pont/base.py" = ["E501"]
+"tests/test_pont.py" = ["E501", "B"]

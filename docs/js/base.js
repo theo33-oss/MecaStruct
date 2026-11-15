@@ -106,6 +106,58 @@
     panneau.append(el("p", { class: "legende", texte: "Pressions de matage admissibles (MPa) selon la liaison et les conditions." }), App.tableau(catalogue.matage));
   }
 
+  // Abaques de concentration de contrainte (Peterson) : Kt pour d/W (plaque) ou r/d et D/d (arbre épaulé).
+  function abaques(panneau) {
+    const cat = App.calculer("kt.catalogue").sortie;
+    const choix = el("select", { "aria-label": "Abaque" }, cat.map((c) => el("option", { value: c.id, texte: c.titre })));
+    const garde = App.memoire.lire("kt", {});
+    choix.value = cat.some((c) => c.id === garde.id) ? garde.id : "arbre_epaulement_flexion";
+    const champs = { p1: el("input", { type: "text", inputmode: "decimal" }), p2: el("input", { type: "text", inputmode: "decimal" }) };
+    const etiquettes = { p1: el("span"), p2: el("span") };
+    const sortie = el("div", { "aria-live": "polite" });
+    const description = el("div");
+    const bornes = { plaque: { p1: [0, 0.999, 0.3, "d/W (-)"] }, arbre: { p1: [0.01, 0.3, 0.1, "r/d (-)"], p2: [1.01, 6, 1.5, "D/d (-)"] } };
+    const forme = () => (cat.find((c) => c.id === choix.value).plaque ? "plaque" : "arbre");
+
+    const calculer = () => {
+      const b = bornes[forme()];
+      const s = { id: choix.value };
+      for (const k of ["p1", "p2"]) {
+        if (!b[k]) { s[k] = 0; continue; }
+        const [mini, maxi] = b[k];
+        const v = App.nombre(champs[k].value);
+        const faux = v === "" || Number.isNaN(v) || v < mini || v > maxi;
+        champs[k].classList.toggle("invalide", faux);
+        if (faux) return sortie.replaceChildren(App.message("avertissement", `${b[k][3]} : nombre entre ${App.fr(mini)} et ${App.fr(maxi)}.`));
+        s[k] = v;
+      }
+      App.memoire.ecrire("kt", { ...App.memoire.lire("kt", {}), id: s.id, [s.id]: s });
+      const r = App.calculer("kt", s);
+      if (!r.ok) return sortie.replaceChildren(App.message("erreur", r.erreur));
+      const k = r.sortie;
+      sortie.replaceChildren(
+        el("div", { class: "metriques" }, el("div", { class: "metrique" }, el("span", { texte: "Kt" }), el("strong", { texte: App.fr(Number(k.Kt.toPrecision(4))) }))),
+        k.dansLeDomaine ? "" : App.message("avertissement", "Paramètres hors du domaine de validité de l'abaque : valeur extrapolée, à prendre avec prudence."),
+        ...k.latex.map(App.formule), App.figure(k), el("ul", {}, k.rapport.map((l) => el("li", { texte: App.decimalesFr(l) }))));
+    };
+    const poser = () => {
+      const c = cat.find((x) => x.id === choix.value), b = bornes[forme()];
+      const enregistre = App.memoire.lire("kt", {})[choix.value] || {};
+      description.replaceChildren(el("p", { texte: c.description }), App.formule(c.latex));
+      for (const k of ["p1", "p2"]) {
+        champs[k].closest("label").hidden = !b[k];
+        if (b[k]) { etiquettes[k].textContent = b[k][3]; champs[k].value = App.fr(enregistre[k] ?? b[k][2]); }
+      }
+      calculer();
+    };
+    for (const k of ["p1", "p2"]) champs[k].addEventListener("input", calculer);
+    choix.addEventListener("change", poser);
+    panneau.append(el("p", { class: "legende", texte: "Concentration de contrainte : la contrainte maximale vaut Kt fois la contrainte nominale. Ajustements de Peterson (domaines de validité indiqués)." }),
+      el("label", { class: "large" }, "Abaque", choix), description,
+      el("div", { class: "grille" }, el("label", {}, etiquettes.p1, champs.p1), el("label", {}, etiquettes.p2, champs.p2)), sortie);
+    poser();
+  }
+
   function fichiers(panneau) {
     const message = el("div");
     const entree = el("input", { type: "file", accept: ".json,application/json", hidden: true });
@@ -139,6 +191,7 @@
       { id: "mat", titre: "Matériaux", rendu: (p) => materiaux(p, App.calculer("base.catalogue").sortie) },
       { id: "pro", titre: "Profilés", rendu: (p) => profils(p, c.sortie) },
       { id: "mata", titre: "Pressions de matage", rendu: (p) => matage(p, c.sortie) },
+      { id: "kt", titre: "Abaques Kt", rendu: abaques },
       { id: "fic", titre: "Mes ajouts", rendu: fichiers },
     ], "page.base"));
   });

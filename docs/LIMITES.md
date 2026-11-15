@@ -32,10 +32,10 @@ avant tout usage réel. Cette page dit ce qui a été vérifié, et contre quoi.
 
 Les deux versions exécutent le même code de calcul : pour une même saisie, elles donnent les mêmes nombres (un test
 le vérifie pour chaque page). Le site n'a pas encore : les dossiers PDF et Word (le dossier HTML, pour les pages de
-RdM, s'imprime en PDF depuis le navigateur), les abaques de concentration de contrainte, les transferts automatiques
-entre pages (section vers Poutres, poutre vers Tenseurs), le dossier de validation des pages de machines et de
-l'ossature 3D. Sur le site, les pages Cisaillement et Flexion utilisent la section de l'exemple ; le bureau reprend
-celle de la page Sections. Les ajouts de matériaux et de profilés faits sur le site restent dans ce navigateur : pour
+RdM, s'imprime en PDF depuis le navigateur), et le dossier de validation des pages de machines et de l'ossature 3D.
+Sur le site, les échanges entre pages se font par des boutons (« Envoyer la section vers Poutres et Flambage », « Lire
+les efforts de la poutre », « Prendre la section de la page Sections ») : rien n'est repris automatiquement, alors que
+sur le bureau Cisaillement et Flexion suivent la page Sections à chaque calcul. Les ajouts de matériaux et de profilés faits sur le site restent dans ce navigateur : pour
 les retrouver ailleurs, enregistrez-les dans un fichier (page Matériaux et profilés, onglet Mes ajouts).
 
 ## Non disponible

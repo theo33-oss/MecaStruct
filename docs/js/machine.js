@@ -83,6 +83,9 @@
     }
     if (c.type === "tableau") return tableauEditable(c, saisie, changer);
     if (c.type === "action") return action(c, saisie, outils);
+    if (c.type === "transfert") { // recopie des champs d'une page dans une autre (section → Poutres, efforts → Sections…)
+      return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.transfert(c) }));
+    }
     if (c.type === "extra") { // calcul complémentaire (combinaisons, Eurocode 3…) : son résultat s'affiche sous le résultat principal
       return el("div", { class: "action" }, el("button", { type: "button", class: "primaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.extra(c) }));
     }
@@ -250,6 +253,24 @@
     const zoneExtras = el("div", { class: "extras", "aria-live": "polite" });
     const extras = {}; // calcul → { saisie au moment du calcul, bloc affiché }
     const outils = {
+      // Les saisies des pages sources partent au calcul ; ce qu'il rend est écrit dans la saisie de chaque page cible
+      // (fusion champ par champ : un champ absent du résultat garde sa valeur). « self » désigne cette page.
+      transfert: (c) => {
+        if (invalides.size) return signaler("avertissement", "Corrigez d'abord les champs signalés en rouge.");
+        const demande = { ...(c.params || {}) };
+        for (const [cle, page] of Object.entries(c.entrees || {})) demande[cle] = page === "self" ? saisie : App.lireSaisie(page);
+        const r = App.calculer(c.calcul, demande);
+        if (!r.ok) return signaler("erreur", r.erreur);
+        let ici = null;
+        for (const [cle, page] of Object.entries(c.sorties || {})) {
+          if (page === "self") ici = r.sortie[cle];
+          else App.ecrireSaisie(page, { ...App.lireSaisie(page), ...r.sortie[cle] });
+        }
+        const texte = r.sortie.info || `${c.libelle} : fait.`;
+        if (ici) { Object.assign(saisie, ici); enregistrer(); dessinerChamps(); (auto ? relancer : apercu)(); }
+        const lien = c.ouvrir ? el("a", { href: "#/" + c.ouvrir[0], texte: c.ouvrir[1] }) : null;
+        zoneMessage.replaceChildren(el("p", { class: "message succes", role: "status" }, texte + " ", lien));
+      },
       extra: (c) => {
         if (invalides.size) return signaler("avertissement", "Corrigez d'abord les champs signalés en rouge.");
         const bloc = el("section", { class: "extra" }, el("h3", { texte: c.titre || c.libelle }), App.message("info", "Calcul en cours…"));

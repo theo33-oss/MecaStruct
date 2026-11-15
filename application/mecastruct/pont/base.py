@@ -138,3 +138,32 @@ def restaurer(s):
                 ignores += 1
     noyau.invalider_formulaires()
     return {"ignores": ignores}
+
+
+# ------------------------------------------------------------------------------------- abaques de concentration de contrainte
+
+
+@calcul("kt.catalogue")
+def ktCatalogue(_s):
+    """Abaques Kt disponibles (identifiant, titre, description, formule, paramètres)."""
+    from mecastruct.core import kt_mohr
+
+    return [{"id": c["id"], "titre": c["title"], "description": c["description"], "latex": c["latex"], "params": c["params"],
+             "plaque": c["id"] == "plaque_trou_traction"} for c in kt_mohr.ktCharts()]  # fmt: skip
+
+
+@calcul("kt")
+def kt(s):
+    """Kt de l'abaque choisi pour d/W (plaque) ou r/d et D/d (arbre épaulé), avec l'abaque et le point calculé."""
+    import plotly.graph_objects as go
+
+    from mecastruct.core import kt_mohr
+    from mecastruct.plots.other_plots import ktChart
+
+    ident = s["id"]
+    prm = float(s["p1"]) if ident == "plaque_trou_traction" else [float(s["p1"]), float(s["p2"])]
+    valeur, info = kt_mohr.evalKtInfo(ident, prm)
+    fig = ktChart(ident)
+    fig.add_trace(go.Scatter(x=[float(s["p1"])], y=[float(valeur)], mode="markers", marker={"size": 12, "color": "rgb(217,84,26)"},
+                             name=f"K<sub>t</sub> = {float(valeur):.4g}"))  # fmt: skip
+    return {"Kt": float(valeur), "dansLeDomaine": bool(info["inRange"]), "rapport": list(info["report"]), "latex": list(info["latex"]), "figure": fig}

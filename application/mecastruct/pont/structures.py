@@ -17,6 +17,7 @@ from plotly.subplots import make_subplots
 from mecastruct.core import buckling, frame3d, geometry
 from mecastruct.core.data_manager import sectionPresets
 from mecastruct.core.pp import asPP
+from mecastruct.core.units import fromSI
 from mecastruct.plots import beam_plots, other_plots, section_plots, sollicitation_plots
 from mecastruct.pont.formulaire import case, col, groupe, liste, nb, tableau, texte
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
@@ -407,6 +408,65 @@ def flambageProfil(s):
     return {"S": p["S"] * 1e6, "Iz": p["Iz"] * 1e12, "Iy": p["Iy"] * 1e12}
 
 
+# --------------------------------------------------------------------------- échanges entre les pages
+# Chaque transfert reçoit les saisies des pages concernées et rend les champs à recopier ; la page web les écrit
+# dans la saisie de la page cible (mêmes règles que bureau/transfert.py et les boutons de bureau/pages).
+
+
+def _transfert(nom: str, entrees: dict, sorties: dict, params: dict | None = None, **autres) -> dict:
+    """Bouton de transfert : `entrees` {clé: page source ou "self"}, `sorties` {clé: page cible ou "self"}."""
+    return {"id": f"t-{nom}", "type": "transfert", "calcul": f"transfert.{nom}", "entrees": entrees, "sorties": sorties,
+            "params": params or {}, **autres}  # fmt: skip
+
+
+@calcul("transfert.section")
+def transfertSection(s):
+    """Section calculée de la page Sections → Poutres (S, inerties, ky, kz, fibres, matériau) et Flambage (S, Iz, Iy…)."""
+    base = dm()
+    saisie = s["sec"]
+    res = compute.computeSection(saisie, base)["result"]
+    mat = saisie["mat"]
+    beam = beam_design.sectionToBeamInput(s.get("beam") or loadExample("Beam"), res["sec"], res["P"], base.getMaterial(mat))
+    P = res["P"]
+    fla = {"S": beam["S"], "Iz": beam["Iz"], "Iy": beam["Iy"], "mat": mat, **compute._materiau(base, mat, ["E", "Re"])}
+    info = f"Section utilisée : {compute._sectionLabel(res['sec'])} (importée de Sections)."
+    if res["sec"]["type"] != "profile" and abs(P["Iyz"]) > 1e-9 * (P["Iz"] * P["Iy"]) ** 0.5:
+        fla.update(Iz=fromSI(P["I1"], "mm^4"), Iy=fromSI(P["I2"], "mm^4"))
+        info = (f"Section utilisée : {compute._sectionLabel(res['sec'])} (importée de Sections, Iyz ≠ 0 : moments principaux "
+                f"I1, I2, axes tournés de {P['alphaP'] * 180 / math.pi:.4g}°).")  # fmt: skip
+    return {"beam": beam, "fla": fla, "info": info}
+
+
+@calcul("transfert.section_seule")
+def transfertSectionSeule(s):
+    """Section de la page Sections pour Cisaillement ou Flexion (Jourawski, axe neutre)."""
+    res = compute.computeSection(s["sec"], dm())["result"]
+    return {"cible": {"section": res["sec"]}, "info": f"Section utilisée : {compute._sectionLabel(res['sec'])} (page Sections)."}
+
+
+@calcul("transfert.efforts")
+def transfertEfforts(s):
+    """Efforts de la poutre (N, Mfz, Mfy, Ty) → Sections ou Flexion, en s ou au point le plus sollicité."""
+    res = beam_services.computeBeam(s["beam"], dm())
+    cible = beam_design.loadFromBeam(s["cible"], res, s["key"], s["mode"])
+    note = "Résultats NON fiables (hyperstatique, Iyz ≠ 0). " if res["unreliable"] else ""
+    info = (f"{note}Efforts lus sur la poutre en s = {cible['s0']:.4g} m : N = {cible['N']:.4g} kN, "
+            f"Mfz = {cible['Mfz']:.4g} kN·m, Mfy = {cible['Mfy']:.4g} kN·m.")  # fmt: skip
+    return {"cible": cible, "info": info}
+
+
+@calcul("transfert.tenseur")
+def transfertTenseur(s):
+    """État de contrainte du point le plus sollicité de la poutre → Tenseurs et critères."""
+    base = dm()
+    beam = s["beam"]
+    etat = beam_design.sendToTensor(beam_services.computeBeam(beam, base))
+    y, z = etat["loc"][0] * 1e3, etat["loc"][1] * 1e3
+    ten = {"sig": etat["sig"].tolist(), "mat": beam["mat"], "Re": beam["Re"], "Rm": base.getMaterial(beam["mat"])["Rm"] / 1e6, "s": beam["s"]}
+    info = f"État de la poutre transmis : s = {etat['s']:.4g} m, (y, z) = ({y:.4g} ; {z:.4g}) mm, σxx = {etat['sig'][0, 0]:.5g} MPa."
+    return {"ten": ten, "info": info}
+
+
 # -------------------------------------------------------------------------------------------------- formulaires
 
 
@@ -492,6 +552,11 @@ def _formulaires() -> dict:
                        nb("mvN", "Positions de base du convoi", "", 2, entier=True), case("mvFixed", "Ajouter les charges fixes saisies"),
                        {"id": "b-mob", "type": "extra", "libelle": "Calculer l'enveloppe de la charge mobile", "calcul": "beam.mobile", "titre": "Charge mobile"},
                        ouvert=False),
+                groupe("Échanges avec les autres pages",
+                       _transfert("section", {"sec": "sec", "beam": "self"}, {"beam": "self"}, libelle="← Importer la section de la page Sections",
+                                  aide="Recopie S, Iz, Iy, Ix, Iyz, ky, kz, fibres extrêmes et matériau de la page Sections (à utiliser après l'avoir calculée)."),
+                       _transfert("tenseur", {"beam": "self"}, {"ten": "ten"}, libelle="Envoyer le point le plus sollicité vers Tenseurs et critères", ouvrir=["tenseurs", "Ouvrir Tenseurs et critères"],
+                                  aide="Transmet l'état de contrainte σxx de la fibre la plus sollicitée, avec le matériau et la sécurité de la poutre."), ouvert=False),
                 groupe("Profilé le plus léger", nb("pdef", "Flèche max L / … (0 = ignorée)", "", 0.0, aide="300 impose f ≤ L/300, en plus de Kt·σ ≤ Re/s."),
                        {"id": "b-leger", "type": "extra", "libelle": "Chercher le profilé le plus léger (famille choisie dans Section)", "calcul": "beam.leger", "titre": "Profilé le plus léger"},
                        ouvert=False),
@@ -560,7 +625,6 @@ def _formulaires_rdm() -> dict:
     return {
         "sec": {
             **commun, "titre": "Section", "defaut": loadExample("Sec"), "apercu": True, "exemples": exampleNames("Sec"),
-            "caches": ["s0"],
             "groupes": [
                 groupe("Type de section",
                        liste("type", "Type de section", [t["type"] for t in types], etiquettes=[t["label"] for t in types]),
@@ -577,6 +641,12 @@ def _formulaires_rdm() -> dict:
                        nb("N", "N : traction > 0", "kN"), nb("Mfz", "Mfz : plan (x, y), fibres du haut comprimées si > 0", "kN·m"),
                        nb("Mfy", "Mfy : plan (x, z), fibres z > 0 tendues si > 0", "kN·m"), nb("Ty", "Ty : tranchant en y", "kN"),
                        nb("Kt", "Kt", "", 1.0)),
+                groupe("Échanges avec les autres pages",
+                       _transfert("section", {"sec": "self", "beam": "beam", "fla": "fla"}, {"beam": "beam", "fla": "fla"}, libelle="Envoyer la section vers Poutres et Flambage", ouvrir=["poutres", "Ouvrir Poutres"],
+                                  aide="Poutres reçoit S, inerties, ky, kz, fibres extrêmes et matériau ; Flambage reçoit S, Iz, Iy, E et Re (moments principaux si Iyz ≠ 0)."),
+                       nb("s0", "Abscisse s sur la poutre", "m", aide="Position de la coupure dans la page Poutres (de 0 à L)."),
+                       _transfert("efforts_s", {"beam": "beam", "cible": "self"}, {"cible": "self"}, {"key": "Sec", "mode": "abscisse"}, calcul="transfert.efforts", libelle="← Lire les efforts de la poutre en s"),
+                       _transfert("efforts_max", {"beam": "beam", "cible": "self"}, {"cible": "self"}, {"key": "Sec", "mode": "max"}, calcul="transfert.efforts", libelle="← Lire les efforts au point le plus sollicité"), ouvert=False),
             ],
         },
         "tra": {
@@ -594,6 +664,9 @@ def _formulaires_rdm() -> dict:
             **commun, "titre": "Cisaillement", "defaut": loadExample("Cis"), "caches": ["section"],
             "suites": {"mat": {"calcul": "materiau", "champs": ["Re", "G"]}},
             "groupes": [
+                groupe("Section pour Jourawski",
+                       _transfert("section_seule", {"sec": "sec"}, {"cible": "self"}, libelle="← Prendre la section de la page Sections",
+                                  aide="Sans cela, Jourawski utilise la section de l'exemple (IPE 200)."), ouvert=False),
                 groupe("Matériau et critère", liste("mat", "Matériau", noms), nb("Re", "Re", "MPa"), nb("G", "G", "GPa"),
                        liste("crit", "Critère (τe)", CRITERES[0], etiquettes=CRITERES[1]), nb("s", "Coefficient de sécurité s", "")),
                 groupe("Cisaillement simple et Jourawski", nb("T", "T", "kN"), nb("S", "S cisaillée", "mm²", 0.0), nb("k", "k = τmax/τmoy", ""),
@@ -614,12 +687,17 @@ def _formulaires_rdm() -> dict:
                                nb("Kt", "Kt", "", 1.0), nb("thetaAdm", "θ admissible (0 = sans)", "°/m", 0.0))],
         },
         "fle": {
-            **commun, "titre": "Flexion", "defaut": loadExample("Fle"), "caches": ["s0", "section"],
+            **commun, "titre": "Flexion", "defaut": loadExample("Fle"), "caches": ["section"],
             "suites": {"mat": {"calcul": "materiau", "champs": ["Re"]}},
             "groupes": [
                 groupe("Efforts dans la section étudiée", nb("N", "N : traction > 0", "kN"), nb("Mfz", "Mfz : plan (x,y)", "kN·m"),
                        nb("Mfy", "Mfy : plan (x,z)", "kN·m"),
                        note="Section de l'exemple ; dans l'application de bureau, celle de la page Sections et les efforts de la poutre."),
+                groupe("Reprendre la section et les efforts",
+                       _transfert("section_seule", {"sec": "sec"}, {"cible": "self"}, libelle="← Prendre la section de la page Sections"),
+                       nb("s0", "Abscisse s sur la poutre", "m", aide="Position de la coupure dans la page Poutres (de 0 à L)."),
+                       _transfert("efforts_s", {"beam": "beam", "cible": "self"}, {"cible": "self"}, {"key": "Fle", "mode": "abscisse"}, calcul="transfert.efforts", libelle="← Lire les efforts de la poutre en s"),
+                       _transfert("efforts_max", {"beam": "beam", "cible": "self"}, {"cible": "self"}, {"key": "Fle", "mode": "max"}, calcul="transfert.efforts", libelle="← Lire les efforts au point le plus sollicité"), ouvert=False),
                 groupe("Kt, matériau et sécurité", nb("Kt", "Kt", "", 1.0), liste("mat", "Matériau", noms), nb("Re", "Re", "MPa"),
                        nb("s", "Coefficient de sécurité s", "")),
             ],
@@ -632,6 +710,7 @@ def _formulaires_rdm() -> dict:
                        {**liste("prof", "Profilé", []), "options_de": {"calcul": "profils", "cle": "famille", "depuis": "fam"}},
                        {"id": "charger", "type": "bouton", "libelle": "Charger le profilé", "calcul": "fla.profil",
                         "aide": "Remplit S, Iz et Iy avec les valeurs du catalogue."},
+                       _transfert("section", {"sec": "sec"}, {"fla": "self"}, libelle="← Importer depuis Sections", aide="Recopie S, Iz, Iy et le matériau de la page Sections (à calculer d'abord)."),
                        nb("S", "S", "mm²", 0.0), nb("Iz", "Iz", "mm⁴", 0.0), nb("Iy", "Iy", "mm⁴", 0.0)),
                 groupe("Poutre comprimée", liste("mat", "Matériau", noms), nb("E", "E", "GPa"), nb("Re", "Re", "MPa"),
                        nb("L", "Longueur L", "m", 0.0),
@@ -646,6 +725,9 @@ def _formulaires_rdm() -> dict:
             "groupes": [
                 groupe("Tenseur des contraintes σ (MPa)", {"id": "sig", "type": "matrice", "libelle": "σ (MPa)", "noms": ["x", "y", "z"], "symetrique": True,
                                                            "aide": "Une case modifiée est recopiée en position symétrique (σij = σji)."}),
+                groupe("Reprendre l'état de la poutre",
+                       _transfert("tenseur", {"beam": "beam"}, {"ten": "self"}, libelle="← Prendre le point le plus sollicité de la poutre",
+                                  aide="σxx de la fibre la plus sollicitée de la page Poutres, avec son matériau et sa sécurité."), ouvert=False),
                 groupe("Facette", liste("fmode", "Définition", ["theta", "n"], etiquettes=["Angle θ dans le plan (x, y)", "Normale n (nx, ny, nz)"]),
                        si(nb("theta", "θ", "°"), "fmode", "theta"),
                        si(nb("nx", "nx", ""), "fmode", "n"), si(nb("ny", "ny", ""), "fmode", "n"), si(nb("nz", "nz", ""), "fmode", "n")),
