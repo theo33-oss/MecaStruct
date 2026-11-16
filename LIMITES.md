@@ -75,7 +75,8 @@ Le site seul a le diagramme des modes de ruine, l'export bloc-notes et l'Excel d
 
 Le diagramme reprend les vérifications déjà faites par le calcul : il n'en ajoute aucune. Le coefficient de sécurité
 obtenu est la limite du matériau divisée par la valeur calculée (Re/σ) ; le mode est admissible quand il atteint le
-coefficient demandé. Treillis, ossature 3D, sections, Hooke, jauges, ajustements, trains d'engrenages et freins n'ont
+coefficient demandé. Pour l'ossature 3D, la contrainte de la pièce la plus sollicitée est comparée à Re sans
+coefficient de sécurité (indicatif). Treillis, sections, Hooke, jauges, ajustements, trains d'engrenages et freins n'ont
 pas de limite à comparer : ils gardent un simple message. La flèche d'une poutre n'est pas un critère du calcul
 principal (seulement de la recherche du profilé le plus léger).
 

@@ -155,7 +155,7 @@ def test_ossature_3d_tous_les_exemples_sont_a_l_equilibre():
         e = appel("ossature.exemple", {"nom": nom})["sortie"]
         r = appel("ossature", {**f["defaut"], **e})
         assert r["ok"], f"{nom} : {r.get('erreur')}"
-        assert r["sortie"]["ok"], nom
+        assert r["sortie"]["ok"] is None and "Équilibre global vérifié" in r["sortie"]["status"], nom  # équilibre juste, pas de verdict de résistance
     assert set(f["exemples"]) == set(ossature3d.exemples(pont.noyau.dm()))
 
 

@@ -5,7 +5,7 @@
 
 const App = (() => {
   const $ = (id) => document.getElementById(id);
-  const VERSION = "1.3.1";
+  const VERSION = "1.3.2";
   const DEPOT = "https://github.com/theo33-oss/MecaStruct";
   let pont = null;
   const genres = {};
@@ -153,6 +153,8 @@ const App = (() => {
 
   // Tableau {entetes, lignes} du pont, avec un bouton qui le copie pour Excel (tabulations).
   function tableau(t, titre) {
+    // un nombre resté avec un point (texte du calcul) passe à la virgule ; les références de clause (« 6.3.2 ») ne bougent pas
+    t = { ...t, lignes: t.lignes.map((l) => l.map((c) => (/^[−\-+]?\d+\.\d+(e[−\-+]?\d+)?$/.test(String(c).trim()) ? decimalesFr(c) : c))) };
     const tab = el("table", {},
       el("thead", {}, el("tr", {}, t.entetes.map((e) => el("th", { scope: "col", texte: e })))),
       el("tbody", {}, t.lignes.map((ligne) => el("tr", {}, ligne.map((c, j) => {
@@ -200,6 +202,11 @@ const App = (() => {
     layout.font = { ...(layout.font || {}), color: encre };
     layout.autosize = true;
     layout.separators = ", "; // virgule décimale, espace des milliers, comme le reste du site
+    // textes écrits par le calcul (« N1 = 18.75 ») : virgule aussi
+    if (layout.annotations) layout.annotations = layout.annotations.map((a) => (typeof a.text === "string" ? { ...a, text: decimalesFr(a.text) } : a));
+    if (layout.title && typeof layout.title.text === "string") layout.title = { ...layout.title, text: decimalesFr(layout.title.text) };
+    data = data.map((d) => ({ ...d, ...(typeof d.name === "string" ? { name: decimalesFr(d.name) } : {}),
+      ...(typeof d.text === "string" ? { text: decimalesFr(d.text) } : Array.isArray(d.text) ? { text: d.text.map((x) => (typeof x === "string" ? decimalesFr(x) : x)) } : {}) }));
     delete layout.width;
     if (layout.title && layout.title.text) layout.title = { ...layout.title, x: 0.01, xanchor: "left" };
     Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr" });

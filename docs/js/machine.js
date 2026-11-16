@@ -109,17 +109,25 @@
     return el("label", { aide }, titre, input, erreur);
   }
 
+  // Noms affichés des exemples (les identifiants restent ceux de l'application de bureau).
+  const NOMS_EXEMPLES = { isostatique: "Poutre isostatique", hyperstatique: "Poutre hyperstatique", console: "Console",
+    deuxtravees: "Deux travées", gerber: "Poutre Gerber (rotule)", tassement: "Tassement d'appui", constante: "Section constante",
+    variable: "Section variable", iso3D: "Hooke 3D isotrope", planeStress: "Contraintes planes", planeStrain: "Déformations planes",
+    ortho: "Orthotrope" };
+
   // Liste + bouton : le choix part au calcul indiqué, qui rend des valeurs à recopier dans la saisie (profilé…).
   function action(c, saisie, outils) {
     const select = el("select");
     const remplir = () => {
       const o = c.options_de;
       const r = o ? App.calculer(o.calcul, { [o.cle]: saisie[o.depuis] }) : { ok: true, sortie: c.options || [] };
-      select.replaceChildren(...(r.ok ? r.sortie : []).map((x) => el("option", { value: x, texte: x })));
+      // premier choix vide : la liste ne laisse pas croire que le premier profilé est celui de la saisie
+      select.replaceChildren(el("option", { value: "", texte: "— choisir —" }), ...(r.ok ? r.sortie : []).map((x) => el("option", { value: x, texte: x })));
     };
     remplir();
     outils.surChangement((id) => { if (c.options_de && id === c.options_de.depuis) remplir(); });
     const bouton = el("button", { type: "button", class: "secondaire", texte: c.bouton, onclick: () => {
+      if (!select.value) return outils.signaler("avertissement", `${c.libelle} : choisissez d'abord une ligne dans la liste.`);
       const r = App.calculer(c.calcul, { ...saisie, choix: select.value });
       if (r.ok) outils.fusionner(r.sortie, `${c.libelle} : ${select.value} appliqué.`);
       else outils.signaler("erreur", r.erreur);
@@ -305,7 +313,7 @@
       const haut = el("div", { class: "actions-saisie" });
       if (!auto) haut.append(el("button", { type: "submit", class: "primaire", texte: "Calculer", aide: "Lance le calcul (Entrée dans un champ)." }));
       if ((f.exemples || []).length) {
-        const choix = el("select", { "aria-label": "Exemple" }, f.exemples.map((n) => el("option", { value: n, texte: n })));
+        const choix = el("select", { "aria-label": "Exemple" }, f.exemples.map((n) => el("option", { value: n, texte: NOMS_EXEMPLES[n] || n })));
         haut.append(choix, el("button", { type: "button", class: "secondaire", texte: "Charger l'exemple", onclick: () => {
           const r = App.calculer(ident + ".exemple", { nom: choix.value });
           if (!r.ok) return signaler("erreur", r.erreur);
@@ -338,10 +346,10 @@
       }));
       if (auto) formulaire.append(el("button", { type: "submit", hidden: true, texte: "Calculer" }));
       if (f.note) { // la source et les écarts avec le cours sont repliés : une phrase utile reste visible
-        const coupe = f.note.search(/(^|\s)(Source|Fatigue|Formules classiques) ?:? /);
+        const coupe = f.note.search(/(^|\s)(Source|Fatigue|Formules classiques|Exemples) ?:? /);
         const tete = coupe > 0 ? f.note.slice(0, coupe).trim() : coupe === 0 ? "" : f.note;
         if (tete) formulaire.append(el("p", { class: "legende note", texte: tete }));
-        if (coupe >= 0) formulaire.append(el("details", { class: "source" }, el("summary", { texte: "Source et écarts avec le cours" }),
+        if (coupe >= 0) formulaire.append(el("details", { class: "source" }, el("summary", { texte: /Exemples ?:/.test(f.note) ? "Détail des exemples" : "Source et écarts avec le cours" }),
           el("p", { class: "legende note", texte: f.note.slice(coupe).trim() })));
       }
       formulaire.append(barreFichiers());
@@ -506,7 +514,8 @@
           el("span", { class: "mode-etat", texte: c.ok ? "Admissible" : "Non admissible" }),
           barre,
           el("span", { class: "mode-chiffres" },
-            el("span", { texte: `${nf(c.valeur, 4)}${u} pour ${nf(c.limite, 4)}${u} ${c.sens === "max" ? "admissibles" : "requis"}` }),
+            // taux sans unité d'une norme (effort / résistance ≤ 1) : le taux en % suffit
+            (!c.unite && c.limite === 1) ? null : el("span", { texte: `${nf(c.valeur, 4)}${u} pour ${nf(c.limite, 4)}${u} ${c.sens === "max" ? "admissibles" : "requis"}` }),
             el("span", { texte: `taux ${nf(100 * c.taux)} %` }), marge)));
       }
       return el("section", { class: "bilan " + etat },

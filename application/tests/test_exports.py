@@ -59,7 +59,7 @@ def test_criteres_coherents_avec_le_verdict(ident):
         assert not all(x["ok"] for x in c), c
 
 
-@pytest.mark.parametrize("ident", ["truss", "ossature", "hoo", "jau", "aju", "rlt_ens", "trn", "frn"])
+@pytest.mark.parametrize("ident", ["truss", "hoo", "jau", "aju", "rlt_ens", "trn", "frn"])
 def test_calculs_sans_critere(ident):
     assert appel(ident).get("criteres", []) == []
 
@@ -186,3 +186,12 @@ def test_audit_utilisateur():
     assert [c["ok"] for c in epi["controles"]] == [True, True] and epi["titre_controles"] == "Conditions de montage"
     assert appel("rlt")["criteres"][0]["genre"] == "limite" and appel("fle")["criteres"][0]["genre"] == "resistance"
     assert FORMULAIRES["tra"]["groupes"][0]["champs"][3]["familles"]  # matériaux rangés par famille
+
+
+def test_audit_des_pages_restantes():
+    oss = appel("ossature")
+    c = oss["criteres"]
+    assert oss["ok"] is None and len(c) == 1 and c[0]["unite"] == "MPa" and c[0]["mode"].startswith("Contrainte σ max, pièce")
+    assert c[0]["valeur"] == pytest.approx(102.9, rel=1e-2) and c[0]["limite"] == pytest.approx(235.0)
+    assert appel("truss")["status"].startswith("Treillis isostatique (degré d'hyperstaticité h = 0)")
+    assert "lent" not in FORMULAIRES["sec"]

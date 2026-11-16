@@ -246,7 +246,10 @@ def treillis(s):
     calc = validation_report.recompute("Tr", s, dm(), None)
     r = calc["result"]
     figure = _figure(lambda: other_plots.truss(r["truss"], r["tsol"], s["scale"] if s["scale"] > 0 else None))
-    return _sortie("Tr", s, calc, [("Treillis", figure)], latex=r["tsol"].get("latex", []))
+    sortie = _sortie("Tr", s, calc, [("Treillis", figure)], latex=r["tsol"].get("latex", []))
+    # « h = 0 (isostatique) » ne dit rien à qui ne connaît pas la notation
+    sortie["status"] = re.sub(r"^h = (-?\d+) \((\w+)\)", r"Treillis \2 (degré d'hyperstaticité h = \1)", sortie["status"])
+    return sortie
 
 
 @calcul("truss.apercu")
@@ -287,8 +290,13 @@ def ossature(s):
         fig.add_trace(trace, row=k // 2 + 1, col=k % 2 + 1)
     fig.update_layout(height=640, margin={"l": 50, "r": 10, "t": 60, "b": 30}, title=f"Efforts internes de la pièce {piece}")
     fig.update_xaxes(title_text="s (mm)")
+    limites = {e["id"]: e.get("Re") for e in data["elements"]}
+    crit = criteres.trier([c for c in (criteres.ligne(f"Contrainte σ max, pièce {i}", c["sigma_max"], limites.get(i), "MPa")
+                                       for i, c in res["contraintes"].items() if c["sigma_max"] is not None) if c is not None])[:1]  # fmt: skip
+    for c in crit:  # la pièce la plus sollicitée, en MPa
+        c.update(valeur=c["valeur"] / 1e6, limite=c["limite"] / 1e6)
     if eq["ok"]:
-        status = "Équilibre global vérifié (réactions + charges = 0)."
+        status = "Équilibre global vérifié (réactions + charges = 0). σ est comparée à Re sans coefficient de sécurité : à vous de juger la marge."
     else:
         status = f"Écart d'équilibre : ΣF = {np.round(eq['forces'], 6).tolist()} N, ΣM = {np.round(eq['moments'], 6).tolist()} N·m."
     tables = {"Déplacements": ossature3d._table_deplacements(res), "Réactions": ossature3d._table_reactions(res),
@@ -298,7 +306,8 @@ def ossature(s):
         rapport.append("σ non calculée pour une pièce sans module de flexion Wy ou Wz : saisissez-les (section « perso »).")
     metriques = [["Déplacement max", f"{dmax['valeur'] * 1e3:.4g} mm (nœud {dmax['noeud']})"],
                  ["σmax", f"{max(sig) / 1e6:.4g} MPa" if sig else "non calculée"], ["Amplification de la vue", f"× {ampli:g}"]]  # fmt: skip
-    return {"status": status, "ok": bool(eq["ok"]), "metriques": metriques,
+    # ok : None si l'équilibre est juste (pas de verdict de résistance, aucun coefficient de sécurité n'est demandé)
+    return {"status": status, "ok": None if eq["ok"] else False, "criteres": crit, "metriques": metriques,
             "figures": [{"titre": "Vue 3D", "figure": ossature3d._vue_3d(res, data, ampli)}, {"titre": "Efforts internes", "figure": fig}],
             "tables": tables, "latex": [*formules, *res["latex"]], "rapport": rapport, "explications": [], "blocs": []}  # fmt: skip
 
@@ -638,7 +647,6 @@ def _formulaires_rdm() -> dict:
     return {
         "sec": {
             **commun, "titre": "Section", "defaut": loadExample("Sec"), "apercu": True, "exemples": exampleNames("Sec"),
-            "lent": True,  # intégrales symboliques : pas de calcul automatique à l'ouverture de la page
             "groupes": [
                 groupe("Type de section",
                        liste("type", "Type de section", [t["type"] for t in types], etiquettes=[t["label"] for t in types]),
