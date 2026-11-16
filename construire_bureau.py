@@ -54,6 +54,10 @@ def pyinstaller(ico: Path) -> Path:
         # les pages sont importées par leur nom (importlib) : PyInstaller ne les voit pas seul
         *[a for f in sorted((appli / "mecastruct" / "bureau" / "pages").glob("[a-z]*.py"))
           for a in ("--hidden-import", f"mecastruct.bureau.pages.{f.stem}")],
+        # le pont web sert aussi le bureau (bloc-notes et Excel de validation) : il charge ses familles par leur nom
+        *[a for f in sorted((appli / "mecastruct" / "pont").glob("[a-z]*.py"))
+          for a in ("--hidden-import", f"mecastruct.pont.{f.stem}")],
+        "--hidden-import", "mecastruct.services.export_validation", "--hidden-import", "mecastruct.services.export_texte",
         "--add-data", f"{appli / 'data'}{sep}data",
         "--add-data", f"{appli / 'aide'}{sep}aide",
         "--add-data", f"{appli / 'mecastruct' / 'services' / 'templates'}{sep}mecastruct/services/templates",
