@@ -333,7 +333,7 @@ $$\sigma_{ij}=\lambda\,\mathrm{tr}(\varepsilon)\delta_{ij}+2\mu\,\varepsilon_{ij
 <!-- ================================================================== -->
 <h2 id="donnees">14. Données matériaux et profilés</h2>
 <ul>
-  <li><strong>Matériaux</strong> : valeurs du cours, tels quelles (aciers S185 à S355 avec $E=190$ GPa ; XC 38 à 48 avec $E=210$ GPa, $G=80$ GPa ; aluminium, titane, fontes, laiton, Plexiglas). Les valeurs ajoutées par le logiciel (marquées « usuelle » dans la colonne Note) complètent les constantes manquantes. Pour une plage de valeurs, $R_e$ et $R_m$ prennent la borne basse (côté sécurité) et la plage est dans la Note.</li>
+  <li><strong>Matériaux</strong> : valeurs du cours, sauf le module d'Young des aciers S185 à S355 (aciers S185 à S355 et XC 38 à 48 avec $E=210$ GPa : Eurocode 3, rapport de matériaux et mesures de TP ; l'application MATLAB d'origine utilisait $E=190$ GPa pour les S185 à S355) ; aluminium, titane, fontes, laiton, Plexiglas. Les valeurs ajoutées par le logiciel (marquées « usuelle » dans la colonne Note) complètent les constantes manquantes. Pour une plage de valeurs, $R_e$ et $R_m$ prennent la borne basse (côté sécurité) et la plage est dans la Note.</li>
   <li><strong>Constante manquante</strong> : $G=E/(2(1+\nu))$ ; cohérence vérifiée si $E,G,\nu$ sont tous donnés (alerte si écart > 5 %).</li>
   <li><strong>Profilés</strong> : IPN, IPE, HEA, HEB, UPN, UAP, valeurs des tables européennes. Cohérence testée : $r_z\approx\sqrt{I_z/S}$ et $W_z\approx I_z/(h/2)$ à 2 % près.</li>
   <li><strong>Coefficients $K_t$</strong> : ajustements de Peterson $K_t=A\,(r/d)^b$ avec interpolation linéaire de $A$ et $b$ en $D/d$ (arbre épaulé : flexion, torsion, traction) et formule pour la plaque trouée en traction. Ce sont des <strong>ajustements</strong> et non les abaques d'origine : à contrôler pour un cas critique.</li>
@@ -359,14 +359,14 @@ $$\sigma_{ij}=\lambda\,\mathrm{tr}(\varepsilon)\delta_{ij}+2\mu\,\varepsilon_{ij
 </table>
 
 <h3>Cas de contrôle de bout en bout (à refaire à la main)</h3>
-<div class="demo"><strong>Cas 1 — IPE 200, S235, 2 appuis, $L=4$ m, $q=10$ kN/m.</strong> $I_z=1{,}943\cdot10^7$ mm⁴, $W_z=194{,}3\cdot10^3$ mm³, $E=190$ GPa.
+<div class="demo"><strong>Cas 1 — IPE 200, S235, 2 appuis, $L=4$ m, $q=10$ kN/m.</strong> $I_z=1{,}943\cdot10^7$ mm⁴, $W_z=194{,}3\cdot10^3$ mm³, $E=210$ GPa.
 <ul>
   <li>$M_{max}=qL^2/8=20$ kN·m ; $\sigma_{max}=20\cdot10^6/194\,300=102{,}9$ MPa.</li>
-  <li>$f=\dfrac{5\times10\times4000^4}{384\times190\,000\times1{,}943\cdot10^7}=9{,}029$ mm.</li>
-  <li>Résultat de l'application : 9,029 mm par les 4 méthodes ; $\sigma=102{,}93$ MPa.</li>
+  <li>$f=\dfrac{5\times10\times4000^4}{384\times210\,000\times1{,}943\cdot10^7}=8{,}169$ mm.</li>
+  <li>Résultat de l'application : 8,169 mm par les 4 méthodes ; $\sigma=102{,}93$ MPa.</li>
 </ul></div>
 <div class="demo"><strong>Cas 2 — poutre de 6 m, pivot en A, appui simple en B, force de 20 kN à 2 m, charge répartie de 10 kN/m.</strong> Réactions $Y_B=(20\times2+60\times3)/6=36{,}67$ kN, $Y_A=43{,}33$ kN ; $M_{max}$ à $s=2{,}333$ m : 67,22 kN·m. Mêmes valeurs dans l'application.</div>
-<div class="demo"><strong>Cas 3 — flambage HEA 200, S235, $L=4$ m, articulé-articulé, $P=300$ kN, $s=2$.</strong> $r_{min}=49{,}8$ mm ; $\lambda=80{,}3$ ; $\lambda_{lim}=89{,}3$ ; Rankine : $P_{cr}=699{,}7$ kN ; $P_{adm}=349{,}9$ kN ≥ 300 kN (vérifié).</div>
+<div class="demo"><strong>Cas 3 — flambage HEA 200, S235, $L=4$ m, articulé-articulé, $P=300$ kN, $s=2$.</strong> $r_{min}=49{,}8$ mm ; $\lambda=80{,}3$ ; $\lambda_{lim}=93{,}9$ ; Rankine : $P_{cr}=730{,}8$ kN ; $P_{adm}=365{,}4$ kN ≥ 300 kN (vérifié).</div>
 <div class="demo"><strong>Cas 4 — Mohr.</strong> $\sigma_{xx}=80$, $\sigma_{yy}=-40$, $\sigma_{xy}=30$, $\sigma_{zz}=20$ MPa : $\sigma_{I,II}=20\pm67{,}08$ ; $\sigma_{III}=20$ → Tresca 134,2 MPa ; Von Mises 116,2 MPa.</div>
 
 <h3>Tests automatiques</h3>
@@ -378,7 +378,7 @@ $$\sigma_{ij}=\lambda\,\mathrm{tr}(\varepsilon)\delta_{ij}+2\mu\,\varepsilon_{ij
 <div class="warn"><strong>Points où une relecture critique est utile.</strong></div>
 <table>
   <tr><th>Sujet</th><th>Ce que fait le logiciel</th><th>Ce qu'il faut savoir ou décider</th></tr>
-  <tr><td>Données du cours</td><td>Reprend les valeurs du cours telles quelles.</td><td>$E=190$ GPa pour les aciers (habituellement 210) ; aluminium $E=90$ GPa (habituellement 70–74) ; <strong>TA6V</strong> : $R_e=100$–120 MPa (usuel : 830–880) ; <strong>Plexiglas</strong> : $G=1{,}1$ GPa retenu (le cours donne 11, incohérent avec $E\approx3$ GPa). À remplacer par des valeurs de fiche matériau pour un vrai dimensionnement.</td></tr>
+  <tr><td>Données du cours</td><td>Reprend les valeurs du cours, sauf $E$ des aciers S185 à S355 et les corrections signalées dans la Note de chaque matériau.</td><td>aciers S185 à S355 : $E=210$ GPa (l'application MATLAB d'origine utilisait 190) ; aluminium 5356 : $E=70$ GPa (la note du cours cite 90) ; <strong>TA6V</strong> : $R_e=830$ MPa (le support de cours donnait 100–120, valeur d'un titane non allié) ; <strong>Plexiglas</strong> : $G=1{,}1$ GPa retenu (le cours donne 11, incohérent avec $E\approx3$ GPa). À remplacer par des valeurs de fiche matériau pour un vrai dimensionnement.</td></tr>
   <tr><td>Pression de matage d'une goupille</td><td>$p=2F/(de)$ (formule du cours).</td><td>Beaucoup de manuels écrivent $p=F/(de)$. Le facteur 2 dépend du montage (par exemple 2 plans de cisaillement) : à confirmer avec l'énoncé du cours.</td></tr>
   <tr><td>Flambage encastré-articulé</td><td>$L'=L/\sqrt2=0{,}7071L$.</td><td>Valeur exacte : $0{,}6992L$. Écart de 2 % sur $P_E$, du côté sécuritaire (le code sous-estime légèrement la charge critique).</td></tr>
   <tr><td>Rankine</td><td>Formule du cours pour $20\le\lambda<\lambda_{lim}$.</td><td>Formule empirique ; ne remplace pas une vérification normative (Eurocode 3).</td></tr>

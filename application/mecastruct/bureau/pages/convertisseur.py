@@ -35,7 +35,7 @@ UNITES_ATTENDUES = [
 # Équivalences utiles en RDM (port du tableau « useful » de buildConverterTab)
 EQUIVALENCES = [
     ("1 MPa", "= 1 N/mm² = 10⁶ Pa"),
-    ("1 GPa", "= 1000 MPa (E acier = 190 GPa = 190 000 MPa)"),
+    ("1 GPa", "= 1000 MPa (E acier = 210 GPa = 210 000 MPa)"),
     ("1 daN", "= 10 N"),
     ("1 kgf", "= 9,80665 N"),
     ("1 bar", "= 0,1 MPa"),

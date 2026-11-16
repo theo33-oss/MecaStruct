@@ -39,7 +39,9 @@ avec vos valeurs, et pour la RdM un dossier de validation qui refait chaque gran
 ## Fiabilité
 
 Les moteurs viennent d'une application MATLAB et sont comparés à ses résultats par plus de 1 300 tests.
-Ce qui est vérifié, et ce qui ne l'est pas, est écrit dans [LIMITES.md](LIMITES.md).
+Ce qui est vérifié, et ce qui ne l'est pas, est écrit dans [LIMITES.md](LIMITES.md). Les cours et normes cités sont
+listés dans la page Références de l'application (auteurs et années tels qu'imprimés) ; plus de 20 exemples chiffrés de
+ces cours sont des tests (`application/tests/test_cours.py`).
 Outil pédagogique et d'aide au pré-dimensionnement, fourni sans garantie : vérifiez les résultats avant tout usage réel.
 
 ## Pour les développeurs

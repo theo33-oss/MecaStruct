@@ -1,11 +1,13 @@
-"""Page « Références » : normes citées par l'application, sans texte de norme ni lien Drive."""
+"""Page « Références » : normes, cours et documents cités par l'application, sans texte de norme ni lien Drive."""
 
 
 def test_la_page_liste_l_eurocode_3_et_les_normes_citees(bureau):
     bureau.ouvre("references")
     for numero in ("NF EN 1993-1-1", "EN 1993-1-5", "EN 338", "EN 1992-1-1"):
         assert bureau.a_texte(numero)
-    assert sum("Dans l'application :" in t for t in bureau.textes()) == 6  # un rôle par norme
+    for cours in ("L. Morin, 4TSA705U", "L. Morin, 4TGA901U", "IUT de Bordeaux (GMP), R3.05 ICM S3"):
+        assert bureau.a_texte(cours)
+    assert sum("Dans l'application :" in t for t in bureau.textes()) == 22  # un rôle par norme, cours ou document
 
 
 def test_normes_non_utilisees_et_liens_prives_absents(bureau):

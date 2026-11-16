@@ -18,13 +18,18 @@
   });
 
   App.genre("references", (contenu, page, { pret }) => {
-    contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: "Normes sur lesquelles l'application s'appuie ou qu'elle cite. Seuls le numéro, le titre et l'année sont donnés : les textes sont protégés (AFNOR) et se consultent chez l'éditeur. Avant tout usage professionnel, vérifiez les valeurs et les clauses dans le texte officiel et dans l'annexe nationale du pays." }));
+    contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: "Normes et cours sur lesquels l'application s'appuie ou qu'elle cite. Seuls le numéro, le titre et l'année sont donnés : les textes des normes sont protégés (AFNOR) et se consultent chez l'éditeur, les cours appartiennent à leurs auteurs. Les mentions sont celles imprimées sur les documents (« non indiqué » sinon). Avant tout usage professionnel, vérifiez les valeurs et les clauses dans le texte officiel et dans l'annexe nationale du pays." }));
     if (!pret) return contenu.append(App.message("info", "Le calcul se charge : les références apparaîtront dans quelques secondes."));
     const r = App.calculer("references");
     if (!r.ok) return contenu.append(App.message("erreur", r.erreur));
-    contenu.append(el("div", { class: "cartes" }, r.sortie.map((n) => el("section", { class: "carte" },
-      el("h2", { texte: n.numero }), el("p", { class: "legende", texte: n.annee }), el("p", { texte: n.titre }),
-      el("p", { class: "legende", texte: "Dans l'application : " + n.role })))));
+    const GENRES = [["norme", "Normes"], ["cours", "Cours (Université de Bordeaux)"], ["document", "Documents techniques et données de matériaux"]];
+    for (const [genre, titre] of GENRES) {
+      const liste = r.sortie.filter((n) => (n.genre || "norme") === genre);
+      if (!liste.length) continue;
+      contenu.append(el("h2", { texte: titre }), el("div", { class: "cartes" }, liste.map((n) => el("section", { class: "carte" },
+        el("h3", { texte: n.numero }), el("p", { class: "legende", texte: n.annee }), el("p", { texte: n.titre }),
+        el("p", { class: "legende", texte: "Dans l'application : " + n.role })))));
+    }
   });
 
   App.genre("bureau", (contenu, page) => {

@@ -10,7 +10,7 @@ from mecastruct.bureau import dossier, state
 from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets, synthese_suivie
 from mecastruct.bureau.widgets import Zone
 from mecastruct.plots import other_plots
-from mecastruct.services import compute
+from mecastruct.services import compute, sources
 from mecastruct.services.examples import loadExample
 
 MODES = {
@@ -40,6 +40,7 @@ class Hooke(PageCalcul):
         z.erreurGardee("erreur.Hoo")
         synthese_suivie(z, "Hoo")
         dossier.file_bar(z, "Hoo")
+        z.legende(sources.source("hoo"))
         mode = z.choice("Hoo", "mode", "Loi", list(MODES), format_func=MODES.get, on_change=self.rafraichirSaisie)
         iso, ortho = mode != "ortho", mode == "ortho"
         sig_xy = mode in ("iso3D", "planeStress", "ortho")
@@ -106,6 +107,7 @@ class Jauges(PageCalcul):
 
     def saisie(self, z: Zone) -> None:
         dm = state.dm()
+        z.legende(sources.source("jau"))
 
         def jauge(c: Zone) -> None:
             c.num("Jau", "K", "Facteur de jauge K", "-")

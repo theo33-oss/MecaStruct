@@ -112,13 +112,13 @@ def test_materiaux_valeurs_du_cours():
     assert sum("Euralliage" in n for n in dm.Materials["Note"]) > 25
     # Titane TA6V
     m = dm.getMaterial("Titane TA6V")
-    assert [m["E"], m["Re"], m["Rm"]] == [116e9, 830e6, 900e6]
+    assert [m["E"], m["Re"], m["Rm"]] == [110e9, 830e6, 900e6]  # E : rapport RDM (100-110 GPa) ; Re, Rm : minima normalisés
     assert "100 à 120" in m["Note"]
     assert "950" in m["Note"]
-    assert 8.5e-6 <= m["alpha"] <= 9.5e-6
+    assert m["alpha"] == pytest.approx(8.6e-6, rel=1e-12)  # rapport et tableur des coefficients de dilatation
     # Fontes, laiton, Plexiglas
     assert dm.getMaterial("FGL 250")["G"] == 40e9
-    assert dm.getMaterial("FGS 400-15")["G"] == 40e9
+    assert dm.getMaterial("FGS 400-15")["G"] == pytest.approx(169e9 / (2 * 1.275), rel=1e-9)  # E/(2(1+ν)), plus 40 GPa
     assert dm.getMaterial("Laiton CuZn39Pb3")["G"] == 34e9
     pm = dm.getMaterial("Plexiglas")
     assert pm["G"] == 1.1e9

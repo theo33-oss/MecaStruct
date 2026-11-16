@@ -101,7 +101,7 @@ def test_autres_schemas_avec_les_exemples():
     # rayons équivalents du frein : (2/3)(Re³ − Ri³)/(Re² − Ri²) et (Re + Ri)/2
     noms = [t.name for t in figs[5].data if t.name and t.name.startswith("Rayon")]
     assert "97.19 mm" in noms[0] and "95 mm" in noms[1]
-    assert "60.98 N·m" in " ".join(t.name for t in figs[8].data if t.name)  # C_th ≈ 61 N·m du cours
+    assert "61 N·m" in " ".join(t.name for t in figs[8].data if t.name)  # C_th = 61 N·m du cours (durées 0,5 / 4,32 / 0,5 s)
     assert "rapport total -0.03333" in figs[0].layout.title.text  # (−15/45)(−20/40)(−10/50) = −1/30
 
 

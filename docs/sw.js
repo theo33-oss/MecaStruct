@@ -4,7 +4,7 @@
 // Bibliothèques des CDN (Pyodide, Plotly, KaTeX) : adresses à version figée, donc copie gardée d'abord.
 // Le numéro change avec construire_web.py (empreinte du zip) : les anciennes copies sont alors effacées.
 
-const VERSION = "mecastruct-1.1.0-456cba0b";
+const VERSION = "mecastruct-1.2.0-cf661ede";
 const CDN_CACHE = "mecastruct-cdn"; // adresses à version figée : gardées d'une version du site à l'autre
 const CDN = ["https://cdn.jsdelivr.net/", "https://cdnjs.cloudflare.com/", "https://files.pythonhosted.org/", "https://pypi.org/"];
 

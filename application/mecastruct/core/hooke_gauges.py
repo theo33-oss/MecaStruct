@@ -756,7 +756,8 @@ def rosette45(e1: float, e2: float, e3: float, E: float | None = None, nu: float
 
     Entrées : e1 (jauge à 0°, selon x), e2 (jauge à 90°, selon y), e3 (jauge à 45°), déformations sans dimension ;
     E (Pa) et nu optionnels (sans eux, les contraintes valent NaN).
-    Convention du cours : εxx = ε1, εyy = ε2, εxy = γxy/2 = ε3 − (ε1 + ε2)/2.
+    Formules classiques de l'extensométrie (aucun cours du dossier de référence ne les traite) : εxx = ε1, εyy = ε2,
+    εxy = γxy/2 = ε3 − (ε1 + ε2)/2.
     Sortie : dict avec readings, anglesDeg, exx, eyy, exy, gxy, epsI, epsII, thetaP (rad), gammaMax, checkResidual,
     ezz, sxx, syy, sxy (Pa), sigmaI, sigmaII, tauMax2D, principal3D, sigmaVM, sigmaTresca (Pa), mohr, strain2D,
     stress2D (None sans matériau), report, latex.
@@ -790,7 +791,7 @@ def rosette45(e1: float, e2: float, e3: float, E: float | None = None, nu: float
     r["latex"] = lat + r["latex"]
     r["report"] = [
         r["report"][0],
-        "   Formules du cours : εxx = ε1 ; εyy = ε2 ; εxy = γxy/2 = ε3 − (ε1 + ε2)/2",
+        "   Formules classiques de la rosette : εxx = ε1 ; εyy = ε2 ; εxy = γxy/2 = ε3 − (ε1 + ε2)/2",
         *r["report"][1:],
     ]
     return r

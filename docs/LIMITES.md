@@ -19,14 +19,44 @@ avant tout usage réel. Cette page dit ce qui a été vérifié, et contre quoi.
 ## Choix qui changent les résultats
 
 - **Aciers S185 à S355 : E = 210 GPa** (Eurocode 3) et G = E / (2(1 + ν)) = 80,77 GPa. L'application MATLAB d'origine
-  utilisait 190 GPa : les flèches d'acier diffèrent d'environ 10 %.
+  utilisait 190 GPa : les flèches d'acier diffèrent d'environ 10 %. Aucun des cours de référence ne donne 190 GPa : le
+  rapport de matériaux et la feuille de torsion donnent 210 GPa, et le TP de flexion trois points mesure 211 à 215 GPa
+  sur l'acier.
+- **Matériaux alignés sur les fiches (novembre 2026)** : EN-GJL-300 (α 7 → 11, E 100 → 110 GPa, ν 0,30 → 0,26),
+  AlSi10Mg (α 26 → 21), FGS 400-15 (G 40 → 66 GPa), TA6V (E 116 → 110 GPa, α 9,0 → 8,6), laiton CuZn39Pb3
+  (α 20,9 → 19,3), 42CrMo4 (α 12,0 → 11,1), inox 420 (α 11,0 → 10,5), PEEK (α 45 → 50), en µm/m/°C. Les écarts de
+  moins de 5 % avec les fiches, et les minima garantis (7075, 6082, 2017, 316L) pris à la place des valeurs typiques,
+  n'ont pas été modifiés. Les résultats thermiques de ces matériaux ont changé.
+- **Fatigue** : la limite d'endurance estimée à 0,5·Rm ne vaut que pour l'acier (le cours de fatigue de Master donne
+  environ 0,35·Rm à 10⁷ cycles pour un Al-Cu). La page propose maintenant de saisir σD, de régler Kf (1 ≤ Kf ≤ Kt) et
+  d'appliquer Kf aussi à la contrainte moyenne ; par défaut le calcul est inchangé (Kf = Kt sur l'amplitude seulement,
+  écart de 4 % côté non sûr sur l'annale de 2018). Gerber, Soderberg, Miner et la fatigue multiaxiale ne sont pas traités.
+- **Frettage** : pour la contrainte équivalente d'un arbre plein, l'abaque du cours donne p et le classeur 2p ; le
+  coefficient de sécurité garde 2p (prudent), la valeur du cours est affichée à côté. Pour la rugosité, le cours retire
+  4(Ra arbre + Ra alésage) (6,4 et 12,8 µm), la norme 5 et 10 µm.
+- **Conventions des pages Tenseurs et Hooke** : l'invariant I2 est de signe opposé à celui du cours de Master (mêmes
+  contraintes principales) ; l'ordre des cisaillements de la matrice de Hooke est xx, yy, zz, yz, xz, xy contre 11, 22,
+  33, 12, 13, 23 au cours.
 - **Dossier de validation** : il prouve que le calcul est cohérent avec ses propres formules, pas que ces formules
   conviennent à votre cas. Pour Eurocode 3, la fatigue et Navier, les valeurs sont reprises du solveur.
 
 ## Écarts relevés dans le cours de roulements
 
-- Pour Fa/C0 = 0,064 le cours écrit Y = 1,59 ; l'interpolation donne 1,66.
-- Exemple du roulement : le cours annonce L10 = 185,3 M tours ; (C/P)³ avec C = 35,8 kN et P = 10,84 kN donne 36 M tours.
+Cours « Calcul sur les roulements » (IUT de Bordeaux), p. 18 et 19, relu page par page :
+
+- Pour Fa/C0 = 0,064 le cours écrit Y = 1,59 (pente inversée) et e = 0,0265 pour 0,2657 ; l'interpolation donne Y = 1,66.
+- Exemple du roulement 6405 : le cours prend Y = 1,31 (borne de la table) et annonce L10 = 185,3 M tours, 10 294 h ;
+  avec C = 35,8 kN et P = 10,84 kN, (C/P)³ donne 36 M tours. 185,3 vaut exactement (61,8/10,84)³ : c'est le résultat d'un
+  roulement de C = 61,8 kN. L'application interpole e et Y (P = 10 623 N, L10 = 38,3 M tours).
+- Formule de l'ensemble iso-fiable (p. 12) : « 25000 » imprimé pour 15000 ; le résultat 23 811 h est juste.
+
+## Ce qui n'a pas pu être comparé aux cours
+
+Le « Guide du calcul mécanique » (scan de 257 pages sans texte) : flambage (λlim, Rankine), cisaillement de Jourawski et
+abaques Kt ne sont donc pas recoupés avec lui. Les Recueils de bonnes pratiques en BE n° 08 et n° 18 (fichiers chiffrés).
+Les formules dessinées des cours de frein, de Willis, du couple équivalent et la table des modules d'engrenages
+(images non relues). Aucun cours du dossier ne traite des jauges, des ponts de Wheatstone et des rosettes. Les notes
+GoodNotes ne sont pas lisibles.
 
 ## Différences entre le site et l'application de bureau
 

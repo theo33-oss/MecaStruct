@@ -138,7 +138,7 @@
   <li><strong>Abaques Kt</strong> : coefficients de concentration de contrainte.</li>
 </ul>
 <p>Vous pouvez ajouter vos propres matériaux et profilés, puis cliquer sur <em>Sauvegarder les données utilisateur</em> (fichier <code>.mat</code>).</p>
-<div class="box calc"><strong>Rappel :</strong> pour un matériau isotrope, $G = \dfrac{E}{2(1+\nu)}$. Pour l'acier S235 du cours : $G = 190/(2 \times 1{,}3) = 73{,}08$ GPa, ce qui est bien la valeur affichée.</div>
+<div class="box calc"><strong>Rappel :</strong> pour un matériau isotrope, $G = \dfrac{E}{2(1+\nu)}$. Pour l'acier S235 du cours : $G = 210/(2 \times 1{,}3) = 80{,}77$ GPa, ce qui est bien la valeur affichée.</div>
 
 <!-- ============================================================ -->
 <h2 id="sections">5. Onglet Sections</h2>
@@ -188,11 +188,11 @@ Ces valeurs correspondent au rapport de l'application.</div>
 </ul>
 <p><strong>3. Contrainte maximale</strong> (section de l'exemple : Iz = 8,356·10⁷ mm⁴, y<sub>max</sub> = 150 mm) :
 $\sigma = \dfrac{67{,}22\cdot10^6 \times 150}{8{,}356\cdot10^7} = $ <strong>120,7 MPa</strong> $\le R_e/s = 235/1{,}5 = 156{,}7$ MPa, <span class="ok">vérifié</span>.</p>
-<p><strong>4. Flèche, contrôle par superposition</strong> (E = 190 000 MPa, en N et mm) :</p>
+<p><strong>4. Flèche, contrôle par superposition</strong> (E = 210 000 MPa, en N et mm) :</p>
 <ul>
-  <li>Charge répartie seule, au milieu : $\dfrac{5 q L^4}{384 E I} = \dfrac{5 \times 10 \times 6000^4}{384 \times 190000 \times 8{,}356\cdot10^7} = 10{,}63$ mm.</li>
-  <li>Force seule, au milieu (formulaire, a = 2 m) : environ 4,83 mm.</li>
-  <li>Total : environ <strong>15,46 mm</strong>. L'application trouve f<sub>max</sub> = 15,47 mm à s = 2,915 m.</li>
+  <li>Charge répartie seule, au milieu : $\dfrac{5 q L^4}{384 E I} = \dfrac{5 \times 10 \times 6000^4}{384 \times 210000 \times 8{,}356\cdot10^7} = 9{,}62$ mm.</li>
+  <li>Force seule, au milieu (formulaire, a = 2 m) : environ 4,37 mm.</li>
+  <li>Total : environ <strong>13,99 mm</strong>. L'application trouve f<sub>max</sub> = 14,00 mm à s = 2,915 m.</li>
 </ul></div>
 
 <figure><img src="img/04_poutre_deformee.png" alt="Déformée et rotation"><figcaption>Rotation α(s) et déformée v(s). Les quatre méthodes (intégration, aires, Castigliano, intégrales de Mohr) donnent des courbes superposées.</figcaption></figure>
@@ -233,8 +233,8 @@ $\sigma = \dfrac{67{,}22\cdot10^6 \times 150}{8{,}356\cdot10^7} = $ <strong>120,
 <div class="box calc"><strong>Exemple refait à la main</strong> : N = 50 kN, diamètre de 20 mm à l'extrémité la plus fine, donc S = 314,16 mm².
 <ul>
   <li>$\sigma_{max} = 50\,000 / 314{,}16 = 159{,}2$ MPa, supérieur à $235/1{,}5 = 156{,}7$ MPa : <span class="ko">NON vérifié</span>, il faut un diamètre un peu plus grand.</li>
-  <li>Avec S constante : $\Delta L = \dfrac{50\,000 \times 1000}{190\,000 \times 314{,}16} = 0{,}838$ mm.</li>
-  <li>Avec la vraie section conique (intégrale) : $\Delta L = 0{,}558$ mm. La méthode « analytique » à S constante surestime donc l'allongement, et le rapport le signale.</li>
+  <li>Avec S constante : $\Delta L = \dfrac{50\,000 \times 1000}{210\,000 \times 314{,}16} = 0{,}758$ mm.</li>
+  <li>Avec la vraie section conique (intégrale) : $\Delta L = 0{,}505$ mm. La méthode « analytique » à S constante surestime donc l'allongement, et le rapport le signale.</li>
 </ul></div>
 
 <!-- ============================================================ -->
@@ -300,11 +300,11 @@ C'est inférieur à 156,7 MPa : <span class="ok">vérifié</span>. Le faible M<s
     </ul></li>
   <li>Vérification : $P \le P_{adm} = P_{cr}/s$.</li>
 </ol>
-<div class="box calc"><strong>Exemple refait à la main</strong> : HEA 200, S235 (E = 190 GPa), L = 4 m, articulé-articulé, P = 300 kN, s = 2.
+<div class="box calc"><strong>Exemple refait à la main</strong> : HEA 200, S235 (E = 210 GPa), L = 4 m, articulé-articulé, P = 300 kN, s = 2.
 <ul>
   <li>$I_{min} = 1{,}336\cdot10^7$ mm⁴ et $S = 5383$ mm², donc $r_{min} = 49{,}8$ mm.</li>
-  <li>$\lambda = 4000 / 49{,}8 = 80{,}3$ et $\lambda_{lim} = \pi\sqrt{190\,000/235} = 89{,}3$. On est dans la zone de Rankine.</li>
-  <li>$P_{cr} = \dfrac{235 \times 5383}{1 + (80{,}3/89{,}3)^2} = \dfrac{1\,265\,000}{1{,}808} = 699{,}7$ kN, donc $P_{adm} = 349{,}9$ kN ≥ 300 kN : <span class="ok">vérifié</span>.</li>
+  <li>$\lambda = 4000 / 49{,}8 = 80{,}3$ et $\lambda_{lim} = \pi\sqrt{210\,000/235} = 93{,}9$. On est dans la zone de Rankine.</li>
+  <li>$P_{cr} = \dfrac{235 \times 5383}{1 + (80{,}3/93{,}9)^2} = \dfrac{1\,265\,000}{1{,}731} = 730{,}8$ kN, donc $P_{adm} = 365{,}4$ kN ≥ 300 kN : <span class="ok">vérifié</span>.</li>
 </ul></div>
 
 <!-- ============================================================ -->
@@ -348,14 +348,14 @@ C'est inférieur à 156,7 MPa : <span class="ok">vérifié</span>. Le faible M<s
 <h2 id="sources">15. Sur quoi reposent les calculs</h2>
 <table>
   <tr><th>Source</th><th>Ce qui en vient</th></tr>
-  <tr><td><strong>Votre cours de RDM</strong> (texte du « Master Prompt », recopié dans <code>docs/CAHIER_DES_CHARGES.md</code>)</td><td>Toutes les formules, les conventions de signe (torseur = actions à droite), l'arbre de décision du flambage (Euler / Rankine / λ<sub>lim</sub>), les valeurs des matériaux (E = 190 GPa pour les aciers d'usage général, par exemple), les pressions de matage et la formule de la goupille.</td></tr>
+  <tr><td><strong>Votre cours de RDM</strong> (texte du « Master Prompt », recopié dans <code>docs/CAHIER_DES_CHARGES.md</code>)</td><td>Toutes les formules, les conventions de signe (torseur = actions à droite), l'arbre de décision du flambage (Euler / Rankine / λ<sub>lim</sub>), les valeurs des matériaux (E = 190 GPa pour les aciers dans l'application MATLAB d'origine ; la base actuelle prend 210 GPa, voir les limites), les pressions de matage et la formule de la goupille.</td></tr>
   <tr><td><strong>Théorie classique de la RDM</strong> (manuels de référence, également présents sur le web)</td><td>Les formules standard, identiques partout : Navier ($\sigma = M y/I$), Huygens, Jourawski, Euler, Castigliano, Ménabréa, Mohr, Tresca, Von Mises et Hooke. Références utiles : le <em>Guide du calcul en mécanique</em> (Fanchon, Nathan), le <em>Mémotech</em> ou les cours de RDM des IUT GMP, et les articles de Wikipédia « Résistance des matériaux », « Flambage », « Cercle de Mohr » et « Critère de von Mises ».</td></tr>
   <tr><td><strong>Catalogues de profilés</strong> (tables Eurocode 3 / fabricants)</td><td>Les valeurs h, b, S, I et r des profilés IPE, HEA et HEB. Attention, les axes sont inversés : voir <a href="#pieges">Pièges</a>.</td></tr>
-  <tr><td><strong>Vérification interne</strong></td><td>Chaque grandeur est calculée par 2 à 4 méthodes indépendantes (analytique, intégrale, énergétique), et le rapport affiche l'écart entre elles. Les tests automatiques comparent aussi les résultats aux formules connues. Exemple : poutre IPE 200, L = 4 m, q = 10 kN/m. La flèche vaut 9,029 mm par les 4 méthodes, soit exactement $5qL^4/(384EI)$.</td></tr>
+  <tr><td><strong>Vérification interne</strong></td><td>Chaque grandeur est calculée par 2 à 4 méthodes indépendantes (analytique, intégrale, énergétique), et le rapport affiche l'écart entre elles. Les tests automatiques comparent aussi les résultats aux formules connues. Exemple : poutre IPE 200, L = 4 m, q = 10 kN/m. La flèche vaut 8,169 mm par les 4 méthodes, soit exactement $5qL^4/(384EI)$.</td></tr>
 </table>
 <div class="box note"><strong>Valeurs du cours à connaître</strong> (elles diffèrent des valeurs usuelles) :
 <ul>
-  <li>Aciers S185 à S355 : le cours donne E = 190 GPa. On trouve souvent 210 GPa ailleurs, ce qui donne des flèches environ 10 % plus faibles.</li>
+  <li>Aciers S185 à S355 : la base prend E = 210 GPa (Eurocode 3, rapport de matériaux, mesures de TP). L'application MATLAB d'origine utilisait 190 GPa : ses flèches d'acier sont environ 10 % plus grandes. Aucun des cours de référence ne donne 190 GPa.</li>
   <li>Aluminium : E = 90 GPa dans le cours, contre 70 à 74 GPa habituellement.</li>
   <li>Titane TA6V : Re = 100 MPa dans le cours, contre environ 830 MPa en réalité.</li>
   <li>Plexiglas : G = 11 GPa dans le cours, alors qu'environ 1,1 GPa serait cohérent. L'application calcule G avec E/(2(1+ν)).</li>

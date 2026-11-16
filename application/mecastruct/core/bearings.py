@@ -1,7 +1,7 @@
 """Roulements à éléments roulants : durée de vie L10, charge dynamique équivalente P, ensembles et règles de montage.
 
 Formules du cours « Calcul sur les roulements » (IUT de Bordeaux) : L10 = (C/P)^n, L10h, coefficient de fiabilité a1,
-durée d'un ensemble iso-fiable (exposant 1,5) ; coefficients e et Y interpolés dans web/data/bearing_xy.json
+durée d'un ensemble iso-fiable (exposant 1,5) ; coefficients e et Y interpolés dans data/bearing_xy.json
 (roulements à billes à contact radial). Règles de montage d'après « Liaison pivot par roulements » (même cours).
 """
 
@@ -33,10 +33,21 @@ AJUSTEMENTS = [
     (("extérieure", "indéfinie", "importante"), ("alésage", "K7")),
     (("extérieure", "indéfinie", "normale"), ("alésage", "K7")),
 ]
+# Cours « Liaison pivot par roulements » (p. 25) : la bague intérieure « tournante par rapport à la charge ou direction de
+# charge non définie » est sur la même ligne du tableau, donc mêmes tolérances que « tournante ».
+AJUSTEMENTS += [
+    (("intérieure", "indéfinie", c), v) for (b, r, c), v in list(AJUSTEMENTS) if (b, r) == ("intérieure", "tournante")
+]
+REMARQUE_JEU = "À partir de m5, utiliser des roulements à jeu interne augmenté (cours « Liaison pivot par roulements », p. 25)."
+
+
+def needsLargerClearance(portee: str, ajustement: str) -> bool:
+    """Vrai pour un arbre en m5 ou plus serré (m, n, p) : le cours impose un jeu interne augmenté."""
+    return portee == "arbre" and ajustement[:1] in ("m", "n", "p")
 
 
 def xyTable() -> dict:
-    """Table du cours des roulements à billes à contact radial : Fa/C0, e, Y et X (web/data/bearing_xy.json)."""
+    """Table du cours des roulements à billes à contact radial : Fa/C0, e, Y et X (data/bearing_xy.json)."""
     return load_json("bearing_xy.json")
 
 
@@ -115,6 +126,8 @@ def mountingRule(bague: str, rotation: str) -> str:
 
     Entrées : bague (« intérieure » ou « extérieure »), rotation (« tournante », « fixe »).
     """
+    if rotation == "indéfinie" and bague == "intérieure":  # rangée avec « tournante » dans le tableau du cours
+        return "serrée"
     if rotation not in ("tournante", "fixe"):
         raise MecaStructError(_ID, f"Rotation inconnue : {rotation!r} (« tournante » ou « fixe »).")
     return "serrée" if rotation == "tournante" else "glissante"
@@ -123,8 +136,7 @@ def mountingRule(bague: str, rotation: str) -> str:
 def fitRule(bague: str, rotation: str, charge: str) -> tuple[str, str]:
     """Portée et ajustement conseillés (tableau du cours) : ("arbre" | "alésage", « g6 », « N7 », ...).
 
-    Entrées : bague (« intérieure » ou « extérieure »), rotation (« tournante », « fixe » ou « indéfinie » pour
-    l'extérieure), charge (« constante », « variable », « faible », « normale », « importante »,
+    Entrées : bague (« intérieure » ou « extérieure »), rotation (« tournante », « fixe » ou « indéfinie »), charge (« constante », « variable », « faible », « normale », « importante »,
     « importante avec chocs » ou « normale mécanique ordinaire »). Erreur si la combinaison n'est pas au tableau.
     """
     for cle, valeur in AJUSTEMENTS:

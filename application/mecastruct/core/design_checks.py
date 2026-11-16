@@ -440,11 +440,22 @@ def ec3WebShear(d: dict, fy: float, gM1: float, VEd: float) -> dict:
     return r
 
 
-def goodman(sigMax: float, R: float, Kf: float, Rm: float, ka: float, kb: float) -> dict:
+def goodman(
+    sigMax: float,
+    R: float,
+    Kf: float,
+    Rm: float,
+    ka: float,
+    kb: float,
+    Sd: float | None = None,
+    KfMoyenne: bool = False,
+) -> dict:
     """Coefficient de sécurité en fatigue (droite de Goodman modifiée), contrainte nominale sigMax (Pa).
 
     Entrées : sigMax (Pa, ≥ 0) ; R = σmin/σmax dans [-1, 1[ (-1 : alterné, 0 : répété) ; Kf ≥ 1 (s'applique à
-    l'amplitude seulement) ; Rm (Pa) ; ka, kb (-) : facteurs de Marin.
+    l'amplitude, et aussi à la contrainte moyenne si KfMoyenne : cours de fatigue de Master, p. 95) ; Rm (Pa) ;
+    ka, kb (-) : facteurs de Marin (KS et Ke du cours) ; Sd (Pa) : limite d'endurance du matériau si elle est
+    connue (essai, cours p. 44 et 84), sinon estimée par min(0,5·Rm ; 700 MPa), valable pour l'acier seulement.
     Sortie : dict sigmaA, sigmaM (Pa), Se (Pa), n (-).
     """
     if not (-1 <= R < 1):
@@ -454,10 +465,14 @@ def goodman(sigMax: float, R: float, Kf: float, Rm: float, ka: float, kb: float)
             "MecaStruct:Design:invalidInput",
             "Fatigue : σmax ≥ 0, Rm > 0, ka > 0, kb > 0 et Kf ≥ 1 sont requis.",
         )
-    Sep = min(0.5 * Rm, 700e6)
+    if Sd is not None and not Sd > 0:
+        raise MecaStructError("MecaStruct:Design:invalidInput", "Fatigue : la limite d'endurance σD doit être > 0.")
+    Sep = Sd if Sd is not None else min(0.5 * Rm, 700e6)
     Se = ka * kb * Sep
     sigA = Kf * sigMax * (1 - R) / 2
     sigM = sigMax * (1 + R) / 2
+    if KfMoyenne:
+        sigM *= Kf
     den = sigA / Se + max(sigM, 0) / Rm
     n = math.inf if den == 0 else 1 / max(den, EPS)
     return {"sigmaA": sigA, "sigmaM": sigM, "Se": Se, "n": n}

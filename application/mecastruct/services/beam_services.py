@@ -37,7 +37,7 @@ Les trois autres méthodes (intégration, aires, Mohr) ne tiennent pas compte du
 secTabulated (bool) : vrai si la section vient d'un profilé du catalogue (valeurs de la saisie, pas le contour).
 Champs E19 : na (« EN », « FR » ou « autre »), gM0, gM1, Cmy, CmLT (-), Lcr, LcrF (m, 0 = L), C1 (-),
 ecsrc (« enveloppe », défaut : efforts pondérés des combinaisons ; « courant » : tous les cas à 1, verdict
-indicatif), fR (-), fka, fkb (-), mvP (texte, kN), mvE (texte, m), mvN (positions),
+indicatif), fR (-), fka, fkb (-), fSd (MPa), fKf (-), fKfMoy (bool), mvP (texte, kN), mvE (texte, m), mvN (positions),
 mvFixed (bool : garder les charges fixes avec le convoi), pfam (famille de profilés), pdef (flèche L/n, 0 = ignorée).
 Tableaux (listes de dicts) :
   sup    : {pos (m), type, name}
@@ -105,6 +105,9 @@ def defaultBeamInput() -> dict:
         "fR": 0.0,
         "fka": 1.0,
         "fkb": 1.0,
+        "fSd": 0.0,  # limite d'endurance σD connue (MPa) ; 0 = estimer 0,5·Rm (acier)
+        "fKf": 0.0,  # Kf de la fatigue ; 0 = Kf = Kt
+        "fKfMoy": False,  # Kf aussi appliqué à la contrainte moyenne
         "mvP": "-100",
         "mvE": "1.5",
         "mvN": 61,

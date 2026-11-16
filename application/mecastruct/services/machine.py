@@ -4,6 +4,8 @@ Chaque compute* renvoie, comme les services de compute.py : result (sortie du mo
 (« Synthèse » et tableaux propres), status (ligne d'état) et ok (verdict global, None si sans objet).
 """
 
+import math
+
 import pandas as pd
 
 from mecastruct.core import fits, key_pin, plain_bearing, shrink_fit
@@ -56,6 +58,14 @@ def defaultShrinkInput() -> dict:
             "matArbre": "S235", "matMoyeu": "S235", "qa": 6, "qm": 7, "lissage": 5.0, "jeu": 0.2}  # fmt: skip
 
 
+def _sigmaArbreCours(s: dict, r: dict) -> float:
+    """σ équivalente de l'arbre selon l'abaque de frettage du cours (p. 1) : Von Mises avec σr = −p et
+    σt = −p·(d² + di²)/(d² − di²), soit p·√(1 + 3k⁴)/(1 − k²) avec k = di/d (= p pour un arbre plein).
+    L'application garde 2p/(1 − k²) pour le coefficient de sécurité (valeur du classeur, prudente)."""
+    k = (s["di"] / s["d"]) if s["d"] else 0.0
+    return r["pMax"] * math.sqrt(1 + 3 * k**4) / (1 - k**2)
+
+
 def computeShrinkFit(s: dict, dm: DataManager) -> dict:
     """Frettage (saisie : Fa N, C N·m, f, s, d, di, D, L mm, matArbre, matMoyeu, qa, qm, lissage µm, jeu mm)."""
     ma, mm = dm.getMaterial(s["matArbre"]), dm.getMaterial(s["matMoyeu"])
@@ -72,6 +82,7 @@ def computeShrinkFit(s: dict, dm: DataManager) -> dict:
         ("Pression maxi (MPa)", r["pMax"]),
         ("Couple transmissible au serrage mini (N·m)", r["couple"]),
         ("σ équivalente arbre / moyeu (MPa)", f"{r['sigmaArbre']:.4g} / {r['sigmaMoyeu']:.4g}"),
+        ("σ équivalente de l'arbre, abaque de frettage du cours (MPa)", f"{_sigmaArbreCours(s, r):.4g}"),
         ("Coefficient de sécurité arbre / moyeu", f"{r['sArbre']:.3g} / {r['sMoyeu']:.3g}"),
         ("Température de chauffe ΔT (K)", r["deltaT"]),
     ]

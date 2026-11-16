@@ -10,6 +10,7 @@ from typing import Any
 from mecastruct.bureau import machine_dossier, state
 from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets
 from mecastruct.bureau.widgets import Section, Zone
+from mecastruct.services import sources
 
 SAISIE_MODIFIEE = "(saisie modifiée : cliquez sur Calculer)"
 
@@ -128,6 +129,8 @@ class PageMachine(PageCalcul):
         calcul(z, self.P, self.DEFAUT, self.travail)
         self.champs(z)
         self.notes(z)
+        if sources.source(self.P):
+            z.legende(sources.source(self.P))
 
     def visualisation(self, z: Zone) -> None:
         s = saisie(self.P, self.DEFAUT)

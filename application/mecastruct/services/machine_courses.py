@@ -23,7 +23,10 @@ def _synthese(lignes: list[tuple[str, str]]) -> pd.DataFrame:
 
 
 def defaultBearingInput() -> dict:
-    """Exemple du cours : roulement à billes à contact radial, Fr = 1000 daN, Fa = 400 daN, 300 tr/min, C = 35,8 kN."""
+    """Exemple du cours « Calcul sur les roulements » (p. 19) : billes à contact radial, Fr = 1000 daN, Fa = 400 daN,
+    300 tr/min, C = 35,8 kN. Le cours prend Y = 1,31 (borne de la table) et annonce P = 1084 daN et L10 = 185,3 M tours ;
+    or 185,3 = (61,8/10,84)³ : c'est le résultat d'un roulement de C = 61,8 kN. Ici e et Y sont interpolés (P = 10 623 N,
+    L10 = 38,3 M tours) ; avec e = 0,38, X = 0,56, Y = 1,31 on retrouve P = 10 840 N et L10 = 36,0 M tours."""
     return {"Fr": 10000.0, "Fa": 4000.0, "C": 35800.0, "C0": 19300.0, "N": 300.0, "type": "billes", "F": 90.0,
             "tableau": True, "e": 0.38, "X": 0.56, "Y": 1.31, "Lh": 1500.0}  # fmt: skip
 
@@ -378,11 +381,12 @@ def computeClutch(s: dict) -> dict:
 
 
 def defaultMotorInput() -> dict:
-    """Exemple du cours (ascenseur) : 120 N·m en accélération, 54 N·m en régime établi.
-    Moteur retenu dans le cours : 63 N·m nominal, 126 N·m maxi, 1470 tr/min.
-    Les durées des phases ne sont pas données dans le cours : valeurs choisies pour retrouver C_th = 61 N·m.
+    """Exemple du cours (ascenseur, « Chaînes de transmission de puissance », p. 17-18) : 120 N·m en accélération,
+    54 N·m en régime établi, 0 N·m au freinage ; moteur retenu : 63 N·m nominal, 126 N·m maxi, 1470 tr/min.
+    Le cours ne donne pas les durées des phases. Accélération et freinage : vmax/γmax = 1/2 = 0,5 s (p. 17) ; régime
+    établi : 4,32 s, valeur déduite pour retrouver C_th = 61 N·m du cours (non imprimée).
     """
-    return {"Ca": 120.0, "ta": 1.0, "Cc": 54.0, "tc": 13.3, "Cfr": 0.0, "tfr": 0.0, "Cn": 63.0, "Cmax": 126.0,
+    return {"Ca": 120.0, "ta": 0.5, "Cc": 54.0, "tc": 4.32, "Cfr": 0.0, "tfr": 0.5, "Cn": 63.0, "Cmax": 126.0,
             "Nmax": 1470.0, "Nreq": 1000.0, "Jm": 0.6, "Js": 1.2, "rs": 1.0}  # fmt: skip
 
 

@@ -23,6 +23,7 @@ from mecastruct.pont.formulaire import case, col, groupe, liste, nb, tableau, te
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
 from mecastruct.services import beam_design, beam_services, compute, ossature3d, project_io, validation_report
 from mecastruct.services.examples import exampleNames, loadExample
+from mecastruct.services.sources import avec_sources
 
 TYPES_APPUI = ["appui_simple", "rotule", "pivot", "pivot_glissant", "encastrement"]
 CAS = ["G", "Q", "W", "S"]
@@ -544,8 +545,11 @@ def _formulaires() -> dict:
                        note="Profilés IPE, HEA, HEB, IPN et sections en I, classes 1 à 3, fy = Re. Non vérifiés : voilement sous charges concentrées, flexion déviée, ELS, classe 4. Seules γM0 et γM1 sont paramétrables.",
                        ouvert=False),
                 groupe("Fatigue (Goodman)", nb("fR", "R = σmin / σmax (−1 alterné, 0 répété)", ""),
-                       nb("fka", "ka : état de surface", "", aide="Poli 1 ; usiné 0,7 à 0,9 ; laminé 0,6 à 0,8 ; brut de forge 0,4 à 0,6."),
-                       nb("fkb", "kb : effet de taille", "", aide="d ≤ 8 mm : 1 ; 0,85 à 0,9 pour 10 à 50 mm ; 0,7 à 0,8 au-delà."),
+                       nb("fSd", "σD : limite d'endurance connue (0 = estimer 0,5·Rm, acier)", "MPa", 0.0, aide="Valeur d'essai du matériau (cours de fatigue de Master, p. 44 et 84). L'estimation 0,5·Rm ne vaut que pour l'acier."),
+                       nb("fKf", "Kf (0 = Kf = Kt)", "", 0.0, aide="Coefficient de fatigue en entaille, 1 ≤ Kf ≤ Kt (cours de fatigue de Master, p. 59)."),
+                       case("fKfMoy", "Kf aussi appliqué à la contrainte moyenne", "Le cours (p. 95) applique les coefficients d'influence aux amplitudes et aux valeurs moyennes."),
+                       nb("fka", "ka (KS du cours) : état de surface", "", aide="Poli 1 ; usiné 0,7 à 0,9 ; laminé 0,6 à 0,8 ; brut de forge 0,4 à 0,6."),
+                       nb("fkb", "kb (Ke du cours) : effet de taille", "", aide="d ≤ 8 mm : 1 ; 0,85 à 0,9 pour 10 à 50 mm ; 0,7 à 0,8 au-delà."),
                        {"id": "b-fat", "type": "extra", "libelle": "Vérifier la fatigue", "calcul": "beam.fatigue", "titre": "Fatigue"}, ouvert=False),
                 groupe("Charge mobile (convoi d'essieux)",
                        texte("mvP", "Essieux (kN, de gauche à droite)", "F < 0 = vers le bas."), texte("mvE", "Écartement(s) entre essieux (m)"),
@@ -770,5 +774,5 @@ def _formulaires_rdm() -> dict:
     }
 
 
-formulaires_de(_formulaires)
-formulaires_de(_formulaires_rdm)
+formulaires_de(lambda: avec_sources(_formulaires()))
+formulaires_de(lambda: avec_sources(_formulaires_rdm()))

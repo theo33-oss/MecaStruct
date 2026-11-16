@@ -12,9 +12,9 @@ from PySide6.QtWidgets import QSizePolicy, QTableWidget, QTableWidgetItem
 
 from mecastruct.bureau import dossier, state
 from mecastruct.bureau.page_calcul import PageCalcul, synthese_suivie
-from mecastruct.bureau.widgets import ajusterHauteur, differer, formatNombre, lireNombre, Zone
+from mecastruct.bureau.widgets import Zone, ajusterHauteur, differer, formatNombre, lireNombre
 from mecastruct.plots import other_plots
-from mecastruct.services import compute
+from mecastruct.services import compute, sources
 
 AXES = ["x", "y", "z"]
 FACETTES = {"theta": "Angle θ dans le plan (x, y)", "n": "Normale n (nx, ny, nz)"}
@@ -67,6 +67,7 @@ class PageTenseurs(PageCalcul):
 
     def saisie(self, z: Zone) -> None:
         dm = state.dm()
+        z.legende(sources.source("ten"))
 
         def tenseur(c: Zone) -> None:
             c._ajouter(GrilleTenseur(self.surSaisie))

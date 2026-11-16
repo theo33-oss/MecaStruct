@@ -9,6 +9,7 @@ from mecastruct.bureau.widgets import Page, Zone
 from mecastruct.core import bearings
 from mecastruct.plots import machine_schemas
 from mecastruct.services import machine_courses as mc
+from mecastruct.services import sources
 
 P, ENS = "rlt", "rlt_ens"
 DEFAUT, DEFAUT_ENS = mc.defaultBearingInput(), mc.defaultBearingSetInput()
@@ -102,7 +103,9 @@ class Regles(Page):
                            f"rlt_regle.rotation.{bague}")  # fmt: skip
         charges = [c for (b, r, c), _ in bearings.AJUSTEMENTS if (b, r) == (bague, rotation)]
         charge = z.liste("Charge", charges, f"rlt_regle.charge.{bague}.{rotation}")
-        if rotation == "indéfinie":
+        if rotation == "indéfinie" and bague == "intérieure":
+            z.succes("Direction de la charge non définie : le cours range la bague intérieure avec la bague tournante, montée serrée.")
+        elif rotation == "indéfinie":
             z.info(
                 "Direction de la charge non définie : le cours conseille un alésage K7 pour une charge normale "
                 "ou importante."
@@ -111,6 +114,9 @@ class Regles(Page):
             z.succes(f"Bague montée {bearings.mountingRule(bague, rotation)}")
         portee, ajustement = bearings.fitRule(bague, rotation, charge)
         z.texte(f"Ajustement conseillé : {portee} {ajustement}")
+        z.legende(sources.source("rlt_regle"))
+        if bearings.needsLargerClearance(portee, ajustement):
+            z.avertissement(bearings.REMARQUE_JEU)
         z.repliable(
             "Immobilisation axiale (solutions du cours)",
             rendu=lambda c: c.texte(

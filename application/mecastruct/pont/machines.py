@@ -13,6 +13,7 @@ from mecastruct.pont.formulaire import case, groupe, liste, nb
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
 from mecastruct.services import machine
 from mecastruct.services import machine_courses as mc
+from mecastruct.services.sources import avec_sources
 
 
 def materiaux():
@@ -195,7 +196,7 @@ def _formulaires() -> dict:
     }
 
 
-formulaires_de(_formulaires)
+formulaires_de(lambda: avec_sources(_formulaires()))
 
 
 # ------------------------------------------------------------------------------- dossier de validation (HTML)
@@ -332,10 +333,14 @@ def regle(s):
     charges = [c for (b, r, c), _ in bearings.AJUSTEMENTS if (b, r) == (bague, rotation)]
     charge = s.get("charge") if s.get("charge") in charges else charges[0]
     portee, ajustement_ = bearings.fitRule(bague, rotation, charge)
-    if rotation == "indéfinie":
+    if rotation == "indéfinie" and bague == "intérieure":
+        status = f"Direction de la charge non définie : bague intérieure rangée avec la tournante, montée serrée. Ajustement conseillé : {portee} {ajustement_}."
+    elif rotation == "indéfinie":
         status = "Direction de la charge non définie : le cours conseille un alésage K7 pour une charge normale ou importante."
     else:
         status = f"Bague {bague} montée {bearings.mountingRule(bague, rotation)}. Ajustement conseillé : {portee} {ajustement_}."
+    if bearings.needsLargerClearance(portee, ajustement_):
+        status += " " + bearings.REMARQUE_JEU
     return {"status": status, "ok": None, "tables": {}, "latex": [], "rapport": [],
             "options": {"rotation": rotations, "charge": charges}, "saisie": {"rotation": rotation, "charge": charge}}
 

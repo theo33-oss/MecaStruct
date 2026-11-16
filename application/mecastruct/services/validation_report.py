@@ -705,6 +705,9 @@ def _inputsBeam(s: dict) -> str:
                 ("fR", "Fatigue : R = σmin/σmax", "-"),
                 ("fka", "Fatigue : ka", "-"),
                 ("fkb", "Fatigue : kb", "-"),
+                ("fSd", "Fatigue : σD connue (0 = estimée)", "MPa"),
+                ("fKf", "Fatigue : Kf (0 = Kt)", "-"),
+                ("fKfMoy", "Fatigue : Kf aussi sur σm", ""),
                 ("pfam", "Famille de profilés", ""),
                 ("pdef", "Flèche L/n (0 = ignorée)", ""),
             ],
@@ -3020,11 +3023,12 @@ def _handFatigue(saisie: dict, res: dict, dm) -> list[dict]:
     f = _extras(res)["fatigue"][0]
     bd = res["check"]["bend"]
     Kt, R = B["Kt"], B["fR"]
+    Sd, Kf, KfMoy = beam_design.fatigueOptions(B)
     Rm = dm.getMaterial(B["mat"])["Rm"]
     smax = bd["sigmaMaxAbs"]
-    Se = B["fka"] * B["fkb"] * min(0.5 * Rm, 700e6)
-    sa = Kt * smax * (1 - R) / 2
-    sm = smax * (1 + R) / 2
+    Se = B["fka"] * B["fkb"] * (Sd if Sd else min(0.5 * Rm, 700e6))
+    sa = Kf * smax * (1 - R) / 2
+    sm = smax * (1 + R) / 2 * (Kf if KfMoy else 1)
     nn = 1 / (sa / Se + max(sm, 0) / Rm)
     return [
         _grp("Fatigue (Goodman modifié, Shigley chap. 6) : recalcul à partir des champs de saisie"),
@@ -3036,22 +3040,24 @@ def _handFatigue(saisie: dict, res: dict, dm) -> list[dict]:
             "MPa",
         ),
         _hc(
-            "Se = ka·kb·min(0,5·Rm ; 700 MPa)",
-            r"S_e=%s\times%s\times\min(0{,}5\times%s,\,700)" % (n(B["fka"]), n(B["fkb"]), n(Rm / 1e6)),
+            "Se = ka·kb·σD" if Sd else "Se = ka·kb·min(0,5·Rm ; 700 MPa)",
+            (r"S_e=%s\times%s\times%s" % (n(B["fka"]), n(B["fkb"]), n(Sd / 1e6)))
+            if Sd
+            else r"S_e=%s\times%s\times\min(0{,}5\times%s,\,700)" % (n(B["fka"]), n(B["fkb"]), n(Rm / 1e6)),
             Se / 1e6,
             f["Se"] / 1e6,
             "MPa",
         ),
         _hc(
             "σa = Kf·σmax·(1−R)/2",
-            r"\sigma_a=%s\times%s\times\frac{1-(%s)}{2}" % (n(Kt), n(smax / 1e6), n(R)),
+            r"\sigma_a=%s\times%s\times\frac{1-(%s)}{2}" % (n(Kf), n(smax / 1e6), n(R)),
             sa / 1e6,
             f["sigmaA"] / 1e6,
             "MPa",
         ),
         _hc(
-            "σm = σmax·(1+R)/2",
-            r"\sigma_m=%s\times\frac{1+(%s)}{2}" % (n(smax / 1e6), n(R)),
+            "σm = σmax·(1+R)/2" + (" × Kf" if KfMoy else ""),
+            r"\sigma_m=%s%s\times\frac{1+(%s)}{2}" % (n(Kf) + r"\times" if KfMoy else "", n(smax / 1e6), n(R)),
             sm / 1e6,
             f["sigmaM"] / 1e6,
             "MPa",
@@ -3063,8 +3069,10 @@ def _handFatigue(saisie: dict, res: dict, dm) -> list[dict]:
             f["n"],
         ),
         _grp(
-            "Hypothèses non recalculables : acier, vie infinie, Kf = Kt (sensibilité à l'entaille q = 1), chargement "
-            "uniaxial d'amplitude constante. Autre vérification de fatigue des constructions métalliques : "
+            "Hypothèses non recalculables : vie infinie, chargement uniaxial d'amplitude constante"
+            + ("" if Sd else ", acier (σD estimée à 0,5·Rm)")
+            + (", Kf = Kt (sensibilité à l'entaille q = 1)" if Kf == Kt else f", Kf = {Kf:g} saisi (1 ≤ Kf ≤ Kt)")
+            + ". Autre vérification de fatigue des constructions métalliques : "
             "EN 1993-1-9, non traitée."
         ),
     ]

@@ -15,7 +15,7 @@ from mecastruct.bureau.widgets import Zone, liste_col, nombre_col, texte_col
 from mecastruct.core import geometry
 from mecastruct.core.pp import asPP
 from mecastruct.plots import beam_plots, section_plots
-from mecastruct.services import beam_design, beam_services
+from mecastruct.services import beam_design, beam_services, sources
 from mecastruct.services.compute import _sectionLabel
 
 TYPES_APPUI = ["appui_simple", "rotule", "pivot", "pivot_glissant", "encastrement"]
@@ -200,7 +200,7 @@ class PagePoutres(PageCalcul):
         z.num("Beam", "L", "Longueur L", "m", help="Longueur de la poutre entre ses deux extrémités, en mètres.",
               min_value=0.0)  # fmt: skip
         z.choice("Beam", "mat", "Matériau", state.dm().listMaterials(), on_change=self._applique_materiau)
-        z.num("Beam", "E", "E", "GPa", help="Module d'Young : rigidité du matériau (acier ≈ 190–210 GPa).")
+        z.num("Beam", "E", "E", "GPa", help="Module d'Young : rigidité du matériau (acier : 210 GPa).")
         z.num("Beam", "G", "G", "GPa", help="Module de cisaillement : G = E / (2(1+ν)).")
         z.num("Beam", "Re", "Re", "MPa",
               help="Limite élastique : contrainte au-delà de laquelle le matériau se déforme définitivement.")  # fmt: skip
@@ -401,7 +401,7 @@ class PagePoutres(PageCalcul):
                  format_func={"enveloppe": "Enveloppe des combinaisons (ELU)",
                               "courant": "Dernier « Calculer » (non pondéré, indicatif)"}.get)  # fmt: skip
         z.legende(NON_VERIFIE)
-        z.legende("E du matériau choisi : 190 GPa pour les aciers du cours ; l'EN 1993-1-1 (§3.2.6) prend 210 GPa.")
+        z.legende("E du matériau choisi : 210 GPa pour les aciers (Eurocode 3, rapport de matériaux ; l'application MATLAB d'origine utilisait 190 GPa) ; l'EN 1993-1-1 (§3.2.6) prend 210 GPa.")
 
         def apres(r) -> None:
             e = r[0]
@@ -427,10 +427,17 @@ class PagePoutres(PageCalcul):
         z.bouton("Vérifier selon l'Eurocode 3", lance)
 
     def _saisie_fatigue(self, z: Zone) -> None:
+        z.legende(sources.source("beam"))
         z.num("Beam", "fR", "R = σmin / σmax (-1 alterné, 0 répété)", "")
-        z.num("Beam", "fka", "ka : état de surface", "-",
+        z.num("Beam", "fSd", "σD : limite d'endurance connue (0 = estimer 0,5·Rm, acier)", "MPa", min_value=0.0,
+              help="Valeur d'essai du matériau (cours de fatigue de Master, p. 44 et 84). L'estimation 0,5·Rm ne vaut que pour l'acier.")  # fmt: skip
+        z.num("Beam", "fKf", "Kf (0 = Kf = Kt)", "-", min_value=0.0,
+              help="Coefficient de fatigue en entaille, 1 ≤ Kf ≤ Kt (cours de fatigue de Master, p. 59).")  # fmt: skip
+        z.check("Beam", "fKfMoy", "Kf aussi appliqué à la contrainte moyenne",
+                help="Le cours (p. 95) applique les coefficients d'influence aux amplitudes et aux valeurs moyennes.")  # fmt: skip
+        z.num("Beam", "fka", "ka (KS du cours) : état de surface", "-",
               help="Poli 1 ; usiné 0,7 à 0,9 ; laminé 0,6 à 0,8 ; brut de forge 0,4 à 0,6 (acier).")  # fmt: skip
-        z.num("Beam", "fkb", "kb : effet de taille", "-",
+        z.num("Beam", "fkb", "kb (Ke du cours) : effet de taille", "-",
               help="Petite pièce (d ≤ 8 mm) 1 ; 0,85 à 0,9 pour 10 à 50 mm ; 0,7 à 0,8 au-delà.")  # fmt: skip
 
         def apres(r) -> None:

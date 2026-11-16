@@ -332,11 +332,31 @@ def _ec3Rows(r: dict, d: dict, src: str, fy: float, saisie: dict, Lcr: float, Lc
     return rows
 
 
+def fatigueOptions(saisie: dict) -> tuple[float | None, float, bool]:
+    """Options facultatives de la fatigue : (σD en Pa ou None, Kf, Kf aussi sur σm), lues avec leurs valeurs par défaut.
+
+    fSd (MPa, 0 = estimer) ; fKf (0 = Kf = Kt, sinon 1 ≤ Kf ≤ Kt, cours de fatigue de Master p. 59) ; fKfMoy (bool).
+    Erreur : MecaStruct:App:invalidInput si σD < 0 ou si Kf sort de [1 ; Kt].
+    """
+    Kt = saisie["Kt"]
+    sd = float(saisie.get("fSd") or 0.0)
+    if sd < 0:
+        raise MecaStructError(_ID, "Fatigue : la limite d'endurance σD ne peut pas être négative.")
+    kf = float(saisie.get("fKf") or 0.0)
+    if kf == 0.0:
+        kf = Kt
+    elif not 1 <= kf <= Kt:
+        raise MecaStructError(_ID, f"Fatigue : Kf doit vérifier 1 ≤ Kf ≤ Kt = {Kt:g}.")
+    return (sd * 1e6 if sd > 0 else None), kf, bool(saisie.get("fKfMoy", False))
+
+
 def checkFatigue(saisie: dict, dm: DataManager) -> tuple[dict, pd.DataFrame]:
     """Coefficient de sécurité en fatigue (Goodman modifié) au point le plus sollicité de la poutre.
 
-    Entrées : `saisie` (Kt, R = fR, ka = fka, kb = fkb, s, mat) ; `dm` (Rm du matériau).
-    σmax nominale = Kt·σ / Kt (σ du calcul « tous les cas à 1 ») ; Kf = Kt.
+    Entrées : `saisie` (Kt, R = fR, ka = fka, kb = fkb, s, mat ; facultatifs : fSd = limite d'endurance σD connue en
+    MPa, 0 ou absent = estimation 0,5·Rm de l'acier ; fKf = Kf en [1 ; Kt], 0 ou absent = Kt ; fKfMoy = Kf aussi sur
+    la contrainte moyenne) ; `dm` (Rm du matériau).
+    σmax nominale = Kt·σ / Kt (σ du calcul « tous les cas à 1 »).
     Sortie : (r, T) : r dict de design_checks.goodman (sigmaA, sigmaM, Se, n), T tableau Grandeur / Valeur / Unité.
     Erreur : MecaStruct:App:invalidInput si Kt < 1 ou Rm inconnu.
     """
@@ -347,21 +367,36 @@ def checkFatigue(saisie: dict, dm: DataManager) -> tuple[dict, pd.DataFrame]:
     Rm = dm.getMaterial(saisie["mat"])["Rm"]
     if not (math.isfinite(Rm) and Rm > 0):
         raise MecaStructError(_ID, f"Fatigue : Rm inconnu pour « {saisie['mat']} ».")
-    r = design_checks.goodman(sigMax, saisie["fR"], Kt, Rm, saisie["fka"], saisie["fkb"])
+    Sd, Kf, KfMoy = fatigueOptions(saisie)
+    r = design_checks.goodman(sigMax, saisie["fR"], Kf, Rm, saisie["fka"], saisie["fkb"], Sd, KfMoy)
     ok = r["n"] >= saisie["s"]
+    categorie = str(dm.getMaterial(saisie["mat"])["Category"])
     rows = [
         ("Contrainte nominale max σmax", sigMax / 1e6, "MPa"),
         ("R = σmin / σmax", saisie["fR"], "-"),
-        ("Kf (= Kt)", Kt, "-"),
+        ("Kf" + (" (= Kt)" if Kf == Kt else ""), Kf, "-"),
         ("Amplitude σa = Kf·σmax·(1−R)/2", r["sigmaA"] / 1e6, "MPa"),
-        ("Contrainte moyenne σm", r["sigmaM"] / 1e6, "MPa"),
+        ("Contrainte moyenne σm" + (" (× Kf)" if KfMoy else ""), r["sigmaM"] / 1e6, "MPa"),
         ("Rm", Rm / 1e6, "MPa"),
-        ("Limite d'endurance Se = ka·kb·0,5·Rm", r["Se"] / 1e6, "MPa"),
+        ("Limite d'endurance Se = ka·kb·σD" if Sd else "Limite d'endurance Se = ka·kb·0,5·Rm", r["Se"] / 1e6, "MPa"),
         ("Coefficient de sécurité n = 1 / (σa/Se + σm/Rm)", r["n"], "-"),
         ("Coefficient exigé s", saisie["s"], "-"),
         ("Fatigue (Goodman)", ok, ""),
-        ("Hypothèses", "acier, vie infinie, Kf = Kt, chargement uniaxial d'amplitude constante", ""),
+        (
+            "Hypothèses",
+            "vie infinie, chargement uniaxial d'amplitude constante" + ("" if Sd else ", acier (σD estimée 0,5·Rm)"),
+            "",
+        ),
     ]
+    if Sd is None and not categorie.startswith("Acier"):
+        rows.append(
+            (
+                "Avertissement",
+                f"« {categorie} » : l'estimation 0,5·Rm ne vaut que pour l'acier (cours de fatigue de Master : environ "
+                "0,35·Rm à 10⁷ cycles pour un Al-Cu). Saisissez la limite d'endurance σD du matériau.",
+                "",
+            )
+        )
     return r, _kvTable(rows)
 
 
