@@ -27,7 +27,7 @@ SOURCES: dict[str, str] = {
     "frn": "Source : cours R5.05 ICM S5 « Frein – Embrayage » (IUT de Bordeaux), p. 8 à 10.",
     "emb": "Source : cours R5.05 ICM S5 « Frein – Embrayage » (IUT de Bordeaux), p. 15 à 20.",
     "mot": (
-        "Source : cours « Chaînes de transmission de puissance » (C. Bois, ICM S4, IUT de Bordeaux), p. 17 et 18 : "
+        "Source : cours « Chaînes de transmission de puissance » (ICM S4, IUT de Bordeaux), p. 17 et 18 : "
         "accélération de 0,5 s (vmax/γmax) ; la durée du régime établi (4,32 s) est déduite pour retrouver 61 N·m."
     ),
     "fre": (
@@ -37,18 +37,18 @@ SOURCES: dict[str, str] = {
         "le coefficient de sécurité (classeur, prudent)."
     ),
     "ten": (
-        "Source : L. Morin, Continuum Mechanics (Université de Bordeaux, 2025), lectures 4 et 9. L'invariant I2 de "
+        "Source : cours Continuum Mechanics (Université de Bordeaux, 2025), lectures 4 et 9. L'invariant I2 de "
         "l'application est la somme des mineurs principaux, de signe opposé au I2 du cours (lecture 4, diapo 14) : les "
         "contraintes principales sont identiques."
     ),
     "hoo": (
-        "Source : L. Morin, Continuum Mechanics (Université de Bordeaux, 2025), lecture 6. Ordre des cisaillements de la "
+        "Source : cours Continuum Mechanics (Université de Bordeaux, 2025), lecture 6. Ordre des cisaillements de la "
         "matrice : xx, yy, zz, yz, xz, xy ; le cours range 11, 22, 33, 12, 13, 23 (diapos 18-19), donc son C44 est la "
         "case xy ici. Jauges et rosettes : formules classiques de l'extensométrie, sans cours de référence."
     ),
     "jau": "Formules classiques de l'extensométrie (jauge de Bridgman, pont de Wheatstone, rosettes) : aucun cours du dossier de référence ne les traite.",
     "beam": (
-        "Fatigue : L. Morin, Éléments de dimensionnement en fatigue (M2 Génie mécanique, Université de Bordeaux), "
+        "Fatigue : cours Éléments de dimensionnement en fatigue (M2 Génie mécanique, Université de Bordeaux), "
         "p. 44, 52 à 63 et 95 (Goodman, σD, Kf)."
     ),
 }

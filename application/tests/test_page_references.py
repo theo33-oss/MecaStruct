@@ -5,7 +5,7 @@ def test_la_page_liste_l_eurocode_3_et_les_normes_citees(bureau):
     bureau.ouvre("references")
     for numero in ("NF EN 1993-1-1", "EN 1993-1-5", "EN 338", "EN 1992-1-1"):
         assert bureau.a_texte(numero)
-    for cours in ("L. Morin, 4TSA705U", "L. Morin, 4TGA901U", "IUT de Bordeaux (GMP), R3.05 ICM S3"):
+    for cours in ("Université de Bordeaux, 4TSA705U", "Université de Bordeaux, 4TGA901U", "IUT de Bordeaux (GMP), R3.05 ICM S3"):
         assert bureau.a_texte(cours)
     assert sum("Dans l'application :" in t for t in bureau.textes()) == 22  # un rôle par norme, cours ou document
 
