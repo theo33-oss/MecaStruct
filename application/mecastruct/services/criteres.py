@@ -7,7 +7,10 @@ Une ligne = {"mode", "valeur", "limite", "unite", "s_demande", "s_obtenu", "taux
 - sens « max » : la valeur doit rester sous la limite (contrainte, pression) ; « min » : au-dessus (durée de vie) ;
 - limite : valeur admissible, coefficient de sécurité demandé déjà compris (σadm = Re/s) ;
 - s_obtenu : coefficient de sécurité réel (Re/σ) ; le critère est admissible quand s_obtenu ≥ s_demande ;
-- taux : part de l'admissible utilisée (1 = à la limite).
+- taux : part de l'admissible utilisée (1 = à la limite) ;
+- genre : « resistance » (contrainte face à la limite du matériau : on parle de coefficient de sécurité) ou
+  « limite » (durée, rigidité, vitesse, pression admissible, couple : on parle de marge) ;
+- groupe : étude à laquelle la ligne appartient quand la page en réunit plusieurs (cisaillement, matage, clavette…).
 Pour ajouter un critère : une ligne de plus dans la fonction du calcul, rien d'autre à toucher.
 """
 
@@ -15,9 +18,11 @@ import math
 import re
 
 _UNITE = re.compile(r"\s*\(([^()]*)\)\s*$")
+_NOMS_LONGS = {"P": "Pression P", "V": "Vitesse de glissement V"}
 
 
-def ligne(mode: str, valeur, limite, unite: str = "", s_demande: float = 1.0, sens: str = "max", ok=None) -> dict | None:
+def ligne(mode: str, valeur, limite, unite: str = "", s_demande: float = 1.0, sens: str = "max", ok=None,
+          genre: str = "resistance", groupe: str = "") -> dict | None:
     """Une ligne de critère, ou None si la valeur ou la limite manque (NaN, zéro, absente)."""
     try:
         valeur, limite, s_demande = abs(float(valeur)), abs(float(limite)), float(s_demande)
@@ -33,7 +38,7 @@ def ligne(mode: str, valeur, limite, unite: str = "", s_demande: float = 1.0, se
         obtenu = valeur * s_demande / limite
     admissible = bool(taux <= 1.0 + 1e-12) if ok is None else bool(ok)
     return {"mode": mode, "valeur": valeur, "limite": limite, "unite": unite, "s_demande": s_demande,
-            "s_obtenu": obtenu, "taux": taux, "ok": admissible, "sens": sens}  # fmt: skip
+            "s_obtenu": obtenu, "taux": taux, "ok": admissible, "sens": sens, "genre": genre, "groupe": groupe}  # fmt: skip
 
 
 def _garde(lignes) -> list[dict]:
@@ -50,7 +55,10 @@ def depuis_table(table, prefixe: str = "") -> list[dict]:
         m = _UNITE.search(nom)
         unite = m.group(1) if m else ""
         ok = None if "Résultat" not in r else str(r["Résultat"]).strip().upper() == "OK"
-        lignes.append(ligne(prefixe + _UNITE.sub("", nom), r["Valeur"], r["Limite"], unite, ok=ok))
+        nom = _UNITE.sub("", nom)
+        for court, long in _NOMS_LONGS.items():  # « P », « V » seuls ne disent rien dans le diagramme
+            nom = re.sub(rf"(^|: ){re.escape(court)}( |$)", rf"\g<1>{long}\g<2>", nom, count=1)
+        lignes.append(ligne(prefixe + nom, r["Valeur"], r["Limite"], unite, ok=ok, genre="limite"))
     return _garde(lignes)
 
 
@@ -62,7 +70,7 @@ def _beam(s, calc):
     b, sh = c["bend"], c.get("shear")
     lignes = [ligne("Flexion composée : Kt·σ max", b["sigmaMaxKt"] / 1e6, b["sigmaAdm"] / 1e6, "MPa", s["s"])]
     if sh:
-        lignes.append(ligne("Effort tranchant : VEd / Vpl,Rd", sh["VEd"] / 1e3, sh["Vpl"] / 1e3, "kN", ok=sh["ok"]))
+        lignes.append(ligne("Effort tranchant : VEd / Vpl,Rd", sh["VEd"] / 1e3, sh["Vpl"] / 1e3, "kN", ok=sh["ok"], genre="limite"))
     return lignes
 
 
@@ -70,22 +78,23 @@ def _tra(s, calc):
     r = calc["result"]
     lignes = [ligne("Résistance : σ max", r["sigmaMax"] / 1e6, r["sigmaAdm"] / 1e6, "MPa", s["s"])]
     if s.get("dLmax", 0) > 0:
-        lignes.append(ligne("Rigidité : allongement ΔL", r["dL"]["analytique"] * 1e3, s["dLmax"], "mm"))
+        lignes.append(ligne("Rigidité : allongement ΔL", r["dL"]["analytique"] * 1e3, s["dLmax"], "mm", genre="limite"))
     return lignes
 
 
 def _cis(s, calc):
     r, ex = calc["result"], calc.get("extras") or {}
     adm = r["shear"]["tauAdm"] / 1e6
-    lignes = [ligne("Cisaillement : τ max", r["shear"]["tauMax"] / 1e6, adm, "MPa", s["s"]),
-              ligne("Jourawski : τ max dans la section", r["jour"]["tauMax"] / 1e6, adm, "MPa", s["s"]),
-              ligne("Matage : pression P", r["bearing"]["P"] / 1e6, s["Padm"], "MPa")]  # fmt: skip
+    g = "Cisaillement simple et Jourawski"
+    lignes = [ligne("Cisaillement : τ max", r["shear"]["tauMax"] / 1e6, adm, "MPa", s["s"], groupe=g),
+              ligne("Jourawski : τ max dans la section", r["jour"]["tauMax"] / 1e6, adm, "MPa", s["s"], groupe=g),
+              ligne("Pression de matage P", r["bearing"]["P"] / 1e6, s["Padm"], "MPa", genre="limite", groupe="Matage")]  # fmt: skip
     for cle, nom in (("key", "Clavette"), ("pin", "Goupille")):
         e = (ex.get(cle) or {}).get("result") or {}
         if "okP" in e:
-            lignes.append(ligne(f"{nom} : matage P", e["P"] / 1e6, s["Padm"], "MPa"))
+            lignes.append(ligne("Pression de matage P", e["P"] / 1e6, s["Padm"], "MPa", genre="limite", groupe=nom))
         if "okTau" in e:
-            lignes.append(ligne(f"{nom} : cisaillement τ", e["tau"] / 1e6, e["tauAdm"] / 1e6, "MPa", s["s"]))
+            lignes.append(ligne("Cisaillement τ", e["tau"] / 1e6, e["tauAdm"] / 1e6, "MPa", s["s"], groupe=nom))
     return lignes
 
 
@@ -93,7 +102,7 @@ def _tor(s, calc):
     r = calc["result"]
     lignes = [ligne("Résistance : τ max", r["tauMax"] / 1e6, r["tauAdm"] / 1e6, "MPa", s["s"])]
     if s.get("thetaAdm", 0) > 0:
-        lignes.append(ligne("Rigidité : angle unitaire θ", math.degrees(r["theta"]), s["thetaAdm"], "°/m"))
+        lignes.append(ligne("Rigidité : angle unitaire θ", math.degrees(r["theta"]), s["thetaAdm"], "°/m", genre="limite"))
     return lignes
 
 
@@ -124,12 +133,12 @@ def _fre(s, res):
         if sig and coef:
             lignes.append(ligne(f"{nom} : σ équivalente au serrage maxi", sig, sig * coef, "MPa"))
     lignes.append(ligne("Adhérence : couple transmissible au serrage mini", r.get("couple"), s["C"] * s["s"], "N·m",
-                        sens="min") if s.get("C", 0) > 0 and not s.get("Fa") else None)  # fmt: skip
+                        sens="min", genre="limite") if s.get("C", 0) > 0 and not s.get("Fa") else None)  # fmt: skip
     return lignes
 
 
 def _rlt(s, res):
-    return [ligne("Durée de vie Lnh", res["result"]["Lnh"], s["Lh"], "h", sens="min")]
+    return [ligne("Durée de vie Lnh", res["result"]["Lnh"], s["Lh"], "h", sens="min", genre="limite")]
 
 
 def _eng(s, res):
@@ -138,7 +147,7 @@ def _eng(s, res):
 
 
 def _emb(s, res):
-    return [ligne("Couple d'embrayage CT face au couple moteur", res["result"]["CT"], s["CM"], "N·m")]
+    return [ligne("Couple d'embrayage CT face au couple moteur", res["result"]["CT"], s["CM"], "N·m", genre="limite")]
 
 
 def _table(_s, res):
@@ -163,7 +172,13 @@ def criteres(ident: str, saisie: dict, res: dict) -> list[dict]:
         lignes = _garde(f(saisie, res))
     except (KeyError, TypeError, ValueError, AttributeError):
         return []
-    return sorted(lignes, key=lambda x: -x["taux"])
+    return trier(lignes)
+
+
+def trier(lignes: list[dict]) -> list[dict]:
+    """Études dans l'ordre de la page ; dans une étude, le mode le plus sollicité en premier."""
+    ordre = {g: i for i, g in enumerate(dict.fromkeys(x["groupe"] for x in lignes))}
+    return sorted(lignes, key=lambda x: (ordre[x["groupe"]], -x["taux"]))
 
 
 def eurocode(e: dict) -> list[dict]:
@@ -176,7 +191,7 @@ def eurocode(e: dict) -> list[dict]:
               ("Déversement : MEd / Mb,Rd", taux(e.get("ltb"))), ("Effort normal et flexion", taux(e.get("axial"))),
               ("Flambement : NEd / Nb,Rd", taux(e.get("buck"))), ("Interaction N + M (6.61)", inter.get("ratio61")),
               ("Interaction N + M (6.62)", inter.get("ratio62")), ("Voilement de l'âme : VEd / Vb,Rd", taux(e.get("web")))]  # fmt: skip
-    lignes = _garde(ligne(nom, t, 1.0, "") for nom, t in paires if t is not None)
+    lignes = _garde(ligne(nom, t, 1.0, "", genre="limite") for nom, t in paires if t is not None)
     return sorted(lignes, key=lambda x: -x["taux"])
 
 
@@ -186,4 +201,4 @@ def fatigue(r: dict, s: float) -> list[dict]:
     if not math.isfinite(n) or n <= 0 or s <= 0:
         return []
     return [{"mode": "Fatigue (Goodman) : coefficient n", "valeur": n, "limite": float(s), "unite": "", "s_demande": float(s),
-             "s_obtenu": n, "taux": s / n, "ok": bool(n >= s), "sens": "min"}]  # fmt: skip
+             "s_obtenu": n, "taux": s / n, "ok": bool(n >= s), "sens": "min", "genre": "resistance", "groupe": ""}]  # fmt: skip

@@ -59,7 +59,8 @@ def test_memes_resultats_que_le_service(ident, service):
     attendu = service(s)
     sortie = appel(ident, s)["sortie"]
     assert sortie["status"] == attendu["status"]
-    assert sortie["ok"] == attendu["ok"]
+    # ajustement : aucune limite n'est comparée, le site n'écrit donc pas « vérifié » (audit utilisateur)
+    assert sortie["ok"] == (None if ident == "aju" else attendu["ok"])
     assert sortie["latex"] == list(attendu["result"]["latex"])
 
 

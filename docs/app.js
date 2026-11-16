@@ -5,7 +5,7 @@
 
 const App = (() => {
   const $ = (id) => document.getElementById(id);
-  const VERSION = "1.3.0";
+  const VERSION = "1.3.1";
   const DEPOT = "https://github.com/theo33-oss/MecaStruct";
   let pont = null;
   const genres = {};
@@ -38,7 +38,7 @@ const App = (() => {
     { id: "moteur", titre: "Dimensionnement moteur", famille: "transmission", genre: "machine", calculs: ["mot"], texte: "Couple thermique équivalent, couple de pointe, inertie ramenée." },
     { id: "convertisseur", titre: "Convertisseur", famille: "donnees", genre: "convertisseur", texte: "Conversion entre unités de toutes les grandeurs." },
     { id: "base", titre: "Matériaux et profilés", famille: "donnees", genre: "base", texte: "Base de matériaux et de profilés normalisés." },
-    { id: "references", titre: "Références", famille: "donnees", genre: "references", texte: "Normes citées par l'application." },
+    { id: "references", titre: "Références", famille: "donnees", genre: "references", texte: "Normes, cours et documents cités par l'application." },
     { id: "limites", titre: "Limites et vérifications", famille: "donnees", genre: "texte", source: "LIMITES.md", texte: "Ce qui est vérifié, contre quoi, et ce qui ne l'est pas." },
   ];
   const page = (id) => PAGES.find((p) => p.id === id);
@@ -199,6 +199,7 @@ const App = (() => {
     layout.plot_bgcolor = fond;
     layout.font = { ...(layout.font || {}), color: encre };
     layout.autosize = true;
+    layout.separators = ", "; // virgule décimale, espace des milliers, comme le reste du site
     delete layout.width;
     if (layout.title && layout.title.text) layout.title = { ...layout.title, x: 0.01, xanchor: "left" };
     Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr" });

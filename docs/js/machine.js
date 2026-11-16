@@ -55,7 +55,13 @@
         options = r.ok ? r.sortie : [];
         if (options.length && !options.includes(valeur)) saisie[c.id] = options[0];
       }
-      const select = el("select", {}, options.map((o, i) => el("option", { value: String(o), texte: c.etiquettes ? c.etiquettes[i] : String(o) })));
+      const option = (o, i) => el("option", { value: String(o), texte: c.etiquettes ? c.etiquettes[i] : String(o) });
+      let contenu = options.map(option);
+      if (c.familles && !c.options_de) { // matériaux rangés par famille
+        const noms = [...new Set(c.familles)];
+        contenu = noms.map((n) => el("optgroup", { label: n }, options.map((o, i) => (c.familles[i] === n ? option(o, i) : null))));
+      }
+      const select = el("select", {}, contenu);
       select.value = String(saisie[c.id]);
       select.addEventListener("change", () => changer(c.id, typeof options[0] === "number" ? Number(select.value) : select.value));
       select.dataset.id = c.id;
@@ -280,7 +286,7 @@
           const r = App.calculer(c.calcul, saisie);
           bloc.replaceChildren(el("h3", { texte: c.titre || c.libelle }));
           if (!r.ok) return bloc.append(App.message("erreur", r.erreur));
-          bloc.append(...construireResultat(r.sortie, c.calcul));
+          bloc.append(...construireResultat(r.sortie, c.calcul, "", true));
           extras[c.calcul] = { empreinte: JSON.stringify(saisie), bloc };
         }, 30);
       },
@@ -331,7 +337,13 @@
         return d;
       }));
       if (auto) formulaire.append(el("button", { type: "submit", hidden: true, texte: "Calculer" }));
-      if (f.note) formulaire.append(el("p", { class: "legende note", texte: f.note }));
+      if (f.note) { // la source et les écarts avec le cours sont repliés : une phrase utile reste visible
+        const coupe = f.note.search(/(^|\s)(Source|Fatigue|Formules classiques) ?:? /);
+        const tete = coupe > 0 ? f.note.slice(0, coupe).trim() : coupe === 0 ? "" : f.note;
+        if (tete) formulaire.append(el("p", { class: "legende note", texte: tete }));
+        if (coupe >= 0) formulaire.append(el("details", { class: "source" }, el("summary", { texte: "Source et écarts avec le cours" }),
+          el("p", { class: "legende note", texte: f.note.slice(coupe).trim() })));
+      }
       formulaire.append(barreFichiers());
     }
 
@@ -439,7 +451,7 @@
     }
 
     function afficherResultat(s) {
-      zoneResultat.replaceChildren(...construireResultat(s, ident, barreExports()));
+      zoneResultat.replaceChildren(...construireResultat(s, ident, barreExports(), !auto));
     }
     // Après un clic sur « Calculer » : le résultat vient à l'écran et son cadre s'éclaire un instant.
     function montrer() {
@@ -463,7 +475,8 @@
     const phraseEtat = (t) => { const p = App.decimalesFr(String(t || "")); return /^[a-zà-ÿ]/.test(p) ? p.charAt(0).toUpperCase() + p.slice(1) : p; };
     const nf = (x, chiffres = 3) => (Number.isFinite(x) ? String(Number(x.toPrecision(chiffres))).replace(".", ",") : "∞");
 
-    // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient obtenu et demandé.
+    // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient de sécurité (résistance)
+    // ou marge (durée, rigidité, vitesse…). Les études d'une même page (cisaillement, matage, clavette) ont un sous-titre.
     function bilan(s) {
       const crit = s.criteres || [];
       const ko = crit.filter((c) => !c.ok).length;
@@ -472,31 +485,44 @@
       const phrase = ko ? `${ko} mode${ko > 1 ? "s" : ""} de ruine non admissible${ko > 1 ? "s" : ""} sur ${crit.length}`
         : crit.length > 1 ? `Les ${crit.length} modes de ruine sont admissibles` : "Le mode de ruine est admissible";
       const echelle = Math.min(2, Math.max(1.25, ...crit.map((c) => c.taux * 1.08)));
-      const lignes = crit.map((c, i) => {
+      const pire = crit.reduce((m, c) => (c.taux > m.taux ? c : m), crit[0]);
+      const lignes = [];
+      let groupe = "";
+      for (const c of crit) {
+        if (c.groupe && c.groupe !== groupe) lignes.push(el("li", { class: "mode-groupe", texte: c.groupe }));
+        groupe = c.groupe || "";
         const u = c.unite ? " " + c.unite : "";
-        const signe = c.sens === "max" ? "≤" : "≥";
-        const barre = el("span", { class: "jauge", role: "img", "aria-label": `Taux de travail ${nf(100 * c.taux)} %` },
+        const barre = el("span", { class: "jauge", role: "img", "aria-label": `Taux de travail ${nf(100 * c.taux)} %`,
+          aide: "Part de l'admissible utilisée. Le trait marque 100 % : au-delà, le mode n'est pas admissible." },
           el("span", { class: "remplie", style: `width:${(100 * Math.min(c.taux, echelle) / echelle).toFixed(1)}%` }),
           el("span", { class: "repere", style: `left:${(100 / echelle).toFixed(1)}%` }));
-        return el("li", { class: "mode " + (c.ok ? "ok" : "ko") + (i === 0 && crit.length > 1 ? " pire" : "") },
+        const marge = c.genre === "resistance"
+          ? [el("strong", { texte: `s = ${nf(c.s_obtenu)}`, aide: "Coefficient de sécurité obtenu : la limite du matériau divisée par la valeur calculée." }),
+            el("span", { texte: `demandé ${nf(c.s_demande)}` })]
+          : [el("strong", { texte: c.taux <= 1 ? `marge ${nf(100 * (1 - c.taux))} %` : `dépassement ${nf(100 * (c.taux - 1))} %`,
+            aide: "Part de l'admissible encore disponible, ou dépassement de la limite." })];
+        lignes.push(el("li", { class: "mode " + (c.ok ? "ok" : "ko") + (c === pire && crit.length > 1 ? " pire" : "") },
           el("span", { class: "mode-nom", texte: c.mode }),
           el("span", { class: "mode-etat", texte: c.ok ? "Admissible" : "Non admissible" }),
           barre,
           el("span", { class: "mode-chiffres" },
-            el("span", { texte: `${nf(c.valeur, 4)}${u} ${signe} ${nf(c.limite, 4)}${u}` }),
-            el("span", { texte: `taux ${nf(100 * c.taux)} %` }),
-            el("strong", { texte: `s = ${nf(c.s_obtenu)}`, aide: "Coefficient de sécurité obtenu : la limite du matériau (ou de la norme) divisée par la valeur calculée." }),
-            el("span", { texte: `demandé ${nf(c.s_demande)}` })));
-      });
+            el("span", { texte: `${nf(c.valeur, 4)}${u} pour ${nf(c.limite, 4)}${u} ${c.sens === "max" ? "admissibles" : "requis"}` }),
+            el("span", { texte: `taux ${nf(100 * c.taux)} %` }), marge)));
+      }
       return el("section", { class: "bilan " + etat },
         el("p", { class: "bilan-tete" }, el("span", { class: "verdict-etat", texte: pastille }), el("strong", { texte: phrase })),
         el("ul", { class: "modes" }, lignes),
-        el("p", { class: "bilan-phrase", texte: phraseEtat(s.status) }),
-        el("p", { class: "legende", texte: "Barre : part de l'admissible utilisée ; le trait marque 100 %. s : coefficient de sécurité obtenu." }));
+        el("p", { class: "bilan-phrase", texte: phraseEtat(s.status) }));
     }
 
-    // Verdict, métriques et onglets (graphiques, tableaux, explications) d'une sortie du pont.
-    function construireResultat(s, cle, exports = "") {
+    // Contrôles oui / non sans valeur limite (conditions de montage d'un train épicycloïdal).
+    const controles = (s) => ((s.controles || []).length ? el("section", { class: "bilan neutre" },
+      el("p", { class: "bilan-tete" }, el("strong", { texte: s.titre_controles || "Contrôles" })),
+      el("ul", { class: "modes" }, s.controles.map((c) => el("li", { class: "mode " + (c.ok ? "ok" : "ko") },
+        el("span", { class: "mode-nom", texte: `${c.nom} = ${App.decimalesFr(c.valeur)}` }),
+        el("span", { class: "mode-etat", texte: c.ok ? "Respectée" : "Non respectée" }))))) : "");
+
+    function construireResultat(s, cle, exports = "", avecHeure = false) {
       const niveau = s.ok === true ? "succes" : s.ok === false ? "erreur" : "info";
       const prefixe = s.ok === true ? "Vérifié. " : s.ok === false ? "Non vérifié. " : "";
       let verdict;
@@ -518,7 +544,7 @@
       const metriques = (s.metriques || []).length
         ? el("div", { class: "metriques" }, s.metriques.map(([n, v]) => el("div", { class: "metrique" }, el("span", { texte: n }), el("strong", { texte: App.decimalesFr(v) }))))
         : null;
-      return [verdict, heure, exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
+      return [verdict, controles(s), avecHeure ? heure : "", exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
     }
 
     // Un résultat complémentaire dont la saisie a changé depuis le calcul est signalé (jamais effacé en silence).
@@ -578,7 +604,8 @@
         boutons.push(note, classeur);
       }
       if (!boutons.length) return "";
-      return el("div", { class: "exports" }, el("span", { class: "exports-titre", texte: "Justifier ce calcul" }), el("div", { class: "ligne" }, boutons));
+      const sans = (f.dossier || f.dossierMachine) ? null : el("span", { class: "legende", texte: "Cette page n'a pas de dossier de validation." });
+      return el("div", { class: "exports" }, el("span", { class: "exports-titre", texte: "Justifier ce calcul" }), el("div", { class: "ligne" }, boutons), sans);
     }
 
     // Dossier de validation : télécharger le fichier HTML, ou l'ouvrir prêt à imprimer (Imprimer, Enregistrer en PDF).
@@ -624,8 +651,10 @@
     } else if (App.pret) {
       if (auto) setTimeout(relancer, 0);
       else {
-        setTimeout(apercu, 0);
-        zoneResultat.replaceChildren(App.message("info", "Renseignez les données, puis cliquez sur « Calculer »."));
+        if (f.lent) { // calcul long : on attend le clic
+          setTimeout(apercu, 0);
+          zoneResultat.replaceChildren(App.message("info", "Renseignez les données, puis cliquez sur « Calculer »."));
+        } else setTimeout(() => relancer(), 0); // le résultat de l'exemple (ou de la dernière saisie) est là dès l'arrivée
       }
     }
     return bloc;

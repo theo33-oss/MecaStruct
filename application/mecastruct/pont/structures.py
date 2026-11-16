@@ -638,6 +638,7 @@ def _formulaires_rdm() -> dict:
     return {
         "sec": {
             **commun, "titre": "Section", "defaut": loadExample("Sec"), "apercu": True, "exemples": exampleNames("Sec"),
+            "lent": True,  # intégrales symboliques : pas de calcul automatique à l'ouverture de la page
             "groupes": [
                 groupe("Type de section",
                        liste("type", "Type de section", [t["type"] for t in types], etiquettes=[t["label"] for t in types]),
@@ -674,7 +675,7 @@ def _formulaires_rdm() -> dict:
             ],
         },
         "cis": {
-            **commun, "titre": "Cisaillement", "defaut": loadExample("Cis"), "caches": ["section"],
+            **commun, "titre": "Cisaillement", "defaut": {**loadExample("Cis"), "S": 200.0, "Lk": 60.0}, "caches": ["section"],  # exemple du site : admissible
             "suites": {"mat": {"calcul": "materiau", "champs": ["Re", "G"]}},
             "groupes": [
                 groupe("Section pour Jourawski",
@@ -692,7 +693,7 @@ def _formulaires_rdm() -> dict:
             ],
         },
         "tor": {
-            **commun, "titre": "Torsion", "defaut": loadExample("Tor"),
+            **commun, "titre": "Torsion", "defaut": {**loadExample("Tor"), "D": 65.0},  # exemple du site : admissible
             "suites": {"mat": {"calcul": "materiau", "champs": ["G", "Re"]}},
             "groupes": [groupe("Arbre circulaire", nb("Mt", "Mt", "kN·m"), nb("D", "D", "mm", 0.0), nb("d", "d, alésage (0 = plein)", "mm", 0.0),
                                nb("L", "L", "m", 0.0), liste("mat", "Matériau", noms), nb("G", "G", "GPa"), nb("Re", "Re", "MPa"),

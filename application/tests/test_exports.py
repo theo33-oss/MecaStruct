@@ -49,7 +49,8 @@ def test_criteres_coherents_avec_le_verdict(ident):
     s = appel(ident)
     c = s["criteres"]
     assert c, ident
-    assert c == sorted(c, key=lambda x: -x["taux"])  # le plus défavorable en premier
+    assert c == criteres.trier(c)  # études dans l'ordre de la page, mode le plus sollicité en premier
+    assert all(x["genre"] in ("resistance", "limite") for x in c)
     for x in c:
         assert x["ok"] == (x["s_obtenu"] >= x["s_demande"] * (1 - 1e-9)), x
     if s["ok"] is True and ident not in ("cis", "tor", "tra"):  # leur verdict ne porte que sur la résistance
@@ -171,3 +172,17 @@ def test_aucun_texte_de_la_saisie_ne_devient_une_formule():
             for c in ligne:
                 if isinstance(c.value, str) and c.value.startswith("="):
                     assert ws.title in ("Calcul", "Critères") and "CMD" not in c.value
+
+
+def test_audit_utilisateur():
+    """Constats de l'audit : études du cisaillement séparées, libellés complets, pas de « vérifié » sans limite."""
+    cis = appel("cis")
+    assert list(dict.fromkeys(x["groupe"] for x in cis["criteres"])) == ["Cisaillement simple et Jourawski", "Matage", "Clavette", "Goupille"]
+    assert cis["ok"] is True and appel("tor")["ok"] is True  # exemples du site admissibles
+    assert appel("tra")["ok"] is False  # un exemple qui ne passe pas est gardé exprès
+    assert {x["mode"] for x in appel("pal")["criteres"]} >= {"Pression P", "Vitesse de glissement V"}
+    assert appel("aju")["ok"] is None
+    epi = appel("epi")
+    assert [c["ok"] for c in epi["controles"]] == [True, True] and epi["titre_controles"] == "Conditions de montage"
+    assert appel("rlt")["criteres"][0]["genre"] == "limite" and appel("fle")["criteres"][0]["genre"] == "resistance"
+    assert FORMULAIRES["tra"]["groupes"][0]["champs"][3]["familles"]  # matériaux rangés par famille

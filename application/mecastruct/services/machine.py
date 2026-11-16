@@ -84,12 +84,12 @@ def computeShrinkFit(s: dict, dm: DataManager) -> dict:
         ("σ équivalente arbre / moyeu (MPa)", f"{r['sigmaArbre']:.4g} / {r['sigmaMoyeu']:.4g}"),
         ("σ équivalente de l'arbre, abaque de frettage du cours (MPa)", f"{_sigmaArbreCours(s, r):.4g}"),
         ("Coefficient de sécurité arbre / moyeu", f"{r['sArbre']:.3g} / {r['sMoyeu']:.3g}"),
-        ("Température de chauffe ΔT (K)", r["deltaT"]),
+        ("Élévation de température de chauffe ΔT (°C)", r["deltaT"]),
     ]
     t = pd.DataFrame([{"Grandeur": n, "Valeur": v if isinstance(v, str) else f"{v:.5g}"} for n, v in rows])
     head = (
         f"Frettage H{s['qm']}/{r['arbre']}{s['qa']} : p = {r['pMinNorm']:.3g} à {r['pMax']:.3g} MPa, "
-        f"chauffe ΔT = {r['deltaT']:.0f} K — résistance {_verdict(ok)}e"
+        f"chauffe ΔT = {r['deltaT']:.0f} °C — résistance {_verdict(ok)}e"
     )
     return {"result": {**r, "rapport": [head, *r["report"]]}, "tables": {"Synthèse": t}, "status": head, "ok": ok}
 

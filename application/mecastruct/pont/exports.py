@@ -27,9 +27,16 @@ DECLARES: set[str] = set()
 
 
 def marquer(formulaires: dict) -> dict:
-    """Signale à la page les calculs qui ont les exports bloc-notes et Excel de validation ; rend le même dict."""
+    """Complète les formulaires pour la page : exports disponibles, famille de chaque matériau ; rend le même dict."""
+    base = dm()
+    noms = base.listMaterials()
+    familles = [str(base.getMaterial(n).get("Category") or "Autres") for n in noms]
     for ident, f in formulaires.items():
         f["exports"] = ident in DECLARES
+        for g in f.get("groupes", []):
+            for c in g["champs"]:
+                if c.get("type") == "liste" and c.get("options") == noms:
+                    c["familles"] = familles  # la page range la liste des matériaux par famille
     return formulaires
 
 

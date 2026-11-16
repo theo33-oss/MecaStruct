@@ -281,7 +281,7 @@ def machineOuvrir(s):
 @calcul("aju")
 def ajustement(s):
     res = machine.computeFit(s)
-    return sortie(res, _figure(lambda: machine_plots.fitZones(res["result"], f"{s['alesage']}{s['qa']}", f"{s['arbre']}{s['qb']}")), "aju", s)
+    return sortie(res, _figure(lambda: machine_plots.fitZones(res["result"], f"{s['alesage']}{s['qa']}", f"{s['arbre']}{s['qb']}")), "aju", s) | {"ok": None}  # aucune limite comparée : pas de « vérifié »
 
 
 @calcul("fre")
@@ -369,7 +369,9 @@ def trainApercu(s):
 
 @calcul("epi")
 def epicycloidal(s):
-    return sortie(mc.computePlanetary(s), None, "epi", s)
+    Z = [int(s[k]) for k in ("Z1", "Z21", "Z22", "Z4", "nSat")]
+    controles = [{"nom": nom, "valeur": f"{val:g}", "ok": bool(ok)} for nom, val, ok in planetary.assemblyChecks(*Z)]
+    return sortie(mc.computePlanetary(s), None, "epi", s) | {"controles": controles, "titre_controles": "Conditions de montage"}
 
 
 @calcul("epi.apercu")
