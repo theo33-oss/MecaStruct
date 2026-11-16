@@ -46,9 +46,9 @@ html { scroll-padding-top: 120px; }
 body { margin: 0; padding: 0 16px 32px; background: var(--fond); color: var(--encre); font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
 .entete, #menu, #sous, main, footer { max-width: 1440px; margin-left: auto; margin-right: auto; }
 a { color: var(--lien); }
-h1 { font-size: 1.8rem; margin: 20px 0 4px; line-height: 1.25; }
-h2 { font-size: 1.2rem; margin: 18px 0 6px; }
-h3, h2.titre-bloc { font-size: 1.05rem; margin: 18px 0 6px; padding-bottom: 2px; border-bottom: 2px solid var(--bord); }
+h1 { font-size: 1.8rem; margin: 20px 0 4px; line-height: 1.25; scroll-margin-top: 120px; }
+h2 { font-size: 1.25rem; margin: 18px 0 6px; }
+h3, h2.titre-bloc { font-size: 1.2rem; margin: 22px 0 8px; padding: 2px 0 4px 10px; border-left: 4px solid var(--accent); border-bottom: 2px solid var(--bord-fort); }
 h4 { font-size: .95rem; margin: 14px 0 6px; }
 .intro { margin-top: 0; max-width: 90ch; color: var(--discret); }
 .legende { font-size: .85rem; color: var(--discret); }
@@ -186,7 +186,8 @@ td.verdict.erreur { background: var(--err-fond); color: var(--err-texte); }
 .tableau { margin: 6px 0 14px; }
 .tableau > button { margin-top: 4px; }
 .formule { margin: 6px 0; padding: 4px 10px; background: var(--figure-fond); border-left: 3px solid var(--accent); overflow-x: auto; }
-.figure { background: var(--figure-fond); border: 1px solid var(--bord); border-radius: 6px; min-height: 320px; overflow: hidden; }
+/* hauteur réglable : tirer le coin en bas à droite de la figure */
+.figure { background: var(--figure-fond); border: 1px solid var(--bord); border-radius: 6px; min-height: 200px; overflow: hidden; resize: vertical; }
 .onglets { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
 .onglets button { border-radius: 6px 6px 0 0; border-bottom: none; }
 .onglets button[aria-selected="true"] { background: var(--accent); color: var(--sur-accent); }

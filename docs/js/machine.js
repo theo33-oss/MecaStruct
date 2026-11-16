@@ -110,6 +110,7 @@
   }
 
   // Noms affichés des exemples (les identifiants restent ceux de l'application de bureau).
+  const VIDE = "__vide"; // choix « cas personnalisé » de la liste des exemples
   const NOMS_EXEMPLES = { isostatique: "Poutre isostatique", hyperstatique: "Poutre hyperstatique", console: "Console",
     deuxtravees: "Deux travées", gerber: "Poutre Gerber (rotule)", tassement: "Tassement d'appui", constante: "Section constante",
     variable: "Section variable", iso3D: "Hooke 3D isotrope", planeStress: "Contraintes planes", planeStrain: "Déformations planes",
@@ -313,12 +314,25 @@
       const haut = el("div", { class: "actions-saisie" });
       if (!auto) haut.append(el("button", { type: "submit", class: "primaire", texte: "Calculer", aide: "Lance le calcul (Entrée dans un champ)." }));
       if ((f.exemples || []).length) {
-        const choix = el("select", { "aria-label": "Exemple" }, f.exemples.map((n) => el("option", { value: n, texte: NOMS_EXEMPLES[n] || n })));
-        haut.append(choix, el("button", { type: "button", class: "secondaire", texte: "Charger l'exemple", onclick: () => {
+        // tableaux de la saisie (appuis, charges, barres…) : le cas personnalisé les vide, les combinaisons restent
+        const tableaux = Object.keys(f.defaut).filter((k) => k !== "combo" && Array.isArray(f.defaut[k]));
+        const noms = tableaux.length ? [...f.exemples, VIDE] : f.exemples;
+        const choix = el("select", { "aria-label": "Exemple" }, noms.map((n) => el("option", { value: n, texte: n === VIDE ? "Cas personnalisé (tableaux vides)" : NOMS_EXEMPLES[n] || n })));
+        const garde = App.memoire.lire("exemple." + ident, f.exemples[0]); // l'exemple chargé reste affiché dans la liste
+        if (noms.includes(garde)) choix.value = garde;
+        haut.append(choix, el("button", { type: "button", class: "secondaire", texte: "Charger l'exemple", aide: "Remplace la saisie par l'exemple choisi, ou vide les tableaux pour partir de zéro.", onclick: () => {
+          App.memoire.ecrire("exemple." + ident, choix.value);
+          invalides.clear();
+          if (choix.value === VIDE) {
+            saisie = { ...copie(f.defaut), ...Object.fromEntries(tableaux.map((k) => [k, []])) };
+            enregistrer();
+            dessinerChamps();
+            apercu();
+            return signaler("info", "Cas personnalisé : les tableaux sont vides. Ajoutez vos lignes, puis cliquez sur Calculer.");
+          }
           const r = App.calculer(ident + ".exemple", { nom: choix.value });
           if (!r.ok) return signaler("erreur", r.erreur);
           saisie = { ...copie(f.defaut), ...r.sortie };
-          invalides.clear();
           enregistrer();
           dessinerChamps();
           relancer();
