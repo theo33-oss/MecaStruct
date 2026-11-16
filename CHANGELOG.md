@@ -3,6 +3,12 @@
 Le numéro de version est celui de `application/mecastruct/__init__.py`. Le site suit toujours la dernière version ;
 l'installateur Windows de chaque version est dans les [Releases](https://github.com/theo33-oss/MecaStruct/releases).
 
+## 1.6.0 (16 novembre 2026)
+
+- Bureau : l'accueil est celui du site (titre, deux façons de l'utiliser, une carte par famille) ; « Données et aide »
+  dans le même ordre que le site ; nouvelle page « Limites et vérifications ».
+- Un modèle de signalement d'erreur sur GitHub ; badges tests et dernière version dans le README.
+
 ## 1.5.0 (16 novembre 2026)
 
 - Bureau : même forme que le site. Bandeau (thème, contraste, bouton « Version en ligne »), menu en haut par
