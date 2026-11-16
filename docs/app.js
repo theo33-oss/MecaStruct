@@ -211,7 +211,19 @@ const App = (() => {
       ...(typeof d.text === "string" ? { text: decimalesFr(d.text) } : Array.isArray(d.text) ? { text: d.text.map((x) => (typeof x === "string" ? decimalesFr(x) : x)) } : {}) }));
     delete layout.width;
     if (layout.title && layout.title.text) layout.title = { ...layout.title, x: 0.01, xanchor: "left" };
+    if (div.style.height) layout.height = div.clientHeight; // hauteur choisie à la souris (coin bas droit)
+    else if (!layout.height) layout.height = 420; // hauteur de départ d'une figure qui n'en fixe pas
     Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr" });
+    if (!div._suivi && window.ResizeObserver) { // la figure suit la hauteur donnée à son cadre
+      let vue = 0;
+      div._suivi = new ResizeObserver(() => {
+        const h = div.clientHeight;
+        if (!div.style.height || Math.abs(h - vue) < 4) return;
+        vue = h;
+        Plotly.relayout(div, { height: h });
+      });
+      div._suivi.observe(div);
+    }
   }
   function figure(f, classe = "figure") {
     const d = el("div", { class: classe });

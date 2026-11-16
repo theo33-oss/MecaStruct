@@ -24,7 +24,11 @@ def fitZones(r: dict, alesage: str, arbre: str) -> go.Figure:
         fig.add_bar(x=[nom], y=[haut - bas], base=[bas], marker_color=coul, name=nom, width=0.5,
                     text=[f"{haut:+g} / {bas:+g} µm"], textposition="outside")  # fmt: skip
     fig.add_hline(y=0, line_color="black", annotation_text="ligne zéro (cote nominale)")
-    fig.update_layout(title=f"Ajustement : {r['type']}", yaxis_title="Écart (µm)", showlegend=False)
+    # marge au-dessus et au-dessous : les étiquettes posées hors des barres ne sont pas coupées
+    bas, haut = min(h["EI"], s["ei"], 0), max(h["ES"], s["es"], 0)
+    marge = 0.18 * max(haut - bas, 1)
+    fig.update_layout(title=f"Ajustement : {r['type']}", yaxis_title="Écart (µm)", showlegend=False,
+                      yaxis_range=[bas - marge, haut + marge])  # fmt: skip
     return fig
 
 
