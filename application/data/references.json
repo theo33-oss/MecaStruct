@@ -1,0 +1,156 @@
+[
+ {
+  "numero": "NF EN 1993-1-1",
+  "titre": "Eurocode 3 : calcul des structures en acier. Partie 1-1 : règles générales et règles pour les bâtiments",
+  "annee": "2005 + A1:2014",
+  "role": "Base de la flexion, du tranchant et du flambement : classes de section, résistances de flexion et de cisaillement, flambement par flexion, déversement, flexion + effort normal (page Poutres, Eurocode 3). Indice de classement AFNOR : à compléter.",
+  "genre": "norme"
+ },
+ {
+  "numero": "NF EN 1993-1-1/NA",
+  "titre": "Annexe nationale française à l'Eurocode 3, partie 1-1",
+  "annee": "à compléter",
+  "role": "Proposée dans la page Poutres pour les coefficients partiels γM0 et γM1 (valeurs de l'EN). Les autres paramètres de l'annexe ne sont pas appliqués.",
+  "genre": "norme"
+ },
+ {
+  "numero": "EN 1993-1-5",
+  "titre": "Eurocode 3 : calcul des structures en acier. Partie 1-5 : plaques planes",
+  "annee": "2006",
+  "role": "Voilement de l'âme par cisaillement (§5), signalé dans les résultats Eurocode 3 de la page Poutres.",
+  "genre": "norme"
+ },
+ {
+  "numero": "EN 1993-1-9",
+  "titre": "Eurocode 3 : calcul des structures en acier. Partie 1-9 : fatigue",
+  "annee": "2005",
+  "role": "Citée seulement pour dire qu'elle n'est pas traitée : la fatigue de la page Poutres est une droite de Goodman, pas la vérification par catégories de détail.",
+  "genre": "norme"
+ },
+ {
+  "numero": "EN 338",
+  "titre": "Bois de structure : classes de résistance",
+  "annee": "2016",
+  "role": "Source du bois C24 de la base de matériaux.",
+  "genre": "norme"
+ },
+ {
+  "numero": "EN 1992-1-1",
+  "titre": "Eurocode 2 : calcul des structures en béton. Partie 1-1 : règles générales et règles pour les bâtiments",
+  "annee": "2004",
+  "role": "Source des bétons C25/30 et C30/37 de la base de matériaux (tableau 3.1).",
+  "genre": "norme"
+ },
+ {
+  "numero": "Université de Bordeaux, 4TSA705U",
+  "titre": "Continuum Mechanics, lectures 0 à 9 (Université de Bordeaux, Master)",
+  "annee": "septembre 2025",
+  "role": "Tenseurs et critères (lectures 4 et 9 : tenseur des contraintes, contraintes principales, Von Mises, Tresca) et Hooke et jauges (lecture 6 : lois de comportement, orthotropie).",
+  "genre": "cours"
+ },
+ {
+  "numero": "Université de Bordeaux, 4TME701U",
+  "titre": "Mécanique des milieux continus : travaux dirigés, résumé et corrigé du DST de décembre 2021 (Université de Bordeaux, M1 Mécanique)",
+  "annee": "2020-2022",
+  "role": "Cas de contrôle des pages Tenseurs et Hooke (flexion pure, poutre suspendue, relations entre constantes élastiques).",
+  "genre": "cours"
+ },
+ {
+  "numero": "Université de Bordeaux, 4TGA901U",
+  "titre": "Éléments de dimensionnement en fatigue : support de cours et annales (Master 2 Génie mécanique, Université de Bordeaux )",
+  "annee": "annales de décembre 2017 et 2018",
+  "role": "Poutres, fatigue : droite de Goodman (p. 52), limite d'endurance σD mesurée (p. 44 et 84), coefficients d'influence KS, Ke et Kf (p. 59 à 63, 95).",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP), « Calculs de roulements »",
+  "titre": "Calcul sur les roulements : durée de vie L10, fiabilité, charge équivalente, ensembles de roulements",
+  "annee": "non indiqué",
+  "role": "Roulements : durée de vie et ensembles (p. 10 à 22). Exemple du roulement 6405 (p. 19), vérifié dans les tests de l'application.",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP), R3.05 ICM S3",
+  "titre": "Liaison pivot par roulements : généralités et règles de montage",
+  "annee": "non indiqué",
+  "role": "Roulements : règles de montage et ajustements conseillés (p. 24 à 26).",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP), ICM S3",
+  "titre": "Dimensionnement de roulements : TD de 2 h (TD_CALCULS_RLT_S3)",
+  "annee": "9 septembre 2022",
+  "role": "Roulements : cas de contrôle (exercice 1, p. 1 et correction).",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP)",
+  "titre": "Engrenages droits : relations",
+  "annee": "non indiqué",
+  "role": "Engrenages : géométrie, efforts, contrainte en pied de dent, train d'engrenages (p. 12 à 26).",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP), R4.05 ICM S4",
+  "titre": "Train épicycloïdal",
+  "annee": "non indiqué",
+  "role": "Trains épicycloïdaux : formule de Willis, conditions de montage (p. 12 à 19).",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP), R5.05 ICM S5",
+  "titre": "Frein – Embrayage",
+  "annee": "non indiqué",
+  "role": "Freins et embrayages : couple de freinage, synchronisation d'un embrayage (p. 8 à 20).",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP), ICM S4",
+  "titre": "Description et étude des chaînes de transmission de puissance",
+  "annee": "non indiqué",
+  "role": "Dimensionnement moteur : exemple de l'ascenseur, couple équivalent thermique (p. 17 et 18).",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP), ICM",
+  "titre": "Abaque de frettage",
+  "annee": "non indiqué",
+  "role": "Frettage : pression de contact, couple transmissible, contraintes dans l'arbre et le moyeu.",
+  "genre": "cours"
+ },
+ {
+  "numero": "IUT de Bordeaux (GMP), DDS",
+  "titre": "Exercice 2.5 : DS S2, sans document",
+  "annee": "non indiqué",
+  "role": "Poutres : cas de contrôle des réactions et du moment fléchissant d'une équerre.",
+  "genre": "cours"
+ },
+ {
+  "numero": "Rapport de synthèse sur les matériaux",
+  "titre": "Rapport d'expertise sur la caractérisation thermomécanique des matériaux pour l'ingénierie structurale et l'algorithmique RDM (document compilé, cité « Propriétés mécaniques des matériaux RDM » dans la base)",
+  "annee": "2026",
+  "role": "Base de matériaux : matériaux « Base complémentaire », module d'Young de l'acier (210 GPa), fontes, titane.",
+  "genre": "document"
+ },
+ {
+  "numero": "Tableur des coefficients de dilatation",
+  "titre": "Coefficients de dilatation thermique linéaire (tableur : 5 onglets, courbes α(T))",
+  "annee": "2026",
+  "role": "Base de matériaux : coefficients de dilatation α.",
+  "genre": "document"
+ },
+ {
+  "numero": "Aperam, Stainless Europe",
+  "titre": "Offre acier inoxydable austénitique nuance 316L",
+  "annee": "octobre 2012",
+  "role": "Base de matériaux : inox 316L.",
+  "genre": "document"
+ },
+ {
+  "numero": "Euralliage",
+  "titre": "Alliages d'aluminium (fiches de la page euralliage.com/alliage.html)",
+  "annee": "consulté en juin 2026",
+  "role": "Base de matériaux : propriétés mécaniques des alliages d'aluminium.",
+  "genre": "document"
+ }
+]

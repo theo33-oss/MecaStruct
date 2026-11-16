@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MecaStruct RdM Pro</title>
+<meta name="description" content="Résistance des matériaux et éléments de machines dans le navigateur : ajustements ISO 286, frettage, paliers, roulements, engrenages, freins, poutres. Verdict, formules remplies et dossier de validation.">
+<meta name="theme-color" content="#5C4B99">
+<meta name="zip" content="ca13efbd">
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MecaStruct RdM Pro">
+<meta property="og:description" content="Résistance des matériaux et éléments de machines : verdict, formules remplies avec vos valeurs, dans le navigateur ou sur le bureau Windows.">
+<meta property="og:image" content="https://theo33-oss.github.io/MecaStruct/captures/poutres.jpg">
+<script>
+// thème posé avant l'affichage (pas de flash) : choix gardé, sinon réglage du système
+try { var t = localStorage.getItem("mecastruct.theme"); if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; document.documentElement.dataset.theme = t; } catch (e) { document.documentElement.dataset.theme = "light"; }
+</script>
+<link rel="stylesheet" href="style.css?v=0a5c4dcc">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" crossorigin="anonymous">
+</head>
+<body>
+<a class="evitement" href="#page">Aller au contenu</a>
+<header class="entete">
+  <a class="marque" href="#/accueil"><img src="icone.svg" alt="" width="36" height="36"><span>MecaStruct <em>RdM Pro</em></span></a>
+  <p class="confiance">Tout est calculé dans votre navigateur : rien n'est envoyé sur Internet. Outil d'aide au pré-dimensionnement, résultats à vérifier.</p>
+  <a class="telecharger" href="https://github.com/theo33-oss/MecaStruct/releases/latest" data-aide="Application de bureau pour Windows : démarrage immédiat, hors ligne, dossiers PDF et Word.">Télécharger pour Windows</a>
+</header>
+<div id="barre"><nav id="menu" aria-label="Familles de calcul"></nav><nav id="sous" aria-label="Pages de la famille" hidden></nav></div>
+
+<main id="page" tabindex="-1">
+  <div id="etat" class="message info" role="status">
+    <span id="etat-texte">Préparation 1/4 : moteur Python… comptez 15 à 30 secondes la première fois, quelques secondes ensuite. Vous pouvez lire la page en attendant.</span>
+    <progress id="avance" max="4" value="1"></progress>
+  </div>
+  <div id="contenu"></div>
+</main>
+
+<footer>
+  <p>MecaStruct RdM Pro · <span id="version"></span> · Théo Brun ·
+    <a href="https://github.com/theo33-oss/MecaStruct">code source</a> ·
+    <a href="#/limites">limites connues</a> ·
+    <a href="https://github.com/theo33-oss/MecaStruct/issues">signaler une erreur</a> ·
+    <a href="https://github.com/theo33-oss/MecaStruct/blob/main/LICENSE">licence PolyForm Noncommercial 1.0.0</a></p>
+  <p class="legende">Outil pédagogique et d'aide au pré-dimensionnement, fourni sans garantie. Aucun cookie, aucune mesure d'audience.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@3.0.1/plotly.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js" crossorigin="anonymous"></script>
+<script src="app.js?v=847606da"></script>
+<script src="js/accueil.js?v=35ac816f"></script>
+<script src="js/machine.js?v=91e91f74"></script>
+<script src="js/convertisseur.js?v=083d8b21"></script>
+<script src="js/base.js?v=b9afdebd"></script>
+<script src="js/textes.js?v=8b736e38"></script>
+<script>App.demarrer();</script>
+</body>
+</html>

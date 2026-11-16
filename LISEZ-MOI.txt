@@ -1,0 +1,25 @@
+MECASTRUCT RDM PRO - MODE D'EMPLOI
+
+Deux façons de l'utiliser :
+
+A. Dans le navigateur, sans rien installer
+   https://theo33-oss.github.io/MecaStruct/
+
+B. Sur le bureau Windows (toutes les pages, hors ligne, dossiers PDF et Word)
+   1. Télécharger MecaStruct_Installation_x.y.z.exe
+      https://github.com/theo33-oss/MecaStruct/releases/latest
+   2. Le lancer. Si Windows affiche "Windows a protégé votre ordinateur" :
+      Informations complémentaires > Exécuter quand même.
+   3. L'installation se fait pour vous seul (pas de droits d'administrateur)
+      et crée une icône sur le Bureau. Rien d'autre à installer : Python
+      et les bibliothèques sont inclus.
+   Désinstaller : Paramètres de Windows > Applications > MecaStruct RdM Pro.
+
+Pour les développeurs, depuis le code source : double-cliquer sur
+1_Ouvrir_application.bat (il installe Python et les bibliothèques au premier
+lancement, 5 à 10 minutes, environ 1 Go).
+
+Vos données restent sur votre ordinateur : rien n'est envoyé sur Internet.
+
+Outil pédagogique et d'aide au pré-dimensionnement : les résultats doivent
+être vérifiés avant tout usage réel. Limites connues : LIMITES.md.

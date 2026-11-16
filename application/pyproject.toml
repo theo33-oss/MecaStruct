@@ -1,0 +1,36 @@
+[project]
+name = "mecastruct-bureau"
+dynamic = ["version"]  # mecastruct/__init__.py : __version__
+description = "MecaStruct RdM Pro - application de bureau Windows (Python / PySide6) de l'application MATLAB de Theo Brun"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["data", "tests/golden"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# E741 : les noms l, I, O sont courants en RdM (longueur, inertie…)
+ignore = ["E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B"]
+# formules LaTeX : le formatage % évite de doubler chaque accolade (comme sprintf de ValidationReport.m)
+"mecastruct/services/validation_report.py" = ["UP031"]
+# formulaires du pont : un champ par ligne, libellé et aide en entier (plus lisible que coupé)
+"mecastruct/pont/machines.py" = ["E501"]
+"mecastruct/pont/structures.py" = ["E501"]
+"mecastruct/pont/base.py" = ["E501"]
+"tests/test_pont.py" = ["E501", "B"]
+"tests/test_cours.py" = ["E501", "B"]
+# critères et exports : une ligne par mode de ruine ou par formule Excel (tables lues ligne à ligne)
+"mecastruct/services/criteres.py" = ["E501"]
+"mecastruct/services/export_texte.py" = ["E501"]
+"mecastruct/services/export_validation.py" = ["E501"]
+"tests/test_exports.py" = ["E501", "B"]

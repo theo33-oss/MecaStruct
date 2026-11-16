@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MecaStruct RdM Pro</title>
+<!-- Ancienne adresse du site (…/MecaStruct/docs/), du temps où GitHub Pages publiait la racine du dépôt.
+     Renvoi vers la nouvelle (…/MecaStruct/), page demandée comprise (#/poutres). -->
+<meta name="robots" content="noindex">
+<link rel="canonical" href="../">
+<script>
+// l'ancien service worker (portée …/docs/) ne sert plus : on le retire, puis on renvoie vers le site
+try {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistration().then(function (r) { if (r && /\/docs\/$/.test(r.scope)) r.unregister(); });
+} catch (e) { /* rien */ }
+location.replace("../" + location.hash);
+</script>
+<noscript><meta http-equiv="refresh" content="0; url=../"></noscript>
+</head>
+<body>
+<p><a href="../">Ouvrir MecaStruct RdM Pro</a></p>
+</body>
+</html>
