@@ -29,7 +29,7 @@ def test_chaque_page_s_ouvre_et_se_redessine(bureau, ident):
 
 def test_navigation_par_le_menu_et_les_liens(bureau):
     bureau.ouvre("accueil")
-    bureau.clique("📏 Calculer une poutre (réactions, diagrammes, flèche)")
+    bureau.clique("Poutres")
     assert bureau.fenetre.pile.currentWidget() is bureau.fenetre.page("poutres")
 
 

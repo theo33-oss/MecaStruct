@@ -6,6 +6,8 @@ répond par un verdict, les formules remplies avec vos valeurs et un dossier qui
 
 [![Ouvrir dans le navigateur](https://img.shields.io/badge/Ouvrir%20dans%20le%20navigateur-5C4B99?style=for-the-badge)](https://theo33-oss.github.io/MecaStruct/)
 [![Télécharger pour Windows](https://img.shields.io/badge/T%C3%A9l%C3%A9charger%20pour%20Windows-3D246C?style=for-the-badge)](https://github.com/theo33-oss/MecaStruct/releases/latest)
+[![Tests](https://github.com/theo33-oss/MecaStruct/actions/workflows/tests.yml/badge.svg)](https://github.com/theo33-oss/MecaStruct/actions/workflows/tests.yml)
+[![Dernière version](https://img.shields.io/github/v/release/theo33-oss/MecaStruct?label=derni%C3%A8re%20version&color=3D246C)](https://github.com/theo33-oss/MecaStruct/releases/latest)
 [![Licence PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/licence-PolyForm%20Noncommercial%201.0.0-3D246C)](LICENSE)
 
 ![Page Poutres : saisie, verdict et modes de ruine](application/captures/poutres_calcul.png)
@@ -57,8 +59,8 @@ Le menu a cinq familles, sur le site comme sur le bureau.
 | Transmission | **Engrenages** (engrènement, train simple, train épicycloïdal), **Freins et embrayages**, **Dimensionnement moteur** |
 | Données et aide | **Convertisseur**, **Matériaux et profilés** (abaques Kt, ajouts gardés dans le navigateur), **Références**, **Limites et vérifications** |
 
-Deux écarts entre les versions : sur le bureau, le train épicycloïdal a sa propre page et les limites sont dans
-l'Accueil et dans « À propos ».
+Deux écarts entre les versions : sur le bureau, le train épicycloïdal a sa propre page (un onglet d'Engrenages sur le
+site), et « À propos » est une page du menu (en pied de page sur le site).
 
 ## Fiabilité et limites
 

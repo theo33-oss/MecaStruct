@@ -60,6 +60,7 @@ def pyinstaller(ico: Path) -> Path:
         "--hidden-import", "mecastruct.services.export_validation", "--hidden-import", "mecastruct.services.export_texte",
         "--add-data", f"{appli / 'data'}{sep}data",
         "--add-data", f"{appli / 'aide'}{sep}aide",
+        "--add-data", f"{racine / 'LIMITES.md'}{sep}.",  # page « Limites et vérifications »
         "--add-data", f"{appli / 'mecastruct' / 'services' / 'templates'}{sep}mecastruct/services/templates",
         "--exclude-module", "tkinter", "--exclude-module", "pytest", "--exclude-module", "IPython",
     ]  # fmt: skip
