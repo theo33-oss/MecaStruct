@@ -19,4 +19,14 @@ INTROS = {
     "Matériaux et profilés": "Base de matériaux et de profilés normalisés.",
     "Convertisseur": "Conversion entre unités de toutes les grandeurs.",
     "Références": "Normes, cours et documents cités par l'application.",
+    "Limites et vérifications": "Ce qui est vérifié, contre quoi, et ce qui ne l'est pas.",
+}
+
+# une phrase par famille du menu : la même que sur le site (docs/app.js, FAMILLES)
+FAMILLES = {
+    "Structures": "Une structure chargée : efforts, flèches, stabilité.",
+    "Sections et contraintes": "Une section ou un état de contrainte en un point.",
+    "Liaisons et guidages": "Choisir l'ajustement, vérifier le frettage, puis le guidage.",
+    "Transmission": "La chaîne du moteur au récepteur.",
+    "Données et aide": "Unités, matériaux, références et limites de l'outil.",
 }

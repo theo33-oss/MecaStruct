@@ -55,10 +55,11 @@ MENU = (  # les 5 familles du site (docs/app.js, FAMILLES), mêmes noms de pages
     ("freins_embrayages", "Freins et embrayages", "PageFreinsEmbrayages"),
     ("dimensionnement_moteur", "Dimensionnement moteur", "PageDimensionnementMoteur"),
     ("Données et aide", None, None),
-    ("base_de_donnees", "Matériaux et profilés", "PageBaseDeDonnees"),
     ("convertisseur", "Convertisseur", "PageConvertisseur"),
+    ("base_de_donnees", "Matériaux et profilés", "PageBaseDeDonnees"),
     ("references", "Références", "PageReferences"),
-    ("apropos", "À propos", "PageAPropos"),
+    ("limites", "Limites et vérifications", "PageLimites"),
+    ("apropos", "À propos", "PageAPropos"),  # le site l'a en pied de page
 )
 
 

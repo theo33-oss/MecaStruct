@@ -1,34 +1,46 @@
-"""Page d'Accueil : par où commencer, unités de saisie, conventions de signe, « Comment faire », limites et sources.
+"""Page d'Accueil : la même que sur le site (titre, deux façons de l'utiliser, une carte par famille), puis les repères.
 
-Port de buildHomeTab (MecaStruct_App.m) ; la visite guidée devient un encadré de texte.
+Sous les cartes : « Comment faire », le projet, les unités et conventions de signe, les limites et les sources.
 """
 
 from mecastruct.bureau import dossier, state
 from mecastruct.bureau.widgets import Page, Zone
+from mecastruct.services.pages_texte import FAMILLES, INTROS
 
 
 class PageAccueil(Page):
     def rendre(self, z: Zone) -> None:
         state.init()
-        z.titre("Bienvenue dans MecaStruct RdM Pro")
-        z.texte(
-            "MecaStruct RdM Pro est une application gratuite, sans compte, de calcul de Résistance des Matériaux et "
-            "d'éléments de machines, pour apprendre et pré-dimensionner. **Calculs disponibles** : poutres "
-            "(réactions, efforts, flèche), treillis, caractéristiques de sections, sollicitations simples (traction, "
-            "cisaillement, torsion, flexion), flambage, tenseurs et critères de plasticité, loi de Hooke et jauges de "
-            "déformation ; ajustements ISO 286, frettage, paliers lisses, roulements, engrenages, trains "
-            "épicycloïdaux, freins et embrayages, dimensionnement moteur ; base de matériaux et de profilés, "
-            "convertisseur d'unités. **Limites** : outil pédagogique, résultats à vérifier, aucune garantie ; il ne "
-            "remplace ni une note de calcul certifiée ni les normes."
+        z.titre("Calculs de résistance des matériaux et d'éléments de machines")
+        z.intro(
+            "Chaque calcul donne un verdict, un diagramme des modes de ruine avec les coefficients de sécurité, les "
+            "formules remplies avec vos valeurs et la démarche pas à pas. Il s'exporte en dossier de validation, en "
+            "bloc-notes ou en Excel à formules. Plus de 1 300 tests vérifient les calculs."
         )
+        z.lien("ajustements", "Commencer par un ajustement ISO 286")
+        z.lien("limites", "Ce qui est vérifié")
+
+        z.sousTitre("Deux façons de l'utiliser")
+        z.texte(
+            "**Sur le bureau Windows** (vous y êtes) : démarrage immédiat, hors ligne, dossiers de validation PDF et "
+            "Word. Vos saisies restent sur cet ordinateur.\n\n"
+            "**Dans le navigateur** : aucune installation, toutes les pages, mêmes calculs. Le bouton « Version en "
+            "ligne », en haut de la fenêtre, l'ouvre."
+        )
+        for famille, pages in self.fenetre.familles.items():
+            z.sousTitre(famille)
+            z.legende(FAMILLES.get(famille, ""))
+            for ident, libelle in pages:
+                if ident == "apropos":
+                    continue  # sur le site, « À propos » est en pied de page
+                z.lien(ident, libelle)
+                if libelle in INTROS:
+                    z.legende(INTROS[libelle])
+
         z.texte(
             "Chaque page est déjà remplie avec un exemple d'école : cliquez sur « Calculer » pour voir un résultat, "
-            "puis changez les valeurs. Que voulez-vous faire ?"
+            "puis changez les valeurs."
         )
-        z.lien("poutres", "📏 Calculer une poutre (réactions, diagrammes, flèche)")
-        z.lien("sollicitations", "🔩 Dimensionner un arbre en torsion")
-        z.lien("flambage", "📐 Vérifier une poutre au flambage")
-        z.lien("convertisseur", "🔁 Convertir une unité (psi, kip, in…)")
 
         def comment(c: Zone) -> None:
             c.texte(
