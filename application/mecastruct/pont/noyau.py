@@ -8,6 +8,7 @@ appeler() renvoie toujours un texte JSON : {"ok": true, "sortie": …} ou {"ok":
 import importlib
 import json
 import math
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -49,6 +50,14 @@ def dm():
 
         _dm = DataManager()
     return _dm
+
+
+def utiliser(base) -> None:
+    """L'application de bureau prête sa base (avec les matériaux ajoutés par l'utilisateur) au pont."""
+    global _dm
+    if _dm is not base:
+        _dm = base
+        _formulaires.clear()
 
 
 def _charger() -> None:
@@ -132,6 +141,14 @@ def charger(famille: str) -> str:
     return "ok"
 
 
+_EXPOSANT = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)e\+(\d{1,2})(?![\w])")
+
+
+def _nombres_lisibles(message: str) -> str:
+    """« 1e+09 » devient « 1 000 000 000 » dans un message d'erreur (les petits nombres « 1e-05 » ne changent pas)."""
+    return _EXPOSANT.sub(lambda m: nombreFr(float(m.group(0))), message)
+
+
 def appeler(ident: str, saisie_json: str = "{}") -> str:
     """Lance le calcul `ident` sur la saisie (texte JSON) ; rend un texte JSON, sans jamais lever d'exception."""
     if not _REGISTRE:
@@ -152,7 +169,7 @@ def appeler(ident: str, saisie_json: str = "{}") -> str:
             sortie.pop("_brut", None)  # résultat complet du service : sert aux exports (pont/exports.py), pas à la page
         return json.dumps({"ok": True, "sortie": versJson(sortie)}, ensure_ascii=False, allow_nan=False)
     except Exception as err:  # noqa: BLE001 : toute erreur du calcul devient un message lisible sur la page
-        message = getattr(err, "message", None) or str(err) or type(err).__name__
+        message = _nombres_lisibles(getattr(err, "message", None) or str(err) or type(err).__name__)
         return json.dumps({"ok": False, "erreur": message}, ensure_ascii=False)
 
 

@@ -4,7 +4,7 @@ import copy
 import re
 from datetime import datetime
 
-from mecastruct.bureau import state, tache
+from mecastruct.bureau import exports, state, tache
 from mecastruct.bureau.widgets import Zone
 from mecastruct.core.errors import MecaStructError
 from mecastruct.services import dossier_export, project_io, validation_report
@@ -153,8 +153,10 @@ def _genere_validation(z: Zone, tab: str) -> None:
 def validation_button(z: Zone, tab: str) -> None:
     """« Dossier de validation de ce problème » : recalcule la page, puis propose le dossier en HTML, PDF ou Word.
 
-    Actif seulement s'il y a un résultat à jour pour l'onglet `tab`.
+    Actif seulement s'il y a un résultat à jour pour l'onglet `tab`. Suivent le bloc-notes (.txt) et l'Excel de validation.
     """
+    if tab in exports.TAB_IDENT:
+        exports.boutons(z, exports.TAB_IDENT[tab], state.saisie(tab), validation_report.meta(tab)["title"])
     res = state.result(tab)
     if res is not None and not state.is_current(tab):  # signal commun à toutes les pages de calcul
         z.avertissement(

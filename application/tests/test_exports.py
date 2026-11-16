@@ -16,7 +16,7 @@ noyau.charger("structures")
 FORMULAIRES = noyau.tous_formulaires()
 CALCULS = ["beam", "truss", "ossature", "sec", "tra", "cis", "tor", "fle", "fla", "ten", "hoo", "jau",
            "aju", "fre", "pal", "rlt", "rlt_ens", "eng", "trn", "epi", "frn", "emb", "mot"]  # fmt: skip
-AVEC_CRITERES = ["beam", "tra", "cis", "tor", "fle", "fla", "ten", "fre", "pal", "rlt", "eng", "emb", "mot"]
+AVEC_CRITERES = ["beam", "truss", "tra", "cis", "tor", "fle", "fla", "ten", "fre", "pal", "rlt", "eng", "emb", "mot"]
 
 
 def appel(ident, saisie=None):
@@ -59,7 +59,7 @@ def test_criteres_coherents_avec_le_verdict(ident):
         assert not all(x["ok"] for x in c), c
 
 
-@pytest.mark.parametrize("ident", ["truss", "hoo", "jau", "aju", "rlt_ens", "trn", "frn"])
+@pytest.mark.parametrize("ident", ["hoo", "jau", "aju", "rlt_ens", "trn", "frn"])
 def test_calculs_sans_critere(ident):
     assert appel(ident).get("criteres", []) == []
 
@@ -86,12 +86,12 @@ def test_bloc_notes(ident):
     for mot in ("DONNÉES", "VERDICT ET MODES DE RUINE", "sans garantie"):
         assert mot in t
     if ident in AVEC_CRITERES:
-        assert "ADMISSIBLE" in t and "Coefficient de sécurité" in t
+        assert "ADMISSIBLE" in t and "Coefficient ou marge" in t
 
 
 def test_bloc_notes_de_la_traction():
     t = appel("tra.texte")["texte"]
-    assert "N (> 0 traction)" in t and "50 kN" in t and "NON VÉRIFIÉ" in t and "159,2 MPa ≤ 156,7 MPa" in t
+    assert "N (> 0 traction)" in t and "50 kN" in t and "NON VÉRIFIÉ" in t and "159,2 MPa pour 156,7 MPa admissibles" in t
 
 
 # ------------------------------------------------------------------------------------- Excel de validation
@@ -195,3 +195,15 @@ def test_audit_des_pages_restantes():
     assert c[0]["valeur"] == pytest.approx(102.9, rel=1e-2) and c[0]["limite"] == pytest.approx(235.0)
     assert appel("truss")["status"].startswith("Treillis isostatique (degré d'hyperstaticité h = 0)")
     assert "lent" not in FORMULAIRES["sec"]
+
+
+def test_fichiers_ouverts_pour_de_vrai():
+    """Constats du contrôle dans Excel et le Bloc-notes : nombres en vrais nombres, virgule dans le texte."""
+    wb = classeur("tra")
+    ws = wb["Synthèse"]
+    valeurs = [c.value for ligne in ws.iter_rows(min_row=2, min_col=2, max_col=2) for c in ligne]
+    assert any(isinstance(v, float) and v == pytest.approx(159.155) for v in valeurs)  # pas le texte « 159.155 »
+    t = appel("tra.texte")["texte"]
+    assert "σmax = 159,2 MPa" in t and "159.2" not in t and "159,155" in t
+    assert "\n" not in t.replace("\r\n", "")  # fins de ligne Windows partout
+    assert "marge" in appel("rlt.texte")["texte"] and "[Matage]" in appel("cis.texte")["texte"]

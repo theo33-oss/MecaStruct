@@ -476,3 +476,45 @@ def goodman(
     den = sigA / Se + max(sigM, 0) / Rm
     n = math.inf if den == 0 else 1 / max(den, EPS)
     return {"sigmaA": sigA, "sigmaM": sigM, "Se": Se, "n": n}
+
+
+def trussBars(N, L: float | list, S: float, E: float, Re: float, s: float, Imin: float = 0.0) -> dict:
+    """Vérification des barres d'un treillis articulé (SI : N en N, L en m, S en m², E et Re en Pa, Imin en m⁴).
+
+    Entrées : N effort normal de chaque barre (> 0 traction) ; L longueur de chaque barre ; S aire commune ; E ; Re
+    limite élastique ; s coefficient de sécurité ; Imin moment quadratique minimal de la section (0 = flambage non
+    vérifié).
+    Résistance : σ = |N|/S ≤ Re/s, pour toutes les barres. Flambage : barre comprimée (N < 0) articulée à ses deux
+    bouts, charge d'Euler Pcr = π²·E·Imin/L², condition |N| ≤ Pcr/s.
+    Sortie : sigma, sigmaAdm, tauxSigma, Pcr (NaN si barre tendue ou Imin = 0), tauxFlambage (NaN idem), okSigma,
+    okFlambage, flambageVerifie, comprimees, ok (résistance et flambage), iSigma et iFlambage (barres les plus
+    sollicitées, None s'il n'y en a pas).
+    Erreur : MecaStruct:DesignChecks:invalidInput si S, E, Re ou s ne sont pas strictement positifs, Imin négatif.
+    """
+    N = np.atleast_1d(np.asarray(N, dtype=float))
+    L = np.broadcast_to(np.atleast_1d(np.asarray(L, dtype=float)), N.shape)
+    if min(S, E, Re, s) <= 0 or Imin < 0:
+        raise MecaStructError(
+            "MecaStruct:DesignChecks:invalidInput",
+            "Treillis : S, E, Re et le coefficient de sécurité doivent être strictement positifs, Imin ne peut pas être négatif.",
+        )
+    sigma = np.abs(N) / S
+    sigmaAdm = Re / s
+    tauxSigma = sigma / sigmaAdm
+    comprimees = N < 0
+    verifie = Imin > 0
+    Pcr = np.full(N.shape, np.nan)
+    tauxFlambage = np.full(N.shape, np.nan)
+    if verifie:
+        with np.errstate(divide="ignore"):
+            Pcr[comprimees] = math.pi**2 * E * Imin / L[comprimees] ** 2
+        tauxFlambage[comprimees] = np.abs(N[comprimees]) * s / Pcr[comprimees]
+    okSigma = tauxSigma <= 1 + 1e-12
+    okFlambage = np.where(comprimees & verifie, np.nan_to_num(tauxFlambage, nan=0.0) <= 1 + 1e-12, True)
+    iSigma = int(np.argmax(tauxSigma)) if N.size else None
+    iFlambage = int(np.nanargmax(tauxFlambage)) if verifie and comprimees.any() else None
+    return {
+        "sigma": sigma, "sigmaAdm": sigmaAdm, "tauxSigma": tauxSigma, "Pcr": Pcr, "tauxFlambage": tauxFlambage,
+        "okSigma": okSigma, "okFlambage": okFlambage, "flambageVerifie": bool(verifie),
+        "comprimees": comprimees, "ok": bool(okSigma.all() and okFlambage.all()), "iSigma": iSigma, "iFlambage": iFlambage,
+    }  # fmt: skip

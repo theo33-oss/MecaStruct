@@ -20,7 +20,7 @@ def test_convertisseur_pouces_en_millimetres(bureau):
     bureau.choisit("Grandeur", "Longueur")
     bureau.choisit("De", "in")
     bureau.choisit("Vers", "mm")
-    assert bureau.a_texte("25.4 mm")
+    assert bureau.a_texte("25,4 mm")
 
 
 def test_convertisseur_inverser_et_valeur(bureau):

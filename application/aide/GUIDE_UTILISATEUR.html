@@ -209,13 +209,13 @@ $\sigma = \dfrac{67{,}22\cdot10^6 \times 150}{8{,}356\cdot10^7} = $ <strong>120,
 <!-- ============================================================ -->
 <h2 id="treillis">7. Onglet Treillis</h2>
 <figure><img src="img/05_treillis.png" alt="Onglet Treillis"><figcaption>Treillis de 5 nœuds et 7 barres. Les barres rouges sont en traction, les bleues en compression. La déformée est amplifiée.</figcaption></figure>
-<p><strong>Utilisation.</strong> Saisissez les nœuds (coordonnées en m), les barres (numéros des deux nœuds), les appuis (cases <em>Bloqué x</em> et <em>Bloqué y</em>) et les charges nodales en kN. Choisissez ensuite le matériau et la section des barres.</p>
+<p><strong>Utilisation.</strong> Saisissez les nœuds (coordonnées en m), les barres (numéros des deux nœuds), les appuis (cases <em>Bloqué x</em> et <em>Bloqué y</em>) et les charges nodales en kN. Choisissez ensuite le matériau, la section des barres, le coefficient de sécurité $s$ et, pour vérifier le flambage, le moment quadratique minimal $I_{min}$ d'une barre (0 = flambage non vérifié).</p>
 <h3>Rappels</h3>
 <ul>
   <li><strong>Hypothèses</strong> : barres articulées à leurs extrémités et charges appliquées uniquement aux nœuds. Chaque barre ne subit alors qu'un effort normal $N$ constant.</li>
   <li><strong>Hyperstatisme</strong> : $h = m + r - 2n$, avec $m$ barres, $r$ réactions et $n$ nœuds. Dans l'exemple : $7 + 3 - 2 \times 5 = 0$, le treillis est isostatique.</li>
   <li><strong>Méthode des nœuds</strong> : on isole chaque nœud et on écrit $\sum N_{ij}\,\vec u_{ij} + \vec F_i + \vec R_i = \vec 0$, soit 2 équations par nœud. L'application résout le système complet sous forme matricielle.</li>
-  <li>Une fois $N$ connu : $\sigma = N/S$ et $\Delta L = N L/(E S)$. Une barre comprimée doit aussi être vérifiée au <a href="#flambage">flambage</a>.</li>
+  <li>Une fois $N$ connu : $\sigma = N/S$ et $\Delta L = N L/(E S)$. Chaque barre est vérifiée : $\sigma \le R_e/s$, et pour les barres comprimées, si $I_{min}$ est saisi, $|N| \le P_{cr}/s$ avec la charge d'Euler $P_{cr} = \pi^2 E I_{min}/L^2$ (barre articulée aux deux bouts). Le flambage d'ensemble du treillis n'est pas vérifié.</li>
 </ul>
 <p>Dans l'exemple, l'effort maximal est |N| = 27,08 kN dans la barre E–C (compression), soit σ = −54,2 MPa avec S = 500 mm².</p>
 

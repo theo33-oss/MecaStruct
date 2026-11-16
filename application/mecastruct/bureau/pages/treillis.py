@@ -7,7 +7,7 @@ plans (2D) : la saisie 3D de la fiche n'est pas portée.
 import copy
 
 from mecastruct.bureau import dossier, state
-from mecastruct.bureau.page_calcul import PageCalcul, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat, synthese_suivie
 from mecastruct.bureau.widgets import Zone, case_col, noeud_col, nombre_col, texte_col
 from mecastruct.plots import other_plots
 from mecastruct.services import compute
@@ -31,9 +31,14 @@ class PageTreillis(PageCalcul):
         dossier.example_picker(z, "Tr")
 
         def corps(c: Zone) -> None:
-            c.choice_materiau("Tr", ["E"], dm)
+            c.choice_materiau("Tr", ["E", "Re"], dm)
             c.num("Tr", "E", "E", "GPa")
-            c.num("Tr", "S", "S", "mm²", min_value=0.0)
+            c.num("Tr", "Re", "Re", "MPa", min_value=0.0)
+            c.num("Tr", "S", "S, aire d'une barre", "mm²", min_value=0.0)
+            c.num("Tr", "Imin", "Imin, moment quadratique minimal d'une barre (0 = flambage non vérifié)", "mm⁴",
+                  help="Toutes les barres ont la même section. Flambage d'Euler des barres comprimées (articulées aux "
+                       "deux bouts). Tube Ø60 × 3 : environ 200 000 mm⁴.", min_value=0.0)  # fmt: skip
+            c.num("Tr", "s", "Coefficient de sécurité s", "", min_value=0.0)
             c.num("Tr", "scale", "Amplification déformée (0 = auto)", "", min_value=0.0)
             c.texte("**Nœuds** (coordonnées en m)")
             c.table("Tr", "nodes", [texte_col("name", "Nom"), nombre_col("x", "x (m)"), nombre_col("y", "y (m)")])
@@ -64,6 +69,9 @@ class PageTreillis(PageCalcul):
 
     def visualisation(self, z: Zone) -> None:
         resultat = state.result("Tr")
+        if resultat is not None:
+            modes_resultat(z, "Tr", resultat, ok=resultat["ok"])
+        dossier.validation_button(z, "Tr")
         figure = self._figure(z, resultat)
         if figure is not None:
             z.plot(figure)
@@ -76,11 +84,9 @@ class PageTreillis(PageCalcul):
                 "Le dessin suit la saisie. Les efforts et les tableaux datent du dernier « Calculer » : "
                 "cliquez dessus pour les actualiser."
             )
-        dossier.validation_button(z, "Tr")
         dossier.explanation_panel(z, "Tr")
         if resultat is not None:
             t = resultat["tables"]
-            z.succes(resultat["status"])
             z.onglets(
                 {
                     "Barres": lambda c: c.tableau(t["Barres"]),

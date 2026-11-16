@@ -287,12 +287,12 @@
       },
       extra: (c) => {
         if (invalides.size) return signaler("avertissement", "Corrigez d'abord les champs signalés en rouge.");
-        const bloc = el("section", { class: "extra" }, el("h3", { texte: c.titre || c.libelle }), App.message("info", "Calcul en cours…"));
+        const bloc = el("section", { class: "extra" }, el("h2", { class: "titre-bloc", texte: c.titre || c.libelle }), App.message("info", "Calcul en cours…"));
         extras[c.calcul]?.bloc.remove();
         zoneExtras.prepend(bloc);
         setTimeout(() => {
           const r = App.calculer(c.calcul, saisie);
-          bloc.replaceChildren(el("h3", { texte: c.titre || c.libelle }));
+          bloc.replaceChildren(el("h2", { class: "titre-bloc", texte: c.titre || c.libelle }));
           if (!r.ok) return bloc.append(App.message("erreur", r.erreur));
           bloc.append(...construireResultat(r.sortie, c.calcul, "", true));
           extras[c.calcul] = { empreinte: JSON.stringify(saisie), bloc };
@@ -480,7 +480,7 @@
       zoneResultat.classList.add("eclair");
     }
 
-    const phraseEtat = (t) => { const p = App.decimalesFr(String(t || "")); return /^[a-zà-ÿ]/.test(p) ? p.charAt(0).toUpperCase() + p.slice(1) : p; };
+    const phraseEtat = (t) => { const p = App.decimalesFr(String(t || "")); return /^[a-zà-ÿ]{2}/.test(p) ? p.charAt(0).toUpperCase() + p.slice(1) : p; };
     const nf = (x, chiffres = 3) => (Number.isFinite(x) ? String(Number(x.toPrecision(chiffres))).replace(".", ",") : "∞");
 
     // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient de sécurité (résistance)
@@ -564,7 +564,7 @@
         else if (!ancien) {
           const m = App.message("avertissement", "Saisie modifiée depuis ce calcul : relancez-le pour l'actualiser.");
           m.classList.add("perime");
-          bloc.querySelector("h3").after(m);
+          bloc.querySelector("h2").after(m);
         }
       }
     }
@@ -646,11 +646,11 @@
       return [telecharger, imprimer];
     }
 
-    const titreResultat = el("h3", { class: "titre-resultat", texte: "Résultat" });
+    const titreResultat = el("h2", { class: "titre-bloc titre-resultat", texte: "Résultat" });
     dessinerChamps();
     const bloc = el("div", { class: "calcul" },
       el("div", { class: "colonne-saisie" }, formulaire),
-      el("div", { class: "colonne-resultat" }, f.apercu ? el("h3", { texte: "Schéma" }) : null, f.apercu ? zoneSchema : null,
+      el("div", { class: "colonne-resultat" }, f.apercu ? el("h2", { class: "titre-bloc", texte: "Schéma" }) : null, f.apercu ? zoneSchema : null,
         titreResultat, zoneResultat, zoneExtras));
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {

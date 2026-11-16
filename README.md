@@ -34,7 +34,7 @@ site (pages de RdM) s'ouvre dans l'application de bureau, et inversement.
 | Données et aide | Matériaux et profilés (ajouts gardés dans le navigateur), abaques Kt, Convertisseur, Références, Limites | oui |
 
 Sur chaque page de calcul : verdict en toutes lettres, graphiques, tableaux à copier dans Excel, formules remplies
-avec vos valeurs, et pour la RdM un dossier de validation qui refait chaque grandeur à la main. Dans le navigateur,
+avec vos valeurs, et pour la RdM un dossier de validation qui refait chaque grandeur à la main. Sur le site comme sur le bureau,
 le résultat s'ouvre sur un diagramme des modes de ruine (taux de travail, coefficient de sécurité obtenu et demandé),
 avec un export bloc-notes et un Excel de validation où le calcul est refait par des formules.
 

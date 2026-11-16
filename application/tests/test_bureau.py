@@ -35,11 +35,11 @@ def test_navigation_par_le_menu_et_les_liens(bureau):
 
 def test_modifier_une_donnee_puis_calculer(bureau):
     bureau.ouvre("treillis")
-    bureau.saisit("S (mm²)", "800")
+    bureau.saisit("S, aire d'une barre (mm²)", "800")
     assert state.saisie("Tr")["S"] == 800.0
     bureau.clique("Calculer")
     assert state.is_current("Tr")
-    bureau.saisit("S (mm²)", "900")
+    bureau.saisit("S, aire d'une barre (mm²)", "900")
     assert not state.is_current("Tr")  # le résultat affiché date de l'ancienne saisie
 
 

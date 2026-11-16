@@ -72,6 +72,18 @@ def convertir(s):
     def texte(x: float) -> str:
         return f"{float(x):.10g}".replace(".", ",")
 
-    lignes = [[u["label"], texte(units.convertUnits(valeur, g["name"], s["de"], u["label"]))] for u in g["units"]]
+    def affiche(x: float) -> str:
+        """Même nombre avec l'espace fine des milliers (à partir de 5 chiffres) : « 1 000 000 » et non « 1000000 »."""
+        t = texte(x)
+        if "e" in t:
+            return t
+        entier, virgule, decimales = t.partition(",")
+        signe, chiffres = ("-", entier[1:]) if entier.startswith("-") else ("", entier)
+        if len(chiffres) >= 5:
+            chiffres = f"{int(chiffres):,}".replace(",", "\u202f")
+        return signe + chiffres + virgule + decimales
+
+    lignes = [[u["label"], affiche(units.convertUnits(valeur, g["name"], s["de"], u["label"]))] for u in g["units"]]
     tableau = {"entetes": ["Unité", "Valeur équivalente"], "lignes": lignes}
-    return {"resultat": resultat, "texte": texte(resultat), "tableau": tableau}
+    # texte : sans espace, pour « Copier la valeur » (collé dans Excel, il reste un nombre) ; affiche : pour l'écran
+    return {"resultat": resultat, "texte": texte(resultat), "affiche": affiche(resultat), "tableau": tableau}

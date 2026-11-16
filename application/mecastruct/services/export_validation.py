@@ -175,7 +175,28 @@ def _mot(s, r, _dm):
     ]  # fmt: skip
 
 
-FORMULES = {"tra": _tra, "cis": _cis, "tor": _tor, "fle": _fle, "fla": _fla, "fre": _fre, "rlt": _rlt, "eng": _eng,
+def _truss(s, r, _dm):
+    c, tsol = r["check"], r["tsol"]
+    if c["iSigma"] is None:
+        return None
+    k = c["iSigma"]
+    extras = [("xN", f"Effort normal N de la barre {k + 1} (le plus grand, solveur MecaStruct)", abs(float(tsol["N"][k])) / 1e3, "kN")]
+    lignes = [
+        ("sg", f"Contrainte σ de la barre {k + 1}", "|N| / S", "MPa", "{xN}*1000/{S}", c["sigma"][k] / 1e6),
+        ("sa", "Contrainte admissible σadm", "Re / s", "MPa", "{Re}/{s}", c["sigmaAdm"] / 1e6),
+    ]  # fmt: skip
+    if c["iFlambage"] is not None:
+        f = c["iFlambage"]
+        extras += [("xNc", f"Effort de compression de la barre {f + 1} (le plus critique, solveur MecaStruct)", abs(float(tsol["N"][f])) / 1e3, "kN"),
+                   ("xLc", f"Longueur de la barre {f + 1}", float(tsol["L0"][f]), "m")]  # fmt: skip
+        lignes += [
+            ("pc", f"Charge critique d'Euler de la barre {f + 1}", "π² E Imin / L²", "kN", "PI()^2*{E}*1000*{Imin}/({xLc}*1000)^2/1000", c["Pcr"][f] / 1e3),
+            ("pa", "Charge admissible au flambage", "Pcr / s", "kN", "[pc]/{s}", c["Pcr"][f] / s["s"] / 1e3),
+        ]
+    return extras, lignes
+
+
+FORMULES = {"truss": _truss, "tra": _tra, "cis": _cis, "tor": _tor, "fle": _fle, "fla": _fla, "fre": _fre, "rlt": _rlt, "eng": _eng,
             "frn": _frn, "emb": _emb, "mot": _mot}  # fmt: skip
 
 
@@ -209,6 +230,16 @@ def _valeur(v):
     if hasattr(v, "item"):  # nombre numpy
         return _valeur(v.item())
     return project_io._neutre("" if v is None else str(v))
+
+
+_NOMBRE = re.compile(r"^[-−+]?\d+(\.\d+)?(e[-+]?\d+)?$")
+
+
+def _cellule(v):
+    """Cellule d'un tableau de résultats : un nombre écrit en texte par le calcul (« 159.155 ») redevient un nombre."""
+    if isinstance(v, str) and _NOMBRE.match(v.strip()):
+        return float(v.strip().replace("−", "-"))
+    return _valeur(v)
 
 
 def classeur(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[dict], refait: tuple | None) -> bytes:
@@ -307,7 +338,7 @@ def classeur(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: lis
             nom = (nom[:29] + "_2")
         ws = feuille(nom, [_valeur(str(c)) for c in t.columns], [22] * 10)
         for r in t.itertuples(index=False):
-            ws.append([_valeur(v) for v in r])
+            ws.append([_cellule(v) for v in r])
 
     tampon = io.BytesIO()
     wb.save(tampon)

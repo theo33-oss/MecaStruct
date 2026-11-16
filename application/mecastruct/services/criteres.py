@@ -41,6 +41,20 @@ def ligne(mode: str, valeur, limite, unite: str = "", s_demande: float = 1.0, se
             "s_obtenu": obtenu, "taux": taux, "ok": admissible, "sens": sens, "genre": genre, "groupe": groupe}  # fmt: skip
 
 
+def verdict(status: str):
+    """Verdict lu dans la ligne d'état d'un calcul : « NON vérifié » → False, « vérifié » → True, sinon None."""
+    if re.search(r"NON vérifi", status):
+        return False
+    return True if re.search(r"vérifi", status) else None
+
+
+def ossature(contraintes: dict, limites: dict) -> list[dict]:
+    """Ossature 3D : contrainte de la pièce la plus sollicitée (Pa) face à Re (Pa), sans coefficient de sécurité."""
+    lignes = [ligne(f"Contrainte σ max, pièce {i}", c["sigma_max"] / 1e6, (limites.get(i) or 0) / 1e6, "MPa")
+              for i, c in contraintes.items() if c["sigma_max"] is not None]  # fmt: skip
+    return trier(_garde(lignes))[:1]
+
+
 def _garde(lignes) -> list[dict]:
     return [x for x in lignes if x is not None]
 
@@ -154,7 +168,25 @@ def _table(_s, res):
     return depuis_table(res.get("tables", {}).get("Synthèse"))
 
 
-_PAR_CALCUL = {"beam": _beam, "Beam": _beam, "tra": _tra, "Tra": _tra, "cis": _cis, "Cis": _cis, "tor": _tor, "Tor": _tor,
+def _truss(s, calc):
+    r = calc["result"]
+    c, nm, B = r["check"], r["truss"]["names"], r["truss"]["bars"]
+
+    def barre(k):
+        return f"barre {k + 1} ({nm[int(B[k][0]) - 1]}–{nm[int(B[k][1]) - 1]})"
+
+    lignes = []
+    if c["iSigma"] is not None:
+        k = c["iSigma"]
+        lignes.append(ligne(f"Résistance : σ max, {barre(k)}", c["sigma"][k] / 1e6, c["sigmaAdm"] / 1e6, "MPa", s["s"]))
+    if c["iFlambage"] is not None:
+        k = c["iFlambage"]
+        N = abs(r["tsol"]["N"][k])
+        lignes.append(ligne(f"Flambage d'Euler : {barre(k)} comprimée", N / 1e3, c["Pcr"][k] / s["s"] / 1e3, "kN", s["s"]))
+    return lignes
+
+
+_PAR_CALCUL = {"truss": _truss, "Tr": _truss, "beam": _beam, "Beam": _beam, "tra": _tra, "Tra": _tra, "cis": _cis, "Cis": _cis, "tor": _tor, "Tor": _tor,
                "fle": _fle, "Fle": _fle, "fla": _fla, "Fla": _fla, "ten": _ten, "Ten": _ten,
                "fre": _fre, "pal": _table, "mot": _table, "rlt": _rlt, "eng": _eng, "emb": _emb}  # fmt: skip
 

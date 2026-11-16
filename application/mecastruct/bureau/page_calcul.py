@@ -24,6 +24,29 @@ class Volet(NamedTuple):
     saisie: Callable[[Zone], None]
 
 
+def modes_resultat(z: Zone, tab: str, res: dict, status: str | None = None, ok: Any = "verdict", extras: dict | None = None,
+                   ident: str | None = None, saisie: dict | None = None) -> None:  # fmt: skip
+    """Verdict de l'onglet `tab` : diagramme des modes de ruine, ou bandeau coloré s'il n'y a pas de limite à comparer.
+
+    `ok` : « verdict » (lu dans la ligne d'état, comme sur le site), ou True, False, None. `extras` : résultats annexes
+    (clavette et goupille pour le cisaillement). Saisie modifiée depuis le calcul : diagramme grisé.
+    """
+    from mecastruct.services import criteres
+
+    status = status or str(res.get("status", ""))
+    if ok == "verdict":
+        ok = criteres.verdict(status)
+    saisie = saisie if saisie is not None else state.saisie(tab)
+    try:
+        crit = criteres.criteres(ident or tab, saisie, res if extras is None else {**res, "extras": extras})
+    except Exception:  # noqa: BLE001 : un critère impossible à lire n'empêche pas d'afficher le calcul
+        crit = []
+    if crit:
+        z.modes(crit, status, ok, perime=not state.is_current(tab))
+    else:
+        z.statut(status, ok)
+
+
 def synthese_statut(z: Zone, status: str) -> None:
     """Valeurs clés tirées d'une ligne d'état « A = 1 u, B = 2 u (vérifié) — C = 3 u » ; rien sans « x = y »."""
     valeurs = []

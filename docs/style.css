@@ -48,7 +48,7 @@ body { margin: 0; padding: 0 16px 32px; background: var(--fond); color: var(--en
 a { color: var(--lien); }
 h1 { font-size: 1.8rem; margin: 20px 0 4px; line-height: 1.25; }
 h2 { font-size: 1.2rem; margin: 18px 0 6px; }
-h3 { font-size: 1.05rem; margin: 18px 0 6px; padding-bottom: 2px; border-bottom: 2px solid var(--bord); }
+h3, h2.titre-bloc { font-size: 1.05rem; margin: 18px 0 6px; padding-bottom: 2px; border-bottom: 2px solid var(--bord); }
 h4 { font-size: .95rem; margin: 14px 0 6px; }
 .intro { margin-top: 0; max-width: 90ch; color: var(--discret); }
 .legende { font-size: .85rem; color: var(--discret); }

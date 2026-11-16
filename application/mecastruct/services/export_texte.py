@@ -3,6 +3,7 @@
 Les données viennent de la description du formulaire (pont/formulaire.py) : mêmes libellés et unités que la page.
 """
 
+import re
 from datetime import datetime
 
 import pandas as pd
@@ -26,6 +27,15 @@ def nombre(x, chiffres: int = 5) -> str:
             return "infini"
         return format(x, f".{chiffres}g").replace(".", ",")
     return "" if x is None else str(x)
+
+
+_NOMBRE_POINT = re.compile(r"^[-−+]?\d+\.\d+(e[-+]?\d+)?$")
+_DECIMALE = re.compile(r"(\d)\.(\d)")
+
+
+def fr(texte) -> str:
+    """Virgule décimale dans une phrase du calcul (« 159.2 MPa » devient « 159,2 MPa »), comme sur la page."""
+    return _DECIMALE.sub(r"\1,\2", str(texte))
 
 
 def _visible(champ: dict, saisie: dict) -> bool:
@@ -73,7 +83,8 @@ def _colonnes(entetes: list[str], lignes: list[list[str]]) -> list[str]:
 
 
 def _table(t: pd.DataFrame, maxi: int = 60) -> list[str]:
-    lignes = [[nombre(v) for v in r] for r in t.head(maxi).itertuples(index=False)]
+    lignes = [[fr(nombre(v)) if _NOMBRE_POINT.match(nombre(v).strip()) else nombre(v) for v in r]
+              for r in t.head(maxi).itertuples(index=False)]  # fmt: skip
     out = _colonnes([str(c) for c in t.columns], lignes)
     if len(t) > maxi:
         out.append(f"… {len(t) - maxi} ligne(s) de plus : voir l'export Excel.")
@@ -84,16 +95,44 @@ def _titre(t: str) -> list[str]:
     return ["", t.upper(), "=" * len(t)]
 
 
+def chiffres(c: dict) -> tuple[str, str, str]:
+    """(« 159,2 MPa pour 156,7 MPa admissibles », « taux 102 % », « s = 1,48 · demandé 1,5 » ou « marge 17 % »)."""
+    u = f" {c['unite']}" if c["unite"] else ""
+    sans_unite = not c["unite"] and c["limite"] == 1  # rapport d'une norme (effort / résistance ≤ 1) : le taux suffit
+    mot = "admissibles" if c["sens"] == "max" else "requis"
+    valeurs = "" if sans_unite else f"{nombre(c['valeur'], 4)}{u} pour {nombre(c['limite'], 4)}{u} {mot}"
+    taux = f"taux {nombre(100 * c['taux'], 3)} %"
+    if c.get("genre", "resistance") == "resistance":
+        return valeurs, taux, f"s = {nombre(c['s_obtenu'], 3)} · demandé {nombre(c['s_demande'], 3)}"
+    marge_ = f"marge {nombre(100 * (1 - c['taux']), 3)} %" if c["taux"] <= 1 else f"dépassement {nombre(100 * (c['taux'] - 1), 3)} %"
+    return valeurs, taux, marge_
+
+
+def phrase_bilan(crit: list[dict]) -> str:
+    """« Les 2 modes de ruine sont admissibles », « 1 mode de ruine non admissible sur 3 »."""
+    ko = sum(1 for c in crit if not c["ok"])
+    if ko:
+        return f"{ko} mode{'s' if ko > 1 else ''} de ruine non admissible{'s' if ko > 1 else ''} sur {len(crit)}"
+    return f"Les {len(crit)} modes de ruine sont admissibles" if len(crit) > 1 else "Le mode de ruine est admissible"
+
+
+def phrase_etat(status) -> str:
+    """Ligne d'état du calcul : virgule décimale et majuscule initiale."""
+    t = fr(status)
+    return t[:1].upper() + t[1:] if re.match(r"[a-zà-ÿ]{2}", t) else t
+
+
 def lignes_criteres(crit: list[dict]) -> list[str]:
     if not crit:
         return ["Ce calcul ne compare pas de valeur à une limite."]
-    lignes = []
+    lignes, groupe = [], None
     for c in crit:
-        u = f" {c['unite']}" if c["unite"] else ""
-        signe = "≤" if c["sens"] == "max" else "≥"
-        lignes.append([c["mode"], f"{nombre(c['valeur'], 4)}{u} {signe} {nombre(c['limite'], 4)}{u}", f"{nombre(100 * c['taux'], 3)} %",
-                       f"{nombre(c['s_obtenu'], 3)} (demandé {nombre(c['s_demande'], 3)})", "ADMISSIBLE" if c["ok"] else "NON ADMISSIBLE"])  # fmt: skip
-    return _colonnes(["Mode de ruine", "Valeur et limite", "Taux", "Coefficient de sécurité", "Verdict"], lignes)
+        if c.get("groupe") and c["groupe"] != groupe:
+            lignes.append([f"[{c['groupe']}]", "", "", "", ""])
+        groupe = c.get("groupe") or None
+        valeurs, taux, marge = chiffres(c)
+        lignes.append([c["mode"], valeurs, taux.removeprefix("taux "), marge, "ADMISSIBLE" if c["ok"] else "NON ADMISSIBLE"])
+    return _colonnes(["Mode de ruine", "Valeur et limite", "Taux", "Coefficient ou marge", "Verdict"], lignes)
 
 
 def texte(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[dict], quand: datetime | None = None) -> str:
@@ -112,14 +151,14 @@ def texte(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[d
     for nom, t in tableaux_saisie(formulaire, saisie).items():
         L += ["", f"[{nom}]", *("  " + x for x in _table(t))]
     L += _titre("Verdict et modes de ruine")
-    L += [f"Verdict : {verdict}", str(sortie.get("status", "")), ""]
+    L += [f"Verdict : {verdict}", fr(sortie.get("status", "")), ""]
     L += lignes_criteres(crit)
     tables = {n: t for n, t in (sortie.get("tables") or {}).items() if isinstance(t, pd.DataFrame) and len(t)}
     if tables:
         L += _titre("Résultats")
         for nom, t in tables.items():
             L += ["", f"[{nom}]", *("  " + x for x in _table(t))]
-    rapport = [str(x) for x in sortie.get("rapport") or [] if str(x).strip()]
+    rapport = [fr(x) for x in sortie.get("rapport") or [] if str(x).strip()]
     if rapport:
         L += _titre("Démarche du calcul")
         L += [x if x.startswith("===") else "- " + x for x in rapport]

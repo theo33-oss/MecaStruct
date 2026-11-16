@@ -7,7 +7,7 @@ saisie qui l'a donné (résultat périmé signalé).
 from collections.abc import Callable
 from typing import Any
 
-from mecastruct.bureau import machine_dossier, state
+from mecastruct.bureau import exports, machine_dossier, state
 from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets
 from mecastruct.bureau.widgets import Section, Zone
 from mecastruct.services import sources
@@ -61,7 +61,7 @@ def apercu(z: Zone, dessin: Callable[[], Any]) -> None:
     z.plot(fig)
 
 
-def resultats(z: Zone, page: str, s: dict, graphique: Callable[[dict], Any] | None = None) -> None:
+def resultats(z: Zone, page: str, s: dict, graphique: Callable[[dict], Any] | None = None, titre: str = "") -> None:
     """Ligne d'état, graphique, synthèse et explications du calcul (formules remplies et démarche)."""
     calc = state.v.get(f"{page}.res")
     if calc is None:
@@ -69,13 +69,22 @@ def resultats(z: Zone, page: str, s: dict, graphique: Callable[[dict], Any] | No
         return
     res = calc["res"]
     if calc["empreinte"] == repr(s):  # empreinte propre à ces pages
-        z.statut(res["status"], res["ok"])
+        from mecastruct.services import criteres
+
+        crit = criteres.criteres(page, s, res)
+        ok = None if page == "aju" else res["ok"]  # un ajustement n'est comparé à aucune limite : pas de « vérifié »
+        if crit:
+            z.modes(crit, res["status"], ok)
+        else:
+            z.statut(res["status"], ok)
     else:  # verdict coloré retiré : il ne vaut plus pour la saisie affichée
         z.avertissement(
             "Saisie modifiée depuis le dernier calcul : les résultats affichés datent de l'ancienne saisie. "
             "Cliquez sur « Calculer » pour les actualiser."
         )
         z.legende(f"{SAISIE_MODIFIEE} {res['status']}")
+    if titre:  # bloc-notes et Excel de validation, sous le verdict
+        exports.boutons(z, page, s, titre)
     onglets = {"Synthèse": lambda c: c.tableau(res["tables"]["Synthèse"])}
     if graphique is not None:
         onglets = {"Graphique": lambda c: c.plot(graphique(res["result"])), **onglets}
@@ -135,7 +144,7 @@ class PageMachine(PageCalcul):
     def visualisation(self, z: Zone) -> None:
         s = saisie(self.P, self.DEFAUT)
         self.apercu(z, s)
-        resultats(z, self.P, s, self.graphique(s))
+        resultats(z, self.P, s, self.graphique(s), self.titre or self.P)
         if self.pied:
             machine_dossier.bouton(z, *self.pied)
 

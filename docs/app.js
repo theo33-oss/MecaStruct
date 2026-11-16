@@ -5,7 +5,7 @@
 
 const App = (() => {
   const $ = (id) => document.getElementById(id);
-  const VERSION = "1.3.2";
+  const VERSION = "1.4.0";
   const DEPOT = "https://github.com/theo33-oss/MecaStruct";
   let pont = null;
   const genres = {};
@@ -166,7 +166,9 @@ const App = (() => {
       })))));
     const b = el("button", { type: "button", class: "secondaire petit", texte: "Copier le tableau", aide: "Copie le tableau avec des tabulations : à coller directement dans Excel." });
     b.addEventListener("click", async () => {
-      b.textContent = (await copier([t.entetes, ...t.lignes].map((l) => l.join("\t")).join("\n"))) ? "Copié" : "Copie impossible";
+      // les espaces des milliers sont retirés : collé dans Excel, « 1 000 000 » doit rester un nombre
+      const brut = (c) => (/^[−\-+]?\d{1,3}([ \u202f\u00a0]\d{3})+(,\d+)?$/.test(String(c).trim()) ? String(c).replace(/[ \u202f\u00a0]/g, "") : c);
+      b.textContent = (await copier([t.entetes, ...t.lignes.map((l) => l.map(brut))].map((l) => l.join("\t")).join("\n"))) ? "Copié" : "Copie impossible";
       setTimeout(() => { b.textContent = "Copier le tableau"; }, 1500);
     });
     return el("div", { class: "tableau" }, titre ? el("h4", { texte: titre }) : null, el("div", { class: "defile" }, tab), b);
@@ -222,7 +224,11 @@ const App = (() => {
     const barre = el("div", { class: "onglets", role: "tablist" });
     const panneau = el("div", { class: "panneau", role: "tabpanel" });
     const ouvrir = (id) => {
-      for (const b of barre.children) b.setAttribute("aria-selected", String(b.dataset.id === id));
+      for (const b of barre.children) {
+        const choisi = b.dataset.id === id;
+        b.setAttribute("aria-selected", String(choisi));
+        b.tabIndex = choisi ? 0 : -1; // un seul onglet dans l'ordre de tabulation, les flèches font le tour
+      }
       panneau.replaceChildren();
       liste.find((o) => o.id === id).rendu(panneau);
       if (cle) memoire.ecrire("onglet." + cle, id);
@@ -232,6 +238,16 @@ const App = (() => {
       b.dataset.id = o.id;
       return b;
     }));
+    // clavier des onglets : flèches gauche et droite, début et fin (modèle ARIA des onglets)
+    barre.addEventListener("keydown", (e) => {
+      const tous = [...barre.children];
+      const i = tous.indexOf(document.activeElement);
+      const vers = { ArrowRight: (i + 1) % tous.length, ArrowLeft: (i - 1 + tous.length) % tous.length, Home: 0, End: tous.length - 1 }[e.key];
+      if (i < 0 || vers === undefined) return;
+      e.preventDefault();
+      ouvrir(tous[vers].dataset.id);
+      tous[vers].focus();
+    });
     const garde = cle ? memoire.lire("onglet." + cle) : null;
     ouvrir(liste.some((o) => o.id === garde) ? garde : liste[0].id);
     return el("div", { class: "bloc-onglets" }, barre, panneau);

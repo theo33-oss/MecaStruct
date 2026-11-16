@@ -50,6 +50,7 @@ from PySide6.QtWidgets import (
 
 from mecastruct.bureau import state
 from mecastruct.bureau.latex_texte import versTexte
+from mecastruct.services.export_texte import fr
 
 FOND_FIGURE = "#FFFFFF"
 TEXTE = "#1E1B2E"
@@ -129,6 +130,9 @@ class VueFigure(QWebEngineView):
         self.load(QUrl.fromLocalFile(str(chemin)))
 
 
+_NOMBRE_POINT = re.compile(r"^[-−+]?\d+\.\d+(e[-+]?\d+)?$")
+
+
 def _ecrit(v: Any, fmt: str | None) -> str:
     """Case de tableau en texte : nombres à la française, vide pour une valeur absente."""
     if v is None or (isinstance(v, float) and math.isnan(v)):
@@ -139,6 +143,8 @@ def _ecrit(v: Any, fmt: str | None) -> str:
         return (fmt % v).replace(".", ",")
     if isinstance(v, float):
         return f"{v:g}".replace(".", ",")
+    if isinstance(v, str) and _NOMBRE_POINT.match(v.strip()):  # « 5.6993 » écrit en texte par le calcul
+        return v.replace(".", ",")
     return str(v)
 
 
@@ -524,6 +530,12 @@ class Zone:
     def erreur(self, texte: str) -> None:
         self.message("erreur", texte)
 
+    def modes(self, criteres: Sequence[dict], statut: str, ok: bool | None, perime: bool = False) -> None:
+        """Diagramme des modes de ruine (voir bureau/modes.py) ; `perime` : saisie modifiée depuis le calcul, grisé."""
+        from mecastruct.bureau.modes import ModesRuine
+
+        self._ajouter(ModesRuine(criteres, statut, ok, perime))
+
     def statut(self, texte: str, ok: bool | None = None) -> None:
         """Ligne d'état : verte si ok, rouge si non ok, orange si inconnu (None)."""
         self.message("succes" if ok is True else "erreur" if ok is False else "avertissement", texte)
@@ -564,6 +576,7 @@ class Zone:
         col = QVBoxLayout(cadre)
         col.setContentsMargins(8, 4, 8, 4)
         col.setSpacing(0)
+        valeur, delta = fr(valeur), fr(delta) if delta else delta  # virgule décimale, comme les champs et les tableaux
         haut, bas = QLabel(libelle), QLabel(valeur)
         haut.setObjectName("metriqueLibelle")
         haut.setWordWrap(True)

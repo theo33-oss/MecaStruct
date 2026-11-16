@@ -28,7 +28,7 @@
           el("h2", { texte: "Deux façons de l'utiliser" }),
           el("dl", {},
             el("dt", { texte: "Dans ce navigateur" }),
-            el("dd", { texte: "Aucune installation, toutes les pages. Le premier chargement peut prendre une minute, les suivants quelques secondes. Vos saisies restent dans ce navigateur." }),
+            el("dd", { texte: "Aucune installation, toutes les pages. Le premier chargement prend 15 à 30 secondes, les suivants quelques secondes. Vos saisies restent dans ce navigateur." }),
             el("dt", { texte: "Sur le bureau Windows" }),
             el("dd", {}, "Démarrage immédiat, hors ligne, dossiers de validation PDF et Word. ",
               el("a", { href: App.DEPOT + "/releases/latest", texte: "Télécharger l'installateur" }), "."))),

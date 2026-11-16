@@ -17,7 +17,16 @@ import operator
 import numpy as np
 import pandas as pd
 
-from mecastruct.core import buckling, geometry, hooke_gauges, kt_mohr, solicitations, tensors, truss_solver
+from mecastruct.core import (
+    buckling,
+    design_checks,
+    geometry,
+    hooke_gauges,
+    kt_mohr,
+    solicitations,
+    tensors,
+    truss_solver,
+)
 from mecastruct.core.data_manager import DataManager
 from mecastruct.core.errors import MecaStructError
 from mecastruct.core.units import fromSI, toSI
@@ -294,6 +303,9 @@ def defaultTrussInput() -> dict:
         "mat": "S235",
         "E": _materiau(dm, "S235", ["E"])["E"],
         "S": 500.0,
+        "Re": _materiau(dm, "S235", ["Re"])["Re"],
+        "s": 1.5,
+        "Imin": 200000.0,  # mm⁴ : tube Ø60 × 3 environ (S = 500 mm²) ; 0 = flambage non vérifié
         "scale": 0.0,
         "nodes": [
             {"name": "A", "x": 0.0, "y": 0.0},
@@ -389,18 +401,43 @@ def computeTruss(saisie: dict, dm: DataManager) -> dict:
         hTxt = "hypostatique"
     iMax = int(np.argmax(np.abs(tsol["N"])))
     nMax = abs(float(tsol["N"][iMax]))
+    Re, sec, Imin = float(saisie.get("Re", 235.0)), float(saisie.get("s", 1.5)), float(saisie.get("Imin", 0.0))
+    chk = design_checks.trussBars(tsol["N"], tsol["L0"], truss["S"], truss["E"], toSI(Re, "MPa"), sec, toSI(Imin, "mm^4"))
+    sansFlambage = bool(chk["comprimees"].any() and not chk["flambageVerifie"])
+    ok = chk["ok"] if not (chk["ok"] and sansFlambage) else None  # flambage non vérifié : pas de « vérifié » complet
+    verdict = ("barres NON vérifiées" if not chk["ok"] else "contrainte vérifiée, flambage non vérifié (Imin = 0)"
+               if sansFlambage else "barres vérifiées")  # fmt: skip
+    tables["Vérification des barres"] = pd.DataFrame(
+        {
+            "Barre": range(1, m + 1),
+            "Nœuds": noeuds,
+            "N (kN)": np.asarray(tsol["N"]) / 1e3,
+            "σ (MPa)": chk["sigma"] / 1e6,
+            "σ admissible (MPa)": chk["sigmaAdm"] / 1e6,
+            "Taux σ": chk["tauxSigma"],
+            "Charge critique d'Euler (kN)": chk["Pcr"] / 1e3,
+            "Taux de flambage": chk["tauxFlambage"],
+            "Résultat": ["OK" if a and bool(b) else "NON" for a, b in zip(chk["okSigma"], chk["okFlambage"], strict=True)],
+        }
+    )
     entete = [
         f"Treillis plan : {len(truss['nodes'])} nœuds, {m} barres ; h = m + r − 2n = {tsol['h']} ({hTxt}) ; "
         f"méthode : {tsol['methodUsed']}",
         f"Effort maximal : |N| = {nMax / 1e3:.5g} kN dans la barre {iMax + 1} ({noeuds[iMax]}) ; "
         f"σ = {tsol['sigma'][iMax] / 1e6:.5g} MPa",
     ]
+    entete.append(
+        f"Vérification : σ ≤ Re/s = {Re:g}/{sec:g} = {Re / sec:.5g} MPa ; flambage d'Euler des barres comprimées "
+        + (f"(articulées aux deux bouts, Imin = {Imin:g} mm⁴) : {verdict}" if chk["flambageVerifie"] else "non vérifié (Imin = 0)")
+    )
     result = {
         "truss": truss,
         "tsol": tsol,
+        "check": chk,
         "rapport": _rapport(entete, [("=== Démarche (moteur, SI) ===", tsol["report"])]),
     }
-    return {"result": result, "tables": tables, "status": f"h = {tsol['h']} ({hTxt}) — |N|max = {nMax / 1e3:.4g} kN"}
+    status = f"h = {tsol['h']} ({hTxt}) — |N|max = {nMax / 1e3:.4g} kN — {verdict}"
+    return {"result": result, "tables": tables, "status": status, "ok": ok}
 
 
 # ------------------------------------------------------------------------------------------ Expression S(x)

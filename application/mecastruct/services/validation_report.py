@@ -743,7 +743,8 @@ def _hypStatements(key: str) -> list[str]:
             "Barres articulées sans frottement aux nœuds.",
             "Charges et appuis uniquement aux nœuds ; poids propre négligé.",
             "Chaque barre ne subit qu'un effort normal constant.",
-            "Le flambage des barres comprimées n'est pas vérifié ici.",
+            "Flambage : critère d'Euler de chaque barre comprimée, articulée à ses deux bouts (Imin saisi) ; "
+            "le flambage d'ensemble du treillis n'est pas vérifié.",
         ],
         "Tra": commun
         + [
@@ -949,7 +950,7 @@ def _autoChecks(key: str, saisie: dict, res: dict, dm) -> list[tuple[str, str, s
     elif key == "Tr":
         ts = R["tsol"]
         add(_chk("Treillis non mécanisme (h ≥ 0)", f"h = {ts['h']}", _lvl(ts["h"] >= 0 and not ts["mechanism"], "ko")))
-        Re = dm.getMaterial(S["mat"])["Re"]
+        Re = float(S["Re"]) * 1e6 if S.get("Re") else dm.getMaterial(S["mat"])["Re"]
         sm = float(np.max(np.abs(ts["sigma"])))
         add(
             _chk(
@@ -960,7 +961,12 @@ def _autoChecks(key: str, saisie: dict, res: dict, dm) -> list[tuple[str, str, s
         )
         N = np.asarray(ts["N"], dtype=float)
         nc = int(np.sum(np.asarray(ts["nature"]) == "Compression"))
-        if nc > 0:
+        barres = R.get("check")
+        if nc > 0 and barres is not None and barres["flambageVerifie"]:
+            tx = float(np.nanmax(barres["tauxFlambage"]))
+            add(_chk("Barres comprimées : flambage d'Euler", f"{nc} barre(s) comprimée(s), taux |N|·s/Pcr max = {tx:.3g}",
+                     _lvl(bool(barres["okFlambage"].all()), "ko")))  # fmt: skip
+        elif nc > 0:
             add(
                 _chk(
                     "Barres comprimées : flambage à vérifier",
@@ -2158,10 +2164,22 @@ def _handTruss(saisie: dict, res: dict) -> list[dict]:
             m + int(np.count_nonzero(tr["supports"])) - dim * nn,
             ts["h"],
         ),
-        _grp("Détail par barre : N (solveur), σ = N/S et ΔL = N·L/(E·S) recalculés"),
     ]
     sg = np.asarray(ts["sigma"], dtype=float)
     dl = np.asarray(ts["dL"], dtype=float)
+    chk = R.get("check")
+    if chk is not None:
+        rows.append(_grp("Vérification des barres : σ admissible et flambage d'Euler recalculés"))
+        Reh, sh = float(saisie.get("Re", 235.0)), float(saisie.get("s", 1.5))
+        rows.append(_hc("σ admissible Re/s", r"\sigma_{adm}=\frac{R_e}{s}=\frac{%s}{%s}" % (n(Reh), n(sh)), Reh / sh, chk["sigmaAdm"] / 1e6, "MPa"))
+        Ih = float(saisie.get("Imin", 0.0)) * 1e-12
+        for k in range(m):
+            if chk["flambageVerifie"] and N[k] < 0:
+                pc = np.pi**2 * E[k] * Ih / Lh[k] ** 2
+                rows.append(_hc(f"Barre {k + 1} : charge critique d'Euler",
+                                r"P_{cr}=\frac{\pi^2 E I_{min}}{L^2}=\frac{\pi^2\times%s\times%s}{%s^2}" % (n(E[k]), n(Ih), n(Lh[k])),
+                                pc / 1e3, chk["Pcr"][k] / 1e3, "kN"))  # fmt: skip
+        rows.append(_grp("Détail par barre : N (solveur), σ = N/S et ΔL = N·L/(E·S) recalculés"))
     for k in range(m):
         nm = f"Barre {k + 1} (nœuds {B[k, 0]}–{B[k, 1]})"
         rows.append(

@@ -7,7 +7,7 @@ import copy
 import math
 
 from mecastruct.bureau import dossier, state, transfert
-from mecastruct.bureau.page_calcul import PageCalcul, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat, synthese_suivie
 from mecastruct.bureau.widgets import Zone
 from mecastruct.core import buckling
 from mecastruct.plots import other_plots
@@ -91,9 +91,6 @@ class PageFlambage(PageCalcul):
         b, c = res["result"]["analysis"], res["result"]["curve"]
         titre, niveau = REGIMES[b["regime"]]
         z.message(niveau, f"**Régime : {titre}** — λ = {b['lambda']:.4g} (λlim = {b['lambdaLim']:.4g})")
-        if math.isfinite(b["P"]):  # P = 0 : aucune charge appliquée, pas de verdict
-            mot = "vérifié" if b["ok"] else "NON vérifié"
-            z.statut(f"P = {b['P'] / 1e3:.5g} kN, Padm = {b['Padm'] / 1e3:.5g} kN : {mot}", bool(b["ok"]))
         if buckling.alerteSeuilLambdaLim(b["lambda"], b["lambdaLim"]):
             z.avertissement(
                 f"λ = {b['lambda']:.4g} est à moins de 10 % de λlim = {b['lambdaLim']:.4g} : la charge critique "
@@ -117,6 +114,12 @@ class PageFlambage(PageCalcul):
         )
 
     def visualisation(self, z: Zone) -> None:
+        res = state.result("Fla")
+        if res is not None and math.isfinite(res["result"]["analysis"]["P"]):  # P = 0 : aucune charge, pas de verdict
+            b = res["result"]["analysis"]
+            mot = "vérifié" if b["ok"] else "NON vérifié"
+            modes_resultat(z, "Fla", res, status=f"P = {b['P'] / 1e3:.5g} kN, Padm = {b['Padm'] / 1e3:.5g} kN : {mot}",
+                           ok=bool(b["ok"]))  # fmt: skip
         dossier.validation_button(z, "Fla")
         dossier.explanation_panel(z, "Fla")
         if state.result("Fla") is not None:

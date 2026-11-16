@@ -35,11 +35,7 @@ FAMILLES_PROFILES = ["IPE", "HEA", "HEB", "IPN", "UPN", "UAP"]
 # --------------------------------------------------------------------------------------------- outils communs
 
 
-def _ok(status: str):
-    """Verdict lu dans la ligne d'état du calcul : « NON vérifié » → False, « vérifié » → True, sinon None."""
-    if re.search(r"NON vérifi", status):
-        return False
-    return True if re.search(r"vérifi", status) else None
+_ok = criteres.verdict  # verdict lu dans la ligne d'état du calcul
 
 
 def _figure(f):
@@ -248,6 +244,7 @@ def treillis(s):
     figure = _figure(lambda: other_plots.truss(r["truss"], r["tsol"], s["scale"] if s["scale"] > 0 else None))
     sortie = _sortie("Tr", s, calc, [("Treillis", figure)], latex=r["tsol"].get("latex", []))
     # « h = 0 (isostatique) » ne dit rien à qui ne connaît pas la notation
+    sortie["ok"] = calc.get("ok")  # barres : contrainte et flambage (None si le flambage n'est pas vérifié)
     sortie["status"] = re.sub(r"^h = (-?\d+) \((\w+)\)", r"Treillis \2 (degré d'hyperstaticité h = \1)", sortie["status"])
     return sortie
 
@@ -290,11 +287,7 @@ def ossature(s):
         fig.add_trace(trace, row=k // 2 + 1, col=k % 2 + 1)
     fig.update_layout(height=640, margin={"l": 50, "r": 10, "t": 60, "b": 30}, title=f"Efforts internes de la pièce {piece}")
     fig.update_xaxes(title_text="s (mm)")
-    limites = {e["id"]: e.get("Re") for e in data["elements"]}
-    crit = criteres.trier([c for c in (criteres.ligne(f"Contrainte σ max, pièce {i}", c["sigma_max"], limites.get(i), "MPa")
-                                       for i, c in res["contraintes"].items() if c["sigma_max"] is not None) if c is not None])[:1]  # fmt: skip
-    for c in crit:  # la pièce la plus sollicitée, en MPa
-        c.update(valeur=c["valeur"] / 1e6, limite=c["limite"] / 1e6)
+    crit = criteres.ossature(res["contraintes"], {e["id"]: e.get("Re") for e in data["elements"]})
     if eq["ok"]:
         status = "Équilibre global vérifié (réactions + charges = 0). σ est comparée à Re sans coefficient de sécurité : à vous de juger la marge."
     else:
@@ -609,9 +602,13 @@ def _formulaires() -> dict:
         "truss": {
             "titre": "Treillis", "defaut": loadExample("Tr"), "apercu": True, "auto": False, "dossier": True,
             "exemples": exampleNames("Tr"), "paquets": ["scipy", "shapely"],
-            "suites": {"mat": {"calcul": "materiau", "champs": ["E"]}},
+            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "Re"]}},
             "groupes": [
-                groupe("Matériau et section", liste("mat", "Matériau", noms), nb("E", "E", "GPa"), nb("S", "S", "mm²", 0.0),
+                groupe("Matériau et section", liste("mat", "Matériau", noms), nb("E", "E", "GPa"), nb("Re", "Re", "MPa", 0.0),
+                       nb("S", "S, aire d'une barre", "mm²", 0.0),
+                       nb("Imin", "Imin, moment quadratique minimal d'une barre (0 = flambage non vérifié)", "mm⁴", 0.0,
+                          aide="Toutes les barres ont la même section. Sert au flambage d'Euler des barres comprimées (barre articulée aux deux bouts). Tube Ø60 × 3 : environ 200 000 mm⁴."),
+                       nb("s", "Coefficient de sécurité s", "", 0.0, aide="On exige σ ≤ Re / s et |N| ≤ Pcr / s (typiquement 1,5 à 3)."),
                        nb("scale", "Amplification de la déformée (0 = auto)", "", 0.0)),
                 groupe("Nœuds et barres",
                        tableau("nodes", "Nœuds (coordonnées en m)", [col("name", "Nom", "texte", defaut=""), col("x", "x (m)"), col("y", "y (m)")], mini=2),

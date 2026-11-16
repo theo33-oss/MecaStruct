@@ -58,7 +58,7 @@
       el("details", { class: "groupe", open: true }, el("summary", { texte: "Catégories" }), el("div", { class: "grille" }, cases)),
       el("label", { class: "large" }, "Rechercher un matériau", recherche), tableau,
       el("p", { class: "legende", texte: "Les matériaux « Base complémentaire » viennent d'un rapport de synthèse (2026) : valeurs typiques, à vérifier sur la fiche matière du fournisseur avant un usage professionnel." }),
-      el("h3", { texte: "Ajouter un matériau" }),
+      el("h2", { class: "titre-bloc", texte: "Ajouter un matériau" }),
       el("p", { class: "legende", texte: "Les ajouts restent dans ce navigateur (rien n'est envoyé sur Internet) et sont proposés dans tous les calculs." }),
       el("div", { class: "grille" }, f.champs),
       el("p", { class: "ligne" }, el("button", { type: "button", class: "primaire", texte: "Ajouter / remplacer", onclick: () => {
@@ -88,7 +88,7 @@
     ]);
     panneau.append(el("label", { class: "large" }, "Famille de profilés", famille),
       el("p", { class: "legende", texte: "Convention : Iz = axe fort (= Iy Eurocode), Iy = axe faible." }), tableau,
-      el("h3", { texte: "Ajouter un profilé à la famille choisie" }),
+      el("h2", { class: "titre-bloc", texte: "Ajouter un profilé à la famille choisie" }),
       el("p", { class: "legende", texte: "S, Iz, Iy, W et r sont calculés sur la géométrie simplifiée (épaisseurs constantes)." }),
       el("div", { class: "grille" }, f.champs),
       el("p", { class: "ligne" }, el("button", { type: "button", class: "primaire", texte: "Ajouter le profilé", onclick: () => {

@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSizePolicy, QTableWidget, QTableWidgetItem
 
 from mecastruct.bureau import dossier, state
-from mecastruct.bureau.page_calcul import PageCalcul, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat, synthese_suivie
 from mecastruct.bureau.widgets import Zone, ajusterHauteur, differer, formatNombre, lireNombre
 from mecastruct.plots import other_plots
 from mecastruct.services import compute, sources
@@ -105,8 +105,6 @@ class PageTenseurs(PageCalcul):
 
     def _resultats(self, z: Zone, res: dict) -> None:
         r, t = res["result"], res["tables"]
-        ok = bool(r["criteria"]["okTresca"] and r["criteria"]["okVM"])
-        z.statut(res["status"], ok)
         fa = r["facet"]
         z.graphs(
             "Ten_graphes_onglets",
@@ -132,6 +130,10 @@ class PageTenseurs(PageCalcul):
         )
 
     def visualisation(self, z: Zone) -> None:
+        res = state.result("Ten")
+        if res is not None:
+            c = res["result"]["criteria"]
+            modes_resultat(z, "Ten", res, ok=bool(c["okTresca"] and c["okVM"]))
         dossier.validation_button(z, "Ten")
         dossier.explanation_panel(z, "Ten")
         if state.result("Ten") is not None:

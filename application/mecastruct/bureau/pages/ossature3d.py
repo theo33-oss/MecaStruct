@@ -10,9 +10,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from mecastruct.bureau import state
+from mecastruct.bureau import exports, state
 from mecastruct.bureau.widgets import Colonne, Zone, liste_col, nombre_col
 from mecastruct.core import frame3d
+from mecastruct.services import criteres
 from mecastruct.services.exemples_3d import EXPLICATIONS, exemples
 from mecastruct.services.ossature3d import (  # noqa: F401 : réexportés pour la page et les tests
     APPUIS,
@@ -129,7 +130,23 @@ def _verification(z: Zone, res: dict, data: dict) -> None:
         z.legende("σ non calculée pour une pièce sans module de flexion Wy ou Wz : saisissez-les (section « perso »).")
 
 
+def _verdict(z: Zone, res: dict, data: dict) -> None:
+    """Contrainte de la pièce la plus sollicitée face à Re (indicatif, sans coefficient de sécurité) ; équilibre."""
+    eq = res["equilibre"]
+    crit = criteres.ossature(res["contraintes"], {e["id"]: e.get("Re") for e in data["elements"]})
+    if eq["ok"]:
+        status = "Équilibre global vérifié (réactions + charges = 0). σ est comparée à Re sans coefficient de sécurité : à vous de juger la marge."
+    else:
+        status = f"Écart d'équilibre : ΣF = {np.round(eq['forces'], 6).tolist()} N, ΣM = {np.round(eq['moments'], 6).tolist()} N·m."
+    if crit:
+        z.modes(crit, status, None if eq["ok"] else False)
+    else:
+        z.statut(status, None if eq["ok"] else False)
+    exports.boutons(z, "ossature", {k: v for k, v in state.extra["P3D"].items() if k != "exemple"}, "Ossature 3D")
+
+
 def _resultats(z: Zone, res: dict, data: dict) -> None:
+    _verdict(z, res, data)
     ampli = z.curseur("Amplification", "p3d.ampli", _amplification_auto(res, data), 1, 1000, 1, "%d",
                       apres=z.page.surSaisie)  # fmt: skip
     z.plot(_vue_3d(res, data, ampli))

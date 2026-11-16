@@ -9,7 +9,8 @@ avant tout usage réel. Cette page dit ce qui a été vérifié, et contre quoi.
 |---|---|---|
 | Poutres 2D | Application MATLAB d'origine (références « golden »), un cas refait à la main | Charge mobile absente des explications ; réactions surabondantes des poutres hyperstatiques non contrôlées |
 | Ossature 3D | Équilibre global ΣF, ΣM | Pas de référence indépendante |
-| Treillis, Sections, Sollicitations, Flambage, Tenseurs, Hooke et jauges | Application MATLAB d'origine (références « golden ») | Pas de recalcul indépendant à la main |
+| Treillis (efforts), Sections, Sollicitations, Flambage, Tenseurs, Hooke et jauges | Application MATLAB d'origine (références « golden ») | Pas de recalcul indépendant à la main |
+| Treillis (vérification des barres, depuis 1.4.0) | Formules refaites à la main dans les tests, dossier de validation et Excel de validation | Flambage d'Euler seul : barre articulée aux deux bouts, section unique, pas de Rankine ni d'Eurocode 3 ; flambage d'ensemble non vérifié |
 | Ajustements ISO 286 | Valeurs connues de l'ISO 286-2 (K7, N7, P7, M7, JS7, J7, js6, k6, h8, j6, f7, r6, p6, s6) | Colonnes a, b, cd, d, ef, fg, t, u, v, x, y, z, za, zb, zc non recoupées avec la norme |
 | Frettage | Valeurs du classeur Excel de l'auteur (à 1e-12 près) | Arbre plein : contrainte prise à 2p (prudent) |
 | Paliers lisses | Valeurs du classeur Excel de l'auteur | Limites P-V par famille de matériau à confirmer chez le fabricant |
@@ -69,9 +70,8 @@ les efforts de la poutre », « Prendre la section de la page Sections ») : rie
 sur le bureau Cisaillement et Flexion suivent la page Sections à chaque calcul. Les ajouts de matériaux et de profilés faits sur le site restent dans ce navigateur : pour
 les retrouver ailleurs, enregistrez-les dans un fichier (page Matériaux et profilés, onglet Mes ajouts).
 
-Le site seul a le diagramme des modes de ruine, l'export bloc-notes et l'Excel de validation.
 
-## Diagramme des modes de ruine et Excel de validation (site)
+## Diagramme des modes de ruine, bloc-notes et Excel de validation (site et bureau, depuis 1.4.0)
 
 Le diagramme reprend les vérifications déjà faites par le calcul : il n'en ajoute aucune. Le coefficient de sécurité
 obtenu est la limite du matériau divisée par la valeur calculée (Re/σ) ; le mode est admissible quand il atteint le

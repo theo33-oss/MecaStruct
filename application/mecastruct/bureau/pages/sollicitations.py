@@ -7,7 +7,7 @@ computeTorsion, computeBending). Cisaillement et flexion utilisent la section de
 import copy
 
 from mecastruct.bureau import dossier, machine_page, state
-from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets, Volet, panels, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets, Volet, modes_resultat, panels, synthese_suivie
 from mecastruct.bureau.widgets import Zone
 from mecastruct.core import geometry, key_pin
 from mecastruct.plots import section_plots, sollicitation_plots
@@ -42,7 +42,8 @@ def _synthese(z: Zone, res: dict | None, cle: str) -> None:
     """Ligne d'état, tableau de synthèse et rapport d'un calcul."""
     if res is None:
         return
-    z.succes(res["status"])
+    if cle not in ("Tra", "Cis", "Tor", "Fle"):  # ceux-là ont leur verdict en tête de page (diagramme des modes de ruine)
+        z.statut(res["status"], res.get("ok"))
     z.tableau(res["tables"]["Synthèse"])
     z.repliable("Rapport", rendu=lambda c: c.rapport(res["result"]["rapport"]), cle=f"rapport.{cle}")
 
@@ -67,7 +68,15 @@ class _SousPage(PageCalcul):
         dossier.example_picker(z, self.tab)
         self.champs(z)
 
+    def verdict(self, z: Zone) -> None:
+        """Diagramme des modes de ruine, tout en haut de la visualisation."""
+        res = state.result(self.tab)
+        if res is not None:
+            extras = {"key": state.result("CisKey"), "pin": state.result("CisPin")} if self.tab == "Cis" else None
+            modes_resultat(z, self.tab, res, extras=extras)
+
     def visualisation(self, z: Zone) -> None:
+        self.verdict(z)
         dossier.validation_button(z, self.tab)
         dossier.explanation_panel(z, self.tab)
         self.resultats(z)

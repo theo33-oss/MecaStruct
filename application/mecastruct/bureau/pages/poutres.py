@@ -10,7 +10,7 @@ import copy
 import numpy as np
 
 from mecastruct.bureau import dossier, state
-from mecastruct.bureau.page_calcul import PageCalcul, Volet, panels
+from mecastruct.bureau.page_calcul import PageCalcul, Volet, modes_resultat, panels
 from mecastruct.bureau.widgets import Zone, liste_col, nombre_col, texte_col
 from mecastruct.core import geometry
 from mecastruct.core.pp import asPP
@@ -553,6 +553,12 @@ class PagePoutres(PageCalcul):
         etat = state.v.get("Beam_etat")
         if etat is not None and not state.is_current(etat[2], source="Beam"):
             del state.v["Beam_etat"]  # résultat effacé ou saisie changée : le verdict ne vaut plus
+        texte, ok, _ = state.v.get("Beam_etat", (None, None, None))
+        if texte and res is not None:
+            modes_resultat(z, "Beam", res, status=texte, ok=ok)
+        elif texte:
+            z.statut(texte, ok)
+        dossier.validation_button(z, "Beam")
         graphes = [("Schéma", lambda c: self._schema(c, res))]
         tables = []
         if res is not None:
@@ -596,10 +602,6 @@ class PagePoutres(PageCalcul):
                 "(Combinaisons, Eurocode 3…) pour les actualiser."
             )
         tables = z.graphs("Beam_graphes_onglets", graphes, dessous=("Équations par tronçon",)) + tables
-        texte, ok, _ = state.v.get("Beam_etat", (None, None, None))
-        if texte:
-            z.statut(texte, ok)
-        dossier.validation_button(z, "Beam")
         if res is None:  # avant le premier calcul : le panneau dit où trouver les équations
             dossier.explanation_panel(z, "Beam")
         if tables:

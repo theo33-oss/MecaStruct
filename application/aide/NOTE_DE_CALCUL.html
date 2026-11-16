@@ -193,9 +193,10 @@ $$U=\int_0^L\left(\frac{N^2}{2ES}+\frac{T_y^2}{2k_yGS}+\frac{T_z^2}{2k_zGS}+\fra
   <li><strong>Méthode des nœuds</strong> (isostatique) : pour chaque nœud $i$, $\sum_j N_{ij}\,\vec u_{ij}+\vec F_i+\vec R_i=\vec0$ avec $\vec u_{ij}=\overrightarrow{P_iP_j}/L_{ij}$. Forme matricielle $[A]\{N,R\}=\{-F\}$.</li>
   <li><strong>Méthode des rigidités</strong> (isostatique ou hyperstatique) : $[K]\{u\}=\{F\}$ avec $[K]=\sum_{barres}\dfrac{E_bS_b}{L_b}\,\vec u\,\vec u^{\,T}$ assemblée sur les ddl, les ddl bloqués étant éliminés. Puis $N_b=\dfrac{E_bS_b}{L_b}\,\vec u^{\,T}(\vec u_j-\vec u_i)$.</li>
   <li><strong>Contrainte et allongement</strong> : $\sigma=N/S$ ; $\Delta L=NL/(ES)$.</li>
+  <li><strong>Vérification des barres</strong> : $\sigma\le R_e/s$ pour toutes les barres ; barre comprimée articulée aux deux bouts, charge d'Euler $P_{cr}=\pi^2EI_{min}/L^2$ et condition $|N|\le P_{cr}/s$ (si $I_{min}$ est saisi).</li>
 </ul>
 <div class="demo"><strong>Démonstration.</strong> Barre $ij$ articulée : une seule force par extrémité, dirigée selon la barre, d'où un effort normal $N_{ij}$ constant. L'allongement de la barre pour des déplacements nodaux $\vec u_i,\vec u_j$ est, au premier ordre, $\Delta L=\vec u_{ij}\cdot(\vec u_j-\vec u_i)$ ; la loi de comportement donne $N=\dfrac{ES}{L}\Delta L$. L'équilibre de chaque nœud donne alors $[K]\{u\}=\{F\}$.</div>
-<p><strong>Contrôle :</strong> pour un treillis isostatique, les deux méthodes (nœuds et rigidités) sont comparées ; l'écart est rapporté. Une barre comprimée n'est <strong>pas</strong> vérifiée au flambage automatiquement : à faire dans l'onglet Flambage.</p>
+<p><strong>Contrôle :</strong> pour un treillis isostatique, les deux méthodes (nœuds et rigidités) sont comparées ; l'écart est rapporté. Une barre comprimée est vérifiée au flambage d'Euler seulement si $I_{min}$ est saisi (barre articulée aux deux bouts) ; le flambage d'ensemble n'est pas vérifié.</p>
 <p class="ref">Code : <code>BeamAndTrussSolver.solveTruss</code>.</p>
 
 <!-- ================================================================== -->

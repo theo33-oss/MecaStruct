@@ -23,7 +23,7 @@ def test_treillis_exemple_se_calcule(bureau):
     bureau.ouvre("treillis")
     bureau.clique("Calculer")
     res = state.result("Tr")
-    assert res["result"]["tsol"]["isostatic"] and set(res["tables"]) == {"Barres", "Réactions", "Déplacements"}
+    assert res["result"]["tsol"]["isostatic"] and set(res["tables"]) == {"Barres", "Réactions", "Déplacements", "Vérification des barres"}
 
 
 def test_treillis_barre_inconnue_donne_un_message(bureau):

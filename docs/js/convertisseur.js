@@ -40,7 +40,7 @@
       const copie = el("button", { type: "button", class: "secondaire petit", texte: "Copier la valeur" });
       copie.addEventListener("click", async () => { copie.textContent = (await App.copier(r.sortie.texte)) ? "Copié" : "Copie impossible"; });
       resultat.replaceChildren(
-        el("p", { class: "message succes verdict" }, `${App.fr(v)} ${de.value} = ${r.sortie.texte} ${vers.value} `, copie),
+        el("p", { class: "message succes verdict" }, `${App.fr(v)} ${de.value} = ${r.sortie.affiche} ${vers.value} `, copie),
         App.tableau(r.sortie.tableau));
     };
     grandeur.addEventListener("change", () => { remplirUnites(cat.grandeurs.find((g) => g.nom === grandeur.value)); convertir(); });

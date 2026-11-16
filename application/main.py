@@ -177,6 +177,24 @@ def verifier(app: QApplication, fenetre: "Fenetre", sortie: str) -> int:
         except Exception:  # noqa: BLE001 : toute erreur est notée, la vérification continue
             erreurs.append(traceback.format_exc()[-1500:])
         lignes.append(f"{ident} : {'OK' if len(erreurs) == avant else 'ERREUR'}")
+    try:  # bloc-notes et Excel de validation de chaque page : pont, openpyxl, jinja2 dans l'application empaquetée
+        from mecastruct.bureau import exports
+        from mecastruct.pont import noyau
+
+        noyau.utiliser(state.dm())
+        noyau.charger("structures")
+        formulaires = noyau.tous_formulaires()
+        n = 0
+        for ident in sorted(formulaires):
+            if formulaires[ident].get("exports"):
+                s = formulaires[ident]["defaut"]
+                assert exports.appel(f"{ident}.texte", s)["texte"].startswith("\ufeff")
+                assert exports.appel(f"{ident}.validation", s)["base64"][:4] == "UEsD"  # « PK » : un .xlsx est un zip
+                n += 1
+        lignes.append(f"bloc-notes et Excel de validation ({n} calculs) : OK")
+    except Exception:  # noqa: BLE001
+        erreurs.append(traceback.format_exc()[-1500:])
+        lignes.append("bloc-notes et Excel de validation : ERREUR")
     try:  # dossiers PDF et Word : polices, matplotlib (formules), reportlab, python-docx
         from mecastruct.services import dossier_export
 
@@ -189,6 +207,46 @@ def verifier(app: QApplication, fenetre: "Fenetre", sortie: str) -> int:
     with open(sortie, "w", encoding="utf-8") as f:
         f.write("\n".join(lignes) + "\n\n" + "\n\n".join(erreurs))
     return 1 if erreurs else 0
+
+
+def captures(app: QApplication, fenetre: "Fenetre", dossier: str) -> int:
+    """Audit : ouvre et calcule chaque page et chaque onglet, enregistre une image de la fenêtre (main.py --captures dossier)."""
+    from pathlib import Path
+
+    from PySide6.QtCore import QTimer
+
+    from mecastruct.bureau import tache
+
+    sortie = Path(dossier)
+    sortie.mkdir(parents=True, exist_ok=True)
+    fenetre.resize(1500, 950)
+
+    def pause(ms: int) -> None:
+        fin: list[int] = []
+        QTimer.singleShot(ms, lambda: fin.append(1))
+        while not fin:
+            app.processEvents()
+
+    n = 0
+    for ident, libelle, _ in MENU:
+        if libelle is None:
+            continue
+        fenetre.aller(ident)
+        pause(500)
+        p = fenetre.page(ident)
+        for k, c in enumerate(getattr(p, "pages", [p])):
+            if hasattr(p, "onglets"):
+                p.onglets.setCurrentIndex(k)
+                pause(300)
+            if hasattr(c, "calculer"):
+                c.calculer()
+                while tache.occupe():
+                    app.processEvents()
+                pause(3500)
+            fenetre.grab().save(str(sortie / f"{ident}_{k}.png"))
+            n += 1
+    print(f"{n} captures dans {sortie}")
+    return 0
 
 
 def main() -> int:
@@ -206,6 +264,8 @@ def main() -> int:
     fenetre.show()
     if "--verifier" in sys.argv:
         return verifier(app, fenetre, sys.argv[sys.argv.index("--verifier") + 1])
+    if "--captures" in sys.argv:
+        return captures(app, fenetre, sys.argv[sys.argv.index("--captures") + 1])
     return app.exec()
 
 
