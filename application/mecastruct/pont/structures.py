@@ -19,9 +19,10 @@ from mecastruct.core.data_manager import sectionPresets
 from mecastruct.core.pp import asPP
 from mecastruct.core.units import fromSI
 from mecastruct.plots import beam_plots, other_plots, section_plots, sollicitation_plots
+from mecastruct.pont import exports
 from mecastruct.pont.formulaire import case, col, groupe, liste, nb, tableau, texte
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
-from mecastruct.services import beam_design, beam_services, compute, ossature3d, project_io, validation_report
+from mecastruct.services import beam_design, beam_services, compute, criteres, ossature3d, project_io, validation_report
 from mecastruct.services.examples import exampleNames, loadExample
 from mecastruct.services.sources import avec_sources
 
@@ -74,6 +75,8 @@ def _sortie(tab: str, saisie: dict, calc: dict, figures: list, metriques=None, r
         "latex": latex if latex is not None else [],
         "explications": _figure(lambda: _explications(tab, saisie, calc)) or [],
         "blocs": [{"nom": n, "formules": f} for n, f in (_figure(lambda: validation_report.solverEquations(tab, calc)) or [])],
+        "criteres": criteres.criteres(tab, saisie, calc),
+        "_brut": calc,
     }
 
 
@@ -107,6 +110,8 @@ def _enregistrer_communs(ident: str, tab: str) -> None:
         donnees = project_io.toXlsx(project_io.resultSheets(tab, calc))
         return {"nom": f"MecaStruct_{validation_report.meta(tab)['title'].replace(' ', '_')}_resultats.xlsx",
                 "base64": base64.b64encode(donnees).decode("ascii")}  # fmt: skip
+
+    exports.declarer(ident)
 
 
 @calcul("materiau")
@@ -171,9 +176,9 @@ def poutreProfil(s):
 _enregistrer_communs("beam", "Beam")
 
 
-def _complement(status, ok, tables, figures=()):
+def _complement(status, ok, tables, figures=(), crit=None):
     return {"status": status, "ok": ok, "tables": tables, "figures": [{"titre": t, "figure": f} for t, f in figures if f is not None],
-            "metriques": [], "rapport": [], "latex": [], "explications": [], "blocs": []}  # fmt: skip
+            "metriques": [], "rapport": [], "latex": [], "explications": [], "blocs": [], "criteres": crit or []}  # fmt: skip
 
 
 @calcul("annexe")
@@ -205,14 +210,15 @@ def poutreEurocode(s):
               f"MEd/Mb,Rd = {e['ltb']['ratio']:.3f} ({verdict})")  # fmt: skip
     if e["inter"]:
         status += f", N + M (6.61/6.62) = {e['inter']['ratio']:.3f}"
-    return _complement(status, ok, {"Eurocode 3": T})
+    return _complement(status, ok, {"Eurocode 3": T}, crit=_figure(lambda: criteres.eurocode(e)))
 
 
 @calcul("beam.fatigue")
 def poutreFatigue(s):
     r, T = beam_design.checkFatigue(s, dm())
     ok = r["n"] >= s["s"]
-    return _complement(f"Fatigue (Goodman) : n = {r['n']:.3g} pour s = {s['s']:.3g} ({'vérifié' if ok else 'NON vérifié'})", ok, {"Fatigue": T})
+    return _complement(f"Fatigue (Goodman) : n = {r['n']:.3g} pour s = {s['s']:.3g} ({'vérifié' if ok else 'NON vérifié'})", ok, {"Fatigue": T},
+                       crit=_figure(lambda: criteres.fatigue(r, s["s"])))  # fmt: skip
 
 
 @calcul("beam.mobile")
@@ -295,6 +301,9 @@ def ossature(s):
     return {"status": status, "ok": bool(eq["ok"]), "metriques": metriques,
             "figures": [{"titre": "Vue 3D", "figure": ossature3d._vue_3d(res, data, ampli)}, {"titre": "Efforts internes", "figure": fig}],
             "tables": tables, "latex": [*formules, *res["latex"]], "rapport": rapport, "explications": [], "blocs": []}  # fmt: skip
+
+
+exports.declarer("ossature")
 
 
 @calcul("ossature.exemple")
@@ -774,5 +783,5 @@ def _formulaires_rdm() -> dict:
     }
 
 
-formulaires_de(lambda: avec_sources(_formulaires()))
-formulaires_de(lambda: avec_sources(_formulaires_rdm()))
+formulaires_de(lambda: exports.marquer(avec_sources(_formulaires())))
+formulaires_de(lambda: exports.marquer(avec_sources(_formulaires_rdm())))

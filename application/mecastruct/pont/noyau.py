@@ -148,6 +148,8 @@ def appeler(ident: str, saisie_json: str = "{}") -> str:
         return json.dumps({"ok": False, "erreur": f"Calcul inconnu : {ident}"}, ensure_ascii=False)
     try:
         sortie = f(json.loads(saisie_json or "{}"))
+        if isinstance(sortie, dict):
+            sortie.pop("_brut", None)  # résultat complet du service : sert aux exports (pont/exports.py), pas à la page
         return json.dumps({"ok": True, "sortie": versJson(sortie)}, ensure_ascii=False, allow_nan=False)
     except Exception as err:  # noqa: BLE001 : toute erreur du calcul devient un message lisible sur la page
         message = getattr(err, "message", None) or str(err) or type(err).__name__

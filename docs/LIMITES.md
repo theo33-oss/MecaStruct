@@ -69,6 +69,25 @@ les efforts de la poutre », « Prendre la section de la page Sections ») : rie
 sur le bureau Cisaillement et Flexion suivent la page Sections à chaque calcul. Les ajouts de matériaux et de profilés faits sur le site restent dans ce navigateur : pour
 les retrouver ailleurs, enregistrez-les dans un fichier (page Matériaux et profilés, onglet Mes ajouts).
 
+Le site seul a le diagramme des modes de ruine, l'export bloc-notes et l'Excel de validation.
+
+## Diagramme des modes de ruine et Excel de validation (site)
+
+Le diagramme reprend les vérifications déjà faites par le calcul : il n'en ajoute aucune. Le coefficient de sécurité
+obtenu est la limite du matériau divisée par la valeur calculée (Re/σ) ; le mode est admissible quand il atteint le
+coefficient demandé. Treillis, ossature 3D, sections, Hooke, jauges, ajustements, trains d'engrenages et freins n'ont
+pas de limite à comparer : ils gardent un simple message. La flèche d'une poutre n'est pas un critère du calcul
+principal (seulement de la recherche du profilé le plus léger).
+
+Dans l'Excel de validation, le calcul est refait par des formules Excel pour : traction (section constante),
+cisaillement, torsion, flexion (axes principaux), flambage, frettage (effort, pression mini, couple, arbre),
+roulements, engrènement, frein à disque, embrayage et moteur. Certaines valeurs sont reprises de MecaStruct et
+signalées comme telles : e, X, Y et a1 des roulements, pressions du serrage normalisé, section et point le plus
+sollicité en flexion, Re du matériau. Pour les poutres, treillis, ossatures, sections, tenseurs, Hooke, jauges,
+ajustements, paliers lisses et trains, le solveur n'est pas refait dans Excel : le classeur donne les valeurs de
+MecaStruct, et seuls le coefficient de sécurité, le taux et le verdict sont des formules. Pour ces pages, le dossier
+de validation refait chaque grandeur à la main.
+
 ## Non disponible
 
 Cannelures, goupilles en chape ou radiales dans un tube, denture hélicoïdale ou déportée, catalogues de fabricants.

@@ -29,3 +29,8 @@ ignore = ["E741"]
 "mecastruct/pont/base.py" = ["E501"]
 "tests/test_pont.py" = ["E501", "B"]
 "tests/test_cours.py" = ["E501", "B"]
+# critères et exports : une ligne par mode de ruine ou par formule Excel (tables lues ligne à ligne)
+"mecastruct/services/criteres.py" = ["E501"]
+"mecastruct/services/export_texte.py" = ["E501"]
+"mecastruct/services/export_validation.py" = ["E501"]
+"tests/test_exports.py" = ["E501", "B"]

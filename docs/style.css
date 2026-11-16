@@ -18,6 +18,7 @@
   --warn-fond: #FFE8B8; --warn-texte: #5A3A00;
   --err-fond: #FFD3D3; --err-texte: #6B0A12;
   --ombre: 0 1px 3px rgba(42, 27, 74, .12);
+  --jauge-ok: #1E8E4A; --jauge-ko: #C62B36;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -37,6 +38,7 @@
   --warn-fond: #3E2F0B; --warn-texte: #FFE0A3;
   --err-fond: #431419; --err-texte: #FFCBCF;
   --ombre: none;
+  --jauge-ok: #45B872; --jauge-ko: #F0707A;
 }
 
 * { box-sizing: border-box; }
@@ -99,6 +101,37 @@ label.case input { width: auto; min-height: 0; }
 .message.avertissement { background: var(--warn-fond); color: var(--warn-texte); }
 .message.erreur { background: var(--err-fond); color: var(--err-texte); }
 .message.verdict { font-size: 1.1rem; font-weight: 600; }
+
+/* résultat : diagramme des modes de ruine (taux de travail et coefficient de sécurité), exports, éclair après calcul */
+.resultat { border-radius: 8px; }
+.resultat.eclair { animation: eclair 1.1s ease-out; }
+@keyframes eclair { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
+.titre-resultat { scroll-margin-top: 112px; }
+.bilan { background: var(--carte); border: 1px solid var(--bord); border-left: 6px solid var(--bord-fort); border-radius: 8px; padding: 10px 14px 6px; margin: 10px 0 4px; box-shadow: var(--ombre); }
+.bilan.ok { border-left-color: var(--jauge-ok); }
+.bilan.ko { border-left-color: var(--jauge-ko); }
+.bilan-tete { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 0 0 8px; font-size: 1.05rem; }
+.verdict-etat, .mode-etat { border-radius: 999px; padding: 2px 10px; font-size: .8rem; font-weight: 600; white-space: nowrap; background: var(--info-fond); color: var(--info-texte); }
+.bilan.ok .verdict-etat, .mode.ok .mode-etat { background: var(--ok-fond); color: var(--ok-texte); }
+.bilan.ko .verdict-etat, .mode.ko .mode-etat { background: var(--err-fond); color: var(--err-texte); }
+.verdict-etat { font-size: .9rem; padding: 3px 12px; }
+.mode.ok .mode-etat::before { content: "✓ "; }
+.mode.ko .mode-etat::before { content: "✗ "; }
+.modes, .panneau ul.modes { list-style: none; margin: 0; padding: 0; }
+.mode { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--bord); }
+.mode-nom { font-weight: 600; font-size: .95rem; }
+.mode.pire .mode-nom::after { content: " · le plus sollicité"; font-weight: 400; font-size: .8rem; color: var(--discret); }
+.jauge { grid-column: 1 / -1; position: relative; height: 12px; border-radius: 6px; background: var(--alt); border: 1px solid var(--bord); }
+.jauge .remplie { position: absolute; inset: 0 auto 0 0; border-radius: 5px; background: var(--jauge-ok); min-width: 3px; }
+.mode.ko .jauge .remplie { background: var(--jauge-ko); }
+.jauge .repere { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--encre); }
+.mode-chiffres { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: .88rem; color: var(--discret); font-variant-numeric: tabular-nums; }
+.mode-chiffres strong { color: var(--encre); font-size: .95rem; }
+.heure { margin: 2px 0 6px; font-size: .8rem; }
+.bilan-phrase { margin: 8px 0 2px; font-size: .92rem; }
+.exports { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 6px 0 12px; padding: 8px 12px; background: var(--alt); border: 1px solid var(--bord); border-radius: 8px; }
+.exports-titre { font-weight: 600; font-size: .9rem; }
+@media (prefers-reduced-motion: reduce) { .resultat.eclair { animation: none; } }
 #etat progress { display: block; width: 100%; height: 8px; margin-top: 8px; accent-color: #5C4B99; }
 
 /* page de calcul : saisie à gauche, résultat à droite */
@@ -189,6 +222,6 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
   .confiance { flex-basis: 100%; }
 }
 @media print {
-  #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets { display: none !important; }
+  #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets, .exports { display: none !important; }
   body { background: #fff; }
 }

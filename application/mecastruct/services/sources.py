@@ -1,7 +1,7 @@
 """Sources des cours citées sous les pages de calcul : une seule rédaction, lue par le bureau et par le site.
 
-La clé est l'identifiant du calcul (celui des pages de bureau et du pont web). Le détail bibliographique (auteur,
-établissement, année) est dans data/references.json, page « Références ».
+La clé est l'identifiant du calcul (celui des pages de bureau et du pont web). Le détail bibliographique (établissement,
+unité d'enseignement, année) est dans data/references.json, page « Références ».
 """
 
 _ROULEMENTS = "cours « Calcul sur les roulements » (IUT de Bordeaux, GMP)"

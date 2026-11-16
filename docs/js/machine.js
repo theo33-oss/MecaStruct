@@ -293,7 +293,7 @@
       setTimeout(() => zoneMessage.replaceChildren(), 6000);
     }
 
-    const formulaire = el("form", { class: "saisie", onsubmit: (e) => { e.preventDefault(); relancer(); } });
+    const formulaire = el("form", { class: "saisie", onsubmit: (e) => { e.preventDefault(); relancer(true); } });
     function dessinerChamps() {
       abonnes.length = 0;
       const haut = el("div", { class: "actions-saisie" });
@@ -405,7 +405,7 @@
       zoneResultat.prepend(m);
     }
 
-    function relancer() {
+    function relancer(parClic = false) {
       if (!App.pret) return;
       if (invalides.size) {
         zoneResultat.replaceChildren(App.message("avertissement", "Corrigez les champs signalés en rouge : le calcul reprendra dès qu'ils seront valides."));
@@ -415,10 +415,11 @@
       const lancer = () => {
         const r = App.calculer(ident, saisie);
         calculee = JSON.stringify(saisie);
-        if (!r.ok) return zoneResultat.replaceChildren(App.message("erreur", r.erreur));
+        if (!r.ok) { zoneResultat.replaceChildren(App.message("erreur", r.erreur)); if (parClic) montrer(); return; }
         afficherResultat(r.sortie);
         if (r.sortie.options) majOptions(r.sortie);
         if (!auto && f.apercu) apercu();
+        if (parClic) setTimeout(montrer, 60); // après le nouveau schéma, qui change la hauteur de la page
       };
       if (auto) lancer();
       else { // laisse le navigateur afficher « Calcul en cours » avant un calcul de quelques dixièmes de seconde
@@ -438,15 +439,74 @@
     }
 
     function afficherResultat(s) {
-      zoneResultat.replaceChildren(...construireResultat(s, ident), (f.dossier || f.dossierMachine) ? boutonDossier() : "");
+      zoneResultat.replaceChildren(...construireResultat(s, ident, barreExports()));
+    }
+    // Après un clic sur « Calculer » : le résultat vient à l'écran et son cadre s'éclaire un instant.
+    function montrer() {
+      const doux = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const col = titreResultat.closest(".colonne-resultat");
+      // grand écran : la colonne de droite défile seule ; sinon c'est la page qui défile
+      const interne = () => col && getComputedStyle(col).overflowY === "auto" && col.scrollHeight > col.clientHeight + 4;
+      const ecart = () => titreResultat.getBoundingClientRect().top - (interne() ? col.getBoundingClientRect().top + 4 : 112);
+      const aller = (behavior) => {
+        if (interne()) col.scrollTo({ top: col.scrollTop + ecart(), behavior });
+        else titreResultat.scrollIntoView({ block: "start", behavior });
+      };
+      aller(doux ? "smooth" : "auto");
+      // les graphiques se dessinent ensuite et déplacent la page : on recale une fois, sans animation
+      setTimeout(() => { if (Math.abs(ecart()) > 24) aller("auto"); }, 900);
+      zoneResultat.classList.remove("eclair");
+      void zoneResultat.offsetWidth; // relance l'animation si le calcul est refait
+      zoneResultat.classList.add("eclair");
+    }
+
+    const phraseEtat = (t) => { const p = App.decimalesFr(String(t || "")); return /^[a-zà-ÿ]/.test(p) ? p.charAt(0).toUpperCase() + p.slice(1) : p; };
+    const nf = (x, chiffres = 3) => (Number.isFinite(x) ? String(Number(x.toPrecision(chiffres))).replace(".", ",") : "∞");
+
+    // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient obtenu et demandé.
+    function bilan(s) {
+      const crit = s.criteres || [];
+      const ko = crit.filter((c) => !c.ok).length;
+      const etat = s.ok === true ? "ok" : s.ok === false ? "ko" : "neutre";
+      const pastille = { ok: "Vérifié", ko: "Non vérifié", neutre: "Indicatif" }[etat];
+      const phrase = ko ? `${ko} mode${ko > 1 ? "s" : ""} de ruine non admissible${ko > 1 ? "s" : ""} sur ${crit.length}`
+        : crit.length > 1 ? `Les ${crit.length} modes de ruine sont admissibles` : "Le mode de ruine est admissible";
+      const echelle = Math.min(2, Math.max(1.25, ...crit.map((c) => c.taux * 1.08)));
+      const lignes = crit.map((c, i) => {
+        const u = c.unite ? " " + c.unite : "";
+        const signe = c.sens === "max" ? "≤" : "≥";
+        const barre = el("span", { class: "jauge", role: "img", "aria-label": `Taux de travail ${nf(100 * c.taux)} %` },
+          el("span", { class: "remplie", style: `width:${(100 * Math.min(c.taux, echelle) / echelle).toFixed(1)}%` }),
+          el("span", { class: "repere", style: `left:${(100 / echelle).toFixed(1)}%` }));
+        return el("li", { class: "mode " + (c.ok ? "ok" : "ko") + (i === 0 && crit.length > 1 ? " pire" : "") },
+          el("span", { class: "mode-nom", texte: c.mode }),
+          el("span", { class: "mode-etat", texte: c.ok ? "Admissible" : "Non admissible" }),
+          barre,
+          el("span", { class: "mode-chiffres" },
+            el("span", { texte: `${nf(c.valeur, 4)}${u} ${signe} ${nf(c.limite, 4)}${u}` }),
+            el("span", { texte: `taux ${nf(100 * c.taux)} %` }),
+            el("strong", { texte: `s = ${nf(c.s_obtenu)}`, aide: "Coefficient de sécurité obtenu : la limite du matériau (ou de la norme) divisée par la valeur calculée." }),
+            el("span", { texte: `demandé ${nf(c.s_demande)}` })));
+      });
+      return el("section", { class: "bilan " + etat },
+        el("p", { class: "bilan-tete" }, el("span", { class: "verdict-etat", texte: pastille }), el("strong", { texte: phrase })),
+        el("ul", { class: "modes" }, lignes),
+        el("p", { class: "bilan-phrase", texte: phraseEtat(s.status) }),
+        el("p", { class: "legende", texte: "Barre : part de l'admissible utilisée ; le trait marque 100 %. s : coefficient de sécurité obtenu." }));
     }
 
     // Verdict, métriques et onglets (graphiques, tableaux, explications) d'une sortie du pont.
-    function construireResultat(s, cle) {
+    function construireResultat(s, cle, exports = "") {
       const niveau = s.ok === true ? "succes" : s.ok === false ? "erreur" : "info";
       const prefixe = s.ok === true ? "Vérifié. " : s.ok === false ? "Non vérifié. " : "";
-      const verdict = App.message(niveau, prefixe + App.decimalesFr(s.status));
-      verdict.classList.add("verdict");
+      let verdict;
+      if ((s.criteres || []).length) verdict = bilan(s);
+      else {
+        verdict = App.message(niveau, prefixe + App.decimalesFr(s.status));
+        verdict.classList.add("verdict");
+      }
+      const h = new Date();
+      const heure = el("p", { class: "legende heure", texte: `Calculé à ${h.getHours()} h ${String(h.getMinutes()).padStart(2, "0")} min ${String(h.getSeconds()).padStart(2, "0")} s` });
       const liste = [];
       for (const g of s.figures || []) liste.push({ id: "fig-" + g.titre, titre: g.titre, rendu: (p) => p.append(App.figure(g.figure)) });
       if (s.figure) liste.push({ id: "graphique", titre: "Graphique", rendu: (p) => p.append(App.figure(s.figure)) });
@@ -458,7 +518,7 @@
       const metriques = (s.metriques || []).length
         ? el("div", { class: "metriques" }, s.metriques.map(([n, v]) => el("div", { class: "metrique" }, el("span", { texte: n }), el("strong", { texte: App.decimalesFr(v) }))))
         : null;
-      return [verdict, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
+      return [verdict, heure, exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
     }
 
     // Un résultat complémentaire dont la saisie a changé depuis le calcul est signalé (jamais effacé en silence).
@@ -493,6 +553,34 @@
       if ((s.rapport || []).length) p.append(el("h4", { texte: "Démarche" }), el("ul", {}, s.rapport.filter((l) => String(l).trim()).map((l) => el("li", { texte: App.decimalesFr(l) }))));
     }
 
+    // Exports placés juste sous le verdict : dossier de validation, bloc-notes, Excel de validation.
+    function barreExports() {
+      const boutons = (f.dossier || f.dossierMachine) ? boutonDossier() : [];
+      if (f.exports) {
+        const note = el("button", { type: "button", class: "secondaire", texte: "Bloc-notes (.txt)",
+          aide: "Données, modes de ruine, résultats et démarche dans un fichier texte lisible partout.", onclick: () => {
+            const r = App.calculer(ident + ".texte", saisie);
+            if (r.ok) App.telecharger(r.sortie.nom, r.sortie.texte, "text/plain;charset=utf-8");
+            else signaler("erreur", r.erreur);
+          } });
+        const classeur = el("button", { type: "button", class: "secondaire", texte: "Excel de validation",
+          aide: "Classeur simple : vos données, le calcul refait par des formules Excel à côté de MecaStruct, et les coefficients de sécurité. Pour les poutres, treillis et ossatures, le solveur n'est pas refait : seuls les critères sont en formules." });
+        classeur.addEventListener("click", async () => {
+          classeur.disabled = true;
+          try {
+            if (!await App.paquets(["openpyxl"])) return signaler("erreur", "L'export Excel n'a pas pu se charger.");
+            const r = App.calculer(ident + ".validation", saisie);
+            if (!r.ok) return signaler("erreur", r.erreur);
+            const octets = Uint8Array.from(atob(r.sortie.base64), (c) => c.charCodeAt(0));
+            App.telecharger(r.sortie.nom, octets, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+          } finally { classeur.disabled = false; }
+        });
+        boutons.push(note, classeur);
+      }
+      if (!boutons.length) return "";
+      return el("div", { class: "exports" }, el("span", { class: "exports-titre", texte: "Justifier ce calcul" }), el("div", { class: "ligne" }, boutons));
+    }
+
     // Dossier de validation : télécharger le fichier HTML, ou l'ouvrir prêt à imprimer (Imprimer, Enregistrer en PDF).
     function boutonDossier() {
       const aide = "Refait chaque grandeur à la main, la compare au solveur et réunit données, hypothèses et résultats dans un fichier à joindre à votre note de calcul.";
@@ -519,14 +607,15 @@
           w.location.href = URL.createObjectURL(new Blob([d.html], { type: "text/html" }));
         }, fenetre);
       });
-      return el("p", { class: "ligne" }, telecharger, imprimer);
+      return [telecharger, imprimer];
     }
 
+    const titreResultat = el("h3", { class: "titre-resultat", texte: "Résultat" });
     dessinerChamps();
     const bloc = el("div", { class: "calcul" },
       el("div", { class: "colonne-saisie" }, formulaire),
       el("div", { class: "colonne-resultat" }, f.apercu ? el("h3", { texte: "Schéma" }) : null, f.apercu ? zoneSchema : null,
-        el("h3", { texte: "Résultat" }), zoneResultat, zoneExtras));
+        titreResultat, zoneResultat, zoneExtras));
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {
       App.oublierLien();

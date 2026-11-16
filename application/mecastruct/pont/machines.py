@@ -8,10 +8,10 @@ import json
 
 from mecastruct.core import bearings, fits, plain_bearing, planetary, shrink_fit
 from mecastruct.plots import machine_plots, machine_schemas
-from mecastruct.pont import noyau
+from mecastruct.pont import exports, noyau
 from mecastruct.pont.formulaire import case, groupe, liste, nb
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
-from mecastruct.services import machine
+from mecastruct.services import criteres, machine
 from mecastruct.services import machine_courses as mc
 from mecastruct.services.sources import avec_sources
 
@@ -20,10 +20,12 @@ def materiaux():
     return dm().listMaterials()
 
 
-def sortie(res: dict, figure=None) -> dict:
-    """Sortie d'un service réduite à ce que la page affiche : verdict, tableaux, formules, démarche, graphique."""
+def sortie(res: dict, figure=None, ident: str = "", s: dict | None = None) -> dict:
+    """Sortie d'un service réduite à ce que la page affiche : verdict, modes de ruine, tableaux, formules, démarche."""
     r = res.get("result", {})
     return {
+        "criteres": criteres.criteres(ident, s or {}, res),
+        "_brut": res,
         "status": res.get("status", ""),
         "ok": res.get("ok"),
         "tables": res.get("tables", {}),
@@ -196,7 +198,7 @@ def _formulaires() -> dict:
     }
 
 
-formulaires_de(lambda: avec_sources(_formulaires()))
+formulaires_de(lambda: exports.marquer(avec_sources(_formulaires())))
 
 
 # ------------------------------------------------------------------------------- dossier de validation (HTML)
@@ -279,12 +281,12 @@ def machineOuvrir(s):
 @calcul("aju")
 def ajustement(s):
     res = machine.computeFit(s)
-    return sortie(res, _figure(lambda: machine_plots.fitZones(res["result"], f"{s['alesage']}{s['qa']}", f"{s['arbre']}{s['qb']}")))
+    return sortie(res, _figure(lambda: machine_plots.fitZones(res["result"], f"{s['alesage']}{s['qa']}", f"{s['arbre']}{s['qb']}")), "aju", s)
 
 
 @calcul("fre")
 def frettage(s):
-    return sortie(machine.computeShrinkFit(s, dm()))
+    return sortie(machine.computeShrinkFit(s, dm()), None, "fre", s)
 
 
 @calcul("fre.norme")
@@ -299,13 +301,13 @@ def frettageNorme(s):
 @calcul("pal")
 def palier(s):
     res = machine.computeBearing(s)
-    return sortie(res, _figure(lambda: machine_plots.pvDiagram(res["result"])))
+    return sortie(res, _figure(lambda: machine_plots.pvDiagram(res["result"])), "pal", s)
 
 
 @calcul("rlt")
 def roulement(s):
     res = mc.computeBearingLife(s)
-    return sortie(res, _figure(lambda: machine_schemas.bearingLife(res["result"], s)))
+    return sortie(res, _figure(lambda: machine_schemas.bearingLife(res["result"], s)), "rlt", s)
 
 
 @calcul("rlt.apercu")
@@ -315,7 +317,7 @@ def roulementApercu(s):
 
 @calcul("rlt_ens")
 def ensemble(s):
-    return sortie(mc.computeBearingSet(s))
+    return sortie(mc.computeBearingSet(s), None, "rlt_ens", s)
 
 
 @calcul("rlt_ens.apercu")
@@ -347,7 +349,7 @@ def regle(s):
 
 @calcul("eng")
 def engrenement(s):
-    return sortie(mc.computeGearMesh(s, dm()))
+    return sortie(mc.computeGearMesh(s, dm()), None, "eng", s)
 
 
 @calcul("eng.apercu")
@@ -357,7 +359,7 @@ def engrenementApercu(s):
 
 @calcul("trn")
 def train(s):
-    return sortie(mc.computeGearTrain(s))
+    return sortie(mc.computeGearTrain(s), None, "trn", s)
 
 
 @calcul("trn.apercu")
@@ -367,7 +369,7 @@ def trainApercu(s):
 
 @calcul("epi")
 def epicycloidal(s):
-    return sortie(mc.computePlanetary(s))
+    return sortie(mc.computePlanetary(s), None, "epi", s)
 
 
 @calcul("epi.apercu")
@@ -377,7 +379,7 @@ def epicycloidalApercu(s):
 
 @calcul("frn")
 def frein(s):
-    return sortie(mc.computeBrake(s), _figure(lambda: machine_schemas.brakePressure(s)))
+    return sortie(mc.computeBrake(s), _figure(lambda: machine_schemas.brakePressure(s)), "frn", s)
 
 
 @calcul("frn.apercu")
@@ -387,7 +389,7 @@ def freinApercu(s):
 
 @calcul("emb")
 def embrayage(s):
-    return sortie(mc.computeClutch(s))
+    return sortie(mc.computeClutch(s), None, "emb", s)
 
 
 @calcul("emb.apercu")
@@ -397,9 +399,13 @@ def embrayageApercu(s):
 
 @calcul("mot")
 def moteur(s):
-    return sortie(mc.computeMotor(s))
+    return sortie(mc.computeMotor(s), None, "mot", s)
 
 
 @calcul("mot.apercu")
 def moteurApercu(s):
     return machine_schemas.motorCycle(s)
+
+
+for _ident in ("aju", "fre", "pal", "rlt", "rlt_ens", "eng", "trn", "epi", "frn", "emb", "mot"):
+    exports.declarer(_ident)
