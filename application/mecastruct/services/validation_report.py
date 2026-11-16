@@ -3484,7 +3484,7 @@ def _formulasHTML(m: dict) -> str:
                 f'<div class="eq">{_esc(fiche["latex"])}</div>'
                 f'<div class="var">{_esc(fiche.get("vars", ""))}</div></div>'
             )
-    return h + '<p class="muted">Fiches complètes : page Base de données, documents Note de calcul.</p>'
+    return h + '<p class="muted">Fiches complètes : page Matériaux et profilés, documents Note de calcul.</p>'
 
 
 def _reviewHTML() -> str:

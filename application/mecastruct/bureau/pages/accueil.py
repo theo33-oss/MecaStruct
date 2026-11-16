@@ -87,7 +87,7 @@ class PageAccueil(Page):
                 "matériaux, pressions de matage.\n"
                 "- Cours de l'Université de Bordeaux (IUT GMP, Master Génie mécanique) : roulements, engrenages, "
                 "trains épicycloïdaux, freins et embrayages, frettage, fatigue, milieux continus. La liste complète, "
-                "avec auteurs et années, est dans la page **Références**.\n"
+                "avec établissements et années, est dans la page **Références**.\n"
                 "- Théorie classique de la RDM : Fanchon (*Guide du calcul en mécanique*), *Mémotech*, "
                 "cours de RDM des IUT GMP "
                 "(Navier, Huygens, Jourawski, Euler, Castigliano, Ménabréa, cercles de Mohr, Tresca, Von Mises, "

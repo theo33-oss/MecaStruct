@@ -9,6 +9,7 @@ import re
 
 from mecastruct.pont import noyau
 from mecastruct.pont.noyau import calcul, dm
+from mecastruct.services import fiches
 
 
 def _nom(titre: str, suffixe: str) -> str:
@@ -33,6 +34,7 @@ def marquer(formulaires: dict) -> dict:
     familles = [str(base.getMaterial(n).get("Category") or "Autres") for n in noms]
     for ident, f in formulaires.items():
         f["exports"] = ident in DECLARES
+        f["fiche"] = fiches.PAR_CALCUL.get(ident)  # fiche du « Formulaire rapide » proposée en tête de page
         for g in f.get("groupes", []):
             for c in g["champs"]:
                 if c.get("type") == "liste" and c.get("options") == noms:

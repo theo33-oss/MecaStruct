@@ -1,13 +1,15 @@
-"""Application de bureau « MecaStruct RdM Pro » : menu à gauche, une page par outil.
+"""Application de bureau « MecaStruct RdM Pro » : même forme que le site (bandeau, menu en haut, une page par outil).
 
 Lancement : python main.py (ou 1_Ouvrir_application.bat sous Windows).
 """
 
 import importlib
+import os
 import sys
 import traceback
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSettings, Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWebEngineWidgets import QWebEngineView  # noqa: F401 : à importer avant QApplication
 from PySide6.QtWidgets import (
     QApplication,
@@ -15,46 +17,53 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QListWidget,
     QListWidgetItem,
+    QFrame,
+    QLabel,
     QMainWindow,
     QMessageBox,
+    QPushButton,
+    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from mecastruct.bureau import state, widgets
+from mecastruct.bureau import state, theme, widgets
+
+URL_EN_LIGNE = "https://theo33-oss.github.io/MecaStruct/"  # la version en ligne, toujours à jour
 
 # (identifiant = module de pages, libellé, classe) ; libellé seul = titre de groupe
-MENU = (
+MENU = (  # les 5 familles du site (docs/app.js, FAMILLES), mêmes noms de pages
     ("accueil", "Accueil", "PageAccueil"),
-    ("Calcul", None, None),
+    ("Structures", None, None),
     ("poutres", "Poutres", "PagePoutres"),
     ("treillis", "Treillis", "PageTreillis"),
+    ("flambage", "Flambage", "PageFlambage"),
+    ("Sections et contraintes", None, None),
     ("sections", "Sections", "PageSections"),
     ("sollicitations", "Sollicitations", "PageSollicitations"),
-    ("flambage", "Flambage", "PageFlambage"),
-    ("tenseurs", "Tenseurs & critères", "PageTenseurs"),
-    ("hooke_jauges", "Hooke & jauges", "PageHookeJauges"),
-    ("Éléments de machines", None, None),
+    ("tenseurs", "Tenseurs et critères", "PageTenseurs"),
+    ("hooke_jauges", "Hooke et jauges", "PageHookeJauges"),
+    ("Liaisons et guidages", None, None),
     ("ajustements", "Ajustements ISO 286", "PageAjustements"),
     ("frettage", "Frettage", "PageFrettage"),
     ("paliers_lisses", "Paliers lisses", "PagePaliersLisses"),
     ("roulements", "Roulements", "PageRoulements"),
+    ("Transmission", None, None),
     ("engrenages", "Engrenages", "PageEngrenages"),
     ("epicycloidaux", "Trains épicycloïdaux", "PageEpicycloidaux"),
     ("freins_embrayages", "Freins et embrayages", "PageFreinsEmbrayages"),
     ("dimensionnement_moteur", "Dimensionnement moteur", "PageDimensionnementMoteur"),
-    ("Outils", None, None),
-    ("base_de_donnees", "Base de données", "PageBaseDeDonnees"),
+    ("Données et aide", None, None),
+    ("base_de_donnees", "Matériaux et profilés", "PageBaseDeDonnees"),
     ("convertisseur", "Convertisseur", "PageConvertisseur"),
     ("references", "Références", "PageReferences"),
-    ("Informations", None, None),
     ("apropos", "À propos", "PageAPropos"),
 )
 
 
 class Fenetre(QMainWindow):
-    """Fenêtre principale : menu et pages empilées, chaque page étant bâtie à sa première ouverture."""
+    """Fenêtre principale : bandeau, menu en haut (familles, puis pages), pages empilées bâties à leur première ouverture."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -62,43 +71,155 @@ class Fenetre(QMainWindow):
 
         self.setWindowTitle(f"MecaStruct RdM Pro {__version__}")
         self.resize(1500, 900)
-        centre = QWidget()
-        h = QHBoxLayout(centre)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(0)
-        gauche = QWidget()
-        gauche.setObjectName("menu")
-        colonne = QVBoxLayout(gauche)
-        colonne.setContentsMargins(0, 0, 0, 6)
-        self.menu = QListWidget()
-        self.menu.setObjectName("menu")
-        gauche.setFixedWidth(235)
-        colonne.addWidget(self.menu, 1)
-        contraste = QCheckBox("Contraste élevé (graphiques)")
-        contraste.setToolTip(
-            "Graphiques plus lisibles : traits plus épais, aires plus colorées, quadrillage et textes plus marqués."
-        )
-        contraste.setStyleSheet("color:#F4F2FA; background:transparent; margin-left:8px;")
-        contraste.setChecked(bool(state.v.get("contraste")))
-        contraste.toggled.connect(self._contraste)
-        colonne.addWidget(contraste)
-        self.pile = QStackedWidget()
+        self.familles: dict[str, list[tuple[str, str]]] = {}  # famille → [(page, libellé)]
+        self.famille_de: dict[str, str] = {}
         self.pages: dict[str, tuple[int, widgets.Page | None]] = {}
         self.rangs: dict[int, str] = {}
+        self.menu = QListWidget()  # modèle des pages, non affiché : l'ordre et la page ouverte (les boutons le pilotent)
+        groupe = None
         for ident, libelle, _classe in MENU:
-            if libelle is None:  # titre de groupe
+            if libelle is None:  # titre de famille
+                groupe = ident
+                self.familles[groupe] = []
                 it = QListWidgetItem(ident.upper())
                 it.setFlags(Qt.ItemFlag.NoItemFlags)
             else:
                 it = QListWidgetItem("   " + libelle)
                 self.pages[ident] = (self.menu.count(), None)
                 self.rangs[self.menu.count()] = ident
+                if groupe is not None:
+                    self.familles[groupe].append((ident, libelle))
+                    self.famille_de[ident] = groupe
             self.menu.addItem(it)
-        h.addWidget(gauche)
-        h.addWidget(self.pile, 1)
+        centre = QWidget()
+        colonne = QVBoxLayout(centre)
+        colonne.setContentsMargins(0, 0, 0, 0)
+        colonne.setSpacing(0)
+        colonne.addWidget(self._bandeau())
+        colonne.addWidget(self._barre())
+        self.pile = QStackedWidget()
+        colonne.addWidget(self.pile, 1)
         self.setCentralWidget(centre)
         self.menu.currentRowChanged.connect(self._ouvrir)
         self.aller("accueil")
+
+    # ---------------------------------------------------------------------------------------------- bandeau et menu
+
+    def _bandeau(self) -> QWidget:
+        """Marque, phrase de confiance, contraste, thème et bouton vers la version en ligne (comme le haut du site)."""
+        from pathlib import Path
+
+        from PySide6.QtGui import QIcon
+
+        bandeau = QWidget()
+        bandeau.setObjectName("bandeau")
+        h = QHBoxLayout(bandeau)
+        h.setContentsMargins(18, 10, 18, 8)
+        h.setSpacing(16)
+        icone = QLabel()
+        icone.setPixmap(QIcon(str(Path(__file__).resolve().parent / "data" / "icone.svg")).pixmap(36, 36))
+        marque = QLabel("MecaStruct <span style='font-weight:normal'>RdM Pro</span>")
+        marque.setObjectName("marque")
+        confiance = QLabel("Tout est calculé sur votre ordinateur : rien n'est envoyé sur Internet. "
+                           "Outil d'aide au pré-dimensionnement, résultats à vérifier.")  # fmt: skip
+        confiance.setObjectName("confiance")
+        confiance.setWordWrap(True)
+        confiance.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum)
+        self.contraste = QCheckBox("Contraste élevé")
+        self.contraste.setToolTip(
+            "Graphiques plus lisibles : traits plus épais, aires plus colorées, quadrillage et textes plus marqués."
+        )
+        self.contraste.setChecked(bool(state.v.get("contraste")))
+        self.contraste.toggled.connect(self._contraste)
+        self.bouton_theme = QPushButton()
+        self.bouton_theme.setObjectName("bouton")
+        self.bouton_theme.clicked.connect(self.changer_theme)
+        en_ligne = QPushButton("Version en ligne")
+        en_ligne.setObjectName("primaire")
+        en_ligne.setToolTip("Ouvre la version dans le navigateur : sans installation, toujours à jour.")
+        en_ligne.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(URL_EN_LIGNE)))
+        for w in (icone, marque):
+            h.addWidget(w)
+        h.addWidget(confiance, 1)
+        for w in (self.contraste, self.bouton_theme, en_ligne):
+            h.addWidget(w)
+        self._texte_theme()
+        return bandeau
+
+    def _barre(self) -> QWidget:
+        """Barre du haut : Accueil et les familles, puis les pages de la famille choisie."""
+        barre = QFrame()
+        barre.setObjectName("barreMenu")
+        v = QVBoxLayout(barre)
+        v.setContentsMargins(18, 4, 18, 6)
+        v.setSpacing(2)
+        haut = QHBoxLayout()
+        haut.setSpacing(6)
+        self.boutons_familles: dict[str | None, QPushButton] = {}
+        accueil = self._bouton_menu("Accueil", "famille", lambda: self.aller("accueil"))
+        self.boutons_familles[None] = accueil
+        haut.addWidget(accueil)
+        self.sous = QStackedWidget()
+        self.rang_famille: dict[str, int] = {}
+        self.boutons_pages: dict[str, QPushButton] = {}
+        for nom, pages in self.familles.items():
+            b = self._bouton_menu(nom, "famille", lambda _=False, p=pages[0][0]: self.aller(p))
+            self.boutons_familles[nom] = b
+            haut.addWidget(b)
+            rangee = QWidget()
+            r = QHBoxLayout(rangee)
+            r.setContentsMargins(0, 0, 0, 0)
+            r.setSpacing(6)
+            for ident, libelle in pages:
+                p = self._bouton_menu(libelle, "sousmenu", lambda _=False, i=ident: self.aller(i))
+                self.boutons_pages[ident] = p
+                r.addWidget(p)
+            r.addStretch(1)
+            self.rang_famille[nom] = self.sous.addWidget(rangee)
+        haut.addStretch(1)
+        v.addLayout(haut)
+        v.addWidget(self.sous)
+        return barre
+
+    @staticmethod
+    def _bouton_menu(texte: str, nom: str, action) -> QPushButton:
+        b = QPushButton(texte)
+        b.setObjectName(nom)
+        b.setCheckable(True)
+        b.setCursor(Qt.CursorShape.PointingHandCursor)
+        b.clicked.connect(action)
+        return b
+
+    def _maj_barre(self, ident: str) -> None:
+        """Marque la famille et la page ouvertes ; la rangée des pages n'existe que pour une famille."""
+        famille = self.famille_de.get(ident)
+        for nom, b in self.boutons_familles.items():
+            b.setChecked(nom == famille)
+        for i, b in self.boutons_pages.items():
+            b.setChecked(i == ident)
+        self.sous.setVisible(famille is not None)
+        if famille is not None:
+            self.sous.setCurrentIndex(self.rang_famille[famille])
+
+    # --------------------------------------------------------------------------------------------------- thème
+
+    def _texte_theme(self) -> None:
+        self.bouton_theme.setText("Thème clair" if theme.sombre() else "Thème sombre")
+
+    def changer_theme(self) -> None:
+        """Bascule clair / sombre, garde le choix, puis reconstruit les pages (elles lisent la palette à leur création)."""
+        nom = "clair" if theme.sombre() else "sombre"
+        widgets.appliquerTheme(QApplication.instance(), nom)
+        QSettings("MecaStruct", "RdM Pro").setValue("theme", nom)
+        self._texte_theme()
+        courante = self.rangs.get(self.menu.currentRow())
+        for ident, (rang, page) in list(self.pages.items()):
+            if page is not None:
+                self.pile.removeWidget(page)
+                page.deleteLater()
+                self.pages[ident] = (rang, None)
+        if courante:
+            self.aller(courante)
 
     def _contraste(self, actif: bool) -> None:
         state.v["contraste"] = actif
@@ -121,12 +242,15 @@ class Fenetre(QMainWindow):
         if ident:
             page = self.page(ident)
             self.pile.setCurrentWidget(page)
+            self._maj_barre(ident)
             page.afficher()
 
     def aller(self, ident: str) -> None:
         """Ouvre une page par son identifiant ; la rouvre si elle est déjà affichée (son état a pu changer)."""
         rang, _ = self.pages[ident]
         if self.menu.currentRow() == rang:
+            self.pile.setCurrentWidget(self.page(ident))
+            self._maj_barre(ident)
             self.page(ident).afficher()
         else:
             self.menu.setCurrentRow(rang)
@@ -254,7 +378,8 @@ def main() -> int:
     app = QApplication(sys.argv)
     sys.excepthook = _signalerErreur
     state.init()
-    widgets.appliquerTheme(app)
+    # thème : celui de la dernière fois ; MECASTRUCT_THEME=sombre|clair le force (audits par captures)
+    widgets.appliquerTheme(app, os.environ.get("MECASTRUCT_THEME") or str(QSettings("MecaStruct", "RdM Pro").value("theme", "clair")))
     from pathlib import Path
 
     from PySide6.QtGui import QIcon

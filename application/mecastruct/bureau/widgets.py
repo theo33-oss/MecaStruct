@@ -14,7 +14,7 @@ from typing import Any
 
 import pandas as pd
 from shiboken6 import isValid
-from PySide6.QtCore import Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -48,21 +49,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from mecastruct.bureau import state
+from mecastruct.bureau import state, theme
 from mecastruct.bureau.latex_texte import versTexte
 from mecastruct.services.export_texte import fr
 
-FOND_FIGURE = "#FFFFFF"
-TEXTE = "#1E1B2E"
-
 _DOSSIER_FIGURES = Path(tempfile.mkdtemp(prefix="mecastruct_"))
 HAUTEUR_TABLEAU_MAX = 420
-COULEURS_MESSAGE = {
-    "info": ("#E4E0F3", "#3D246C"),
-    "succes": ("#C8F0D2", "#0B3D1A"),
-    "avertissement": ("#FFE2A8", "#5A3A00"),
-    "erreur": ("#FFC2C2", "#6B0A12"),
-}
+NIVEAUX_MESSAGE = ("info", "succes", "avertissement", "erreur")
 
 
 def differer(fonction: Callable[[], None]) -> None:
@@ -101,8 +94,9 @@ def _renforce(fig: Any) -> None:
     for a in fig.layout.annotations:
         if a.font.size is not None and a.font.size < 12:
             a.font.size = 12
-    fig.update_xaxes(gridcolor="#8E86AA", linecolor=TEXTE, zerolinecolor=TEXTE, tickfont_size=14)
-    fig.update_yaxes(gridcolor="#8E86AA", linecolor=TEXTE, zerolinecolor=TEXTE, tickfont_size=14)
+    encre = theme.actuel()["encre"]
+    fig.update_xaxes(gridcolor="#8E86AA", linecolor=encre, zerolinecolor=encre, tickfont_size=14)
+    fig.update_yaxes(gridcolor="#8E86AA", linecolor=encre, zerolinecolor=encre, tickfont_size=14)
 
 
 class VueFigure(QWebEngineView):
@@ -110,7 +104,10 @@ class VueFigure(QWebEngineView):
 
     def __init__(self, fig: Any) -> None:
         super().__init__()
-        fig.update_layout(paper_bgcolor=FOND_FIGURE, plot_bgcolor=FOND_FIGURE)
+        if theme.sombre():
+            fig = theme.figure_sombre(fig)
+        fond = theme.actuel()["carte"]
+        fig.update_layout(paper_bgcolor=fond, plot_bgcolor=fond)
         if contrasteEleve():
             _renforce(fig)
         hauteur = int(fig.layout.height or 450)
@@ -476,14 +473,80 @@ class TeteRepli(QFrame):
         self.toggled.emit(self.actif)
 
 
+class GrilleChamps(QGridLayout):
+    """Mise en page d'un volet de saisie : les champs (objectName « champ ») se rangent en colonnes égales, autant que la
+    largeur le permet, comme la grille du site ; tout le reste (tableaux, textes, boutons) prend la ligne entière.
+
+    Le nombre de colonnes suit la largeur du volet : à chaque changement, les éléments sont replacés dans la grille."""
+
+    LARGEUR_MIN = 190  # largeur minimale d'une colonne de champs
+    ESPACE = 10
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent)
+        self.setContentsMargins(12, 2, 0, 6)
+        self.setHorizontalSpacing(self.ESPACE)
+        self.setVerticalSpacing(self.ESPACE)
+        self._elements: list[QWidget] = []
+        self._alignements: dict[QWidget, Any] = {}
+        self._colonnes = 1
+        parent.installEventFilter(self)
+
+    def addWidget(self, w: QWidget, *args: Any) -> None:  # noqa: N802 : nom imposé par Qt
+        if args:  # position donnée par l'appelant : comportement de QGridLayout
+            super().addWidget(w, *args)
+            return
+        self._elements.append(w)
+        self._placer()
+
+    def setAlignment(self, w: QWidget, alignement: Any) -> bool:  # noqa: N802
+        self._alignements[w] = alignement
+        return super().setAlignment(w, alignement)
+
+    def eventFilter(self, objet, evenement) -> bool:  # noqa: N802
+        if objet is self.parentWidget() and evenement.type() == QEvent.Type.Resize:
+            m = self.contentsMargins()
+            largeur = objet.width() - m.left() - m.right()
+            colonnes = max(1, (largeur + self.ESPACE) // (self.LARGEUR_MIN + self.ESPACE))
+            if colonnes != self._colonnes:
+                self._colonnes = colonnes
+                self._placer()
+        return False
+
+    def _placer(self) -> None:
+        """Replace tous les éléments : champs côte à côte, le reste sur toute la largeur."""
+        for w in self._elements:
+            self.removeWidget(w)
+        for i in range(max(self.columnCount(), self._colonnes)):
+            self.setColumnStretch(i, 1 if i < self._colonnes else 0)
+        ligne = colonne = 0
+        for w in self._elements:
+            if w.objectName() == "champ":
+                super().addWidget(w, ligne, colonne)
+                colonne += 1
+                if colonne == self._colonnes:
+                    ligne, colonne = ligne + 1, 0
+            else:
+                if colonne:
+                    ligne, colonne = ligne + 1, 0
+                align = self._alignements.get(w)
+                if align is None:
+                    super().addWidget(w, ligne, 0, 1, self._colonnes)
+                else:
+                    super().addWidget(w, ligne, 0, 1, self._colonnes, align)
+                ligne += 1
+
+
 class Zone:
     """Emplacement où écrire : mêmes gestes partout (titre, texte, tableau, figure, champs, boutons)."""
 
     def __init__(self, page: "Page", disposition: Any, section: "Section | None" = None) -> None:
         self.page, self.d, self.section_ = page, disposition, section
 
-    def _ajouter(self, w: QWidget) -> QWidget:
+    def _ajouter(self, w: QWidget, alignement: Any = None) -> QWidget:
         self.d.addWidget(w)
+        if alignement is not None:
+            self.d.setAlignment(w, alignement)
         return w
 
     def _libelle(self, texte: str, nom: str, md: bool = False) -> QLabel:
@@ -501,6 +564,10 @@ class Zone:
     def sousTitre(self, texte: str) -> None:
         self._libelle(texte, "sousTitre")
 
+    def intro(self, texte: str) -> None:
+        """Phrase sous le titre de la page (la même que sur le site)."""
+        self._libelle(texte, "intro")
+
     def texte(self, md: str) -> None:
         """Texte en Markdown (gras, listes)."""
         self._libelle(md, "texte", md=True)
@@ -515,8 +582,8 @@ class Zone:
     def message(self, niveau: str, texte: str) -> None:
         """Bandeau coloré : niveau « info », « succes », « avertissement » ou « erreur »."""
         lab = self._libelle(texte, "message", md=True)
-        fond, encre = COULEURS_MESSAGE[niveau]
-        lab.setStyleSheet(f"background:{fond};color:{encre};padding:8px;border-radius:5px;")
+        fond, encre = theme.couleur_message(niveau)
+        lab.setStyleSheet(f"background:{fond};color:{encre};padding:8px 12px;border-radius:6px;")
 
     def info(self, texte: str) -> None:
         self.message("info", texte)
@@ -545,7 +612,7 @@ class Zone:
         m = state.v.pop(cle, None)
         if m:
             niveau = {"error": "erreur"}.get(m[0], m[0])
-            self.message(niveau if niveau in COULEURS_MESSAGE else "info", m[1])
+            self.message(niveau if niveau in NIVEAUX_MESSAGE else "info", m[1])
 
     def erreurCalcul(self, err: Exception) -> None:
         """Erreur de calcul : message et conseil pour MecaStructError, trace complète sinon."""
@@ -589,7 +656,8 @@ class Zone:
             d = QLabel(delta)
             d.setWordWrap(True)
             d.setObjectName("metriqueDelta")
-            d.setStyleSheet({"green": "color:#0B6B26;", "red": "color:#B00020;"}.get(couleur, "color:#6A6585;"))
+            p = theme.actuel()
+            d.setStyleSheet(f"color:{ {'green': p['succes'][1], 'red': p['erreur'][1]}.get(couleur, p['discret']) };")
             col.addWidget(d)
         self._ajouter(cadre)
 
@@ -662,8 +730,7 @@ class Zone:
         ouvert = bool(state.v.get(cle, ouvert))
         tete = TeteRepli(titre, ouvert)
         corps = QWidget()
-        v = QVBoxLayout(corps)
-        v.setContentsMargins(12, 2, 0, 6)
+        v = GrilleChamps(corps)
         zone = Zone(self.page, v, self.section_)
         corps.setVisible(ouvert)
         bati = {"fait": rendu is None}
@@ -725,7 +792,7 @@ class Zone:
         b.setEnabled(actif)
         b.setToolTip(aide or "")
         b.clicked.connect(lambda: differer(action))
-        self._ajouter(b)
+        self._ajouter(b, Qt.AlignmentFlag.AlignLeft)
         return b
 
     def lien(self, page: str, texte: str) -> None:
@@ -777,7 +844,15 @@ class Zone:
             lab.setWordWrap(True)
             lab.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum)
             lab.setToolTip(aide or "")
-            self._ajouter(lab)
+            champ = QWidget()
+            champ.setObjectName("champ")
+            v = QVBoxLayout(champ)
+            v.setContentsMargins(0, 0, 0, 0)
+            v.setSpacing(2)
+            v.addWidget(lab)
+            v.addWidget(w)
+            self._ajouter(champ)
+            return w
         return self._ajouter(w)
 
     def _rappel(self, cle: Any, valeur: Any, apres: Callable[[], None] | None) -> None:
@@ -1097,48 +1172,14 @@ def partage(gauche: QWidget, droite: QWidget) -> QSplitter:
     return s
 
 
-def appliquerTheme(app: QApplication) -> None:
-    """Palette claire : fond lilas très pâle, cartes blanches, accent violet."""
-    fond, carte, encre, bord, accent, menu = "#F4F2FA", "#FFFFFF", "#1E1B2E", "#8E86AA", "#5C4B99", "#2A2342"
-    app.setStyleSheet(f"""
-    QWidget {{ background:{fond}; color:{encre}; font-size:10pt; }}
-    QLabel {{ background:transparent; }}
-    QToolTip {{ background:{carte}; color:{encre}; border:1px solid {bord}; }}
-    #titre {{ font-size:19pt; font-weight:bold; }}
-    #sousTitre {{ font-size:13pt; font-weight:bold; margin-top:8px; }}
-    #legende {{ font-size:9pt; color:#4A4560; }}
-    #brut {{ font-family:Consolas,monospace; font-size:9pt; }}
-    #formule {{ background:{carte}; border:1px solid #D5D0E6; border-radius:4px; padding:6px 8px; font-size:12pt; }}
-    #etiquette {{ font-size:9pt; margin-top:3px; }}
-    #metrique, #cadre {{ background:{carte}; border:1px solid {bord}; border-radius:5px; }}
-    #metrique QLabel, #cadre QLabel, #cadre QWidget {{ background:transparent; }}
-    #metriqueLibelle {{ font-size:8pt; }}
-    #metriqueValeur {{ font-size:13pt; font-weight:bold; }}
-    #metriqueDelta {{ font-size:8pt; }}
-    QRadioButton::indicator, QCheckBox::indicator, QListWidget::indicator {{ width:13px; height:13px;
-        background:{carte}; border:1px solid {bord}; }}
-    QRadioButton::indicator {{ border-radius:7px; }}
-    QRadioButton::indicator:checked, QCheckBox::indicator:checked, QListWidget::indicator:checked {{
-        background:{accent}; }}
-    QLineEdit, QPlainTextEdit, QComboBox, QListWidget, QTableWidget {{
-        background:{carte}; border:1px solid {bord}; border-radius:3px; padding:2px; }}
-    QTableWidget {{ gridline-color:#D5D0E6; }}
-    QTableWidget::item:selected {{ background:#DAD3F0; color:{encre}; }}
-    QLineEdit:disabled, QComboBox:disabled {{ color:#8E86AA; }}
-    QHeaderView::section {{ background:{accent}; color:#FFFFFF; padding:3px; border:none; }}
-    #bouton {{ background:{carte}; border:1px solid {bord}; border-radius:4px; padding:5px 10px; }}
-    #bouton:hover {{ border-color:{encre}; }}
-    #bouton:disabled, #primaire:disabled {{ color:#8E86AA; }}
-    #primaire {{ background:{accent}; color:#FFFFFF; border:none; border-radius:4px; padding:7px 12px;
-                 font-weight:bold; }}
-    #lien {{ background:transparent; border:none; color:{accent}; text-decoration:underline; text-align:left;
-             padding:2px; }}
-    #repli {{ background:{carte}; border:1px solid {bord}; border-radius:4px; }}
-    #repli QLabel {{ background:transparent; }}
-    #menu {{ background:{menu}; color:#F4F2FA; border:none; font-size:10pt; }}
-    #menu::item {{ padding:6px 8px; }}
-    #menu::item:selected {{ background:{accent}; color:#FFFFFF; }}
-    QTabWidget::pane {{ border:1px solid {bord}; }}
-    QTabBar::tab {{ background:{carte}; border:1px solid {bord}; padding:5px 9px; }}
-    QTabBar::tab:selected {{ background:{accent}; color:#FFFFFF; }}
-    """)
+def appliquerTheme(app: QApplication, nom: str | None = None) -> None:
+    """Applique le thème « clair » ou « sombre » (celui en cours si `nom` est omis) : mêmes couleurs que le site."""
+    if nom is not None:
+        theme.definir(nom)
+    app.setStyleSheet(theme.feuille_de_style())
+    from PySide6.QtGui import QColor, QPalette
+
+    palette = app.palette()
+    palette.setColor(QPalette.ColorRole.Link, QColor(theme.actuel()["lien"]))
+    palette.setColor(QPalette.ColorRole.LinkVisited, QColor(theme.actuel()["lien"]))
+    app.setPalette(palette)

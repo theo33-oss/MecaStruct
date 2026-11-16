@@ -22,7 +22,16 @@ from mecastruct.plots import beam_plots, other_plots, section_plots, sollicitati
 from mecastruct.pont import exports
 from mecastruct.pont.formulaire import case, col, groupe, liste, nb, tableau, texte
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
-from mecastruct.services import beam_design, beam_services, compute, criteres, ossature3d, project_io, validation_report
+from mecastruct.services import (
+    beam_design,
+    beam_services,
+    compute,
+    criteres,
+    ossature3d,
+    project_io,
+    valeurs_cles,
+    validation_report,
+)
 from mecastruct.services.examples import exampleNames, loadExample
 from mecastruct.services.sources import avec_sources
 
@@ -72,6 +81,7 @@ def _sortie(tab: str, saisie: dict, calc: dict, figures: list, metriques=None, r
         "explications": _figure(lambda: _explications(tab, saisie, calc)) or [],
         "blocs": [{"nom": n, "formules": f} for n, f in (_figure(lambda: validation_report.solverEquations(tab, calc)) or [])],
         "criteres": criteres.criteres(tab, saisie, calc),
+        "valeurs": valeurs_cles.valeurs(status),
         "_brut": calc,
     }
 
@@ -246,6 +256,7 @@ def treillis(s):
     # « h = 0 (isostatique) » ne dit rien à qui ne connaît pas la notation
     sortie["ok"] = calc.get("ok")  # barres : contrainte et flambage (None si le flambage n'est pas vérifié)
     sortie["status"] = re.sub(r"^h = (-?\d+) \((\w+)\)", r"Treillis \2 (degré d'hyperstaticité h = \1)", sortie["status"])
+    sortie["valeurs"] = valeurs_cles.valeurs(calc["status"])  # cartes tirées de la ligne d'origine (« h = 0 … »)
     return sortie
 
 

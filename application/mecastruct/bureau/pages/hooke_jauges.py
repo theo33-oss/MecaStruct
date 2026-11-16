@@ -1,4 +1,4 @@
-"""Page « Hooke & jauges » : loi de Hooke (4 modes) et extensométrie (jauge, pont de Wheatstone, rosettes).
+"""Page « Hooke et jauges » : loi de Hooke (4 modes) et extensométrie (jauge, pont de Wheatstone, rosettes).
 
 Port des onglets de MecaStruct_App.m (buildHookeTab, onHookeMode, computeHooke, computeGauges). La fiche de formules
 suit le sous-onglet ouvert.
@@ -7,7 +7,7 @@ suit le sous-onglet ouvert.
 import copy
 
 from mecastruct.bureau import dossier, state
-from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets, synthese_resultat
 from mecastruct.bureau.widgets import Zone
 from mecastruct.plots import other_plots
 from mecastruct.services import compute, sources
@@ -38,7 +38,6 @@ class Hooke(PageCalcul):
         dm = state.dm()
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee("erreur.Hoo")
-        synthese_suivie(z, "Hoo")
         dossier.file_bar(z, "Hoo")
         z.legende(sources.source("hoo"))
         mode = z.choice("Hoo", "mode", "Loi", list(MODES), format_func=MODES.get, on_change=self.rafraichirSaisie)
@@ -75,6 +74,7 @@ class Hooke(PageCalcul):
         z.bouton("Recharger l'exemple", self._recharge)
 
     def visualisation(self, z: Zone) -> None:
+        synthese_resultat(z, "Hoo")
         dossier.validation_button(z, "Hoo")
         dossier.explanation_panel(z, "Hoo")
         res = state.result("Hoo")
@@ -132,7 +132,6 @@ class Jauges(PageCalcul):
 
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee("erreur.Jau")
-        synthese_suivie(z, "Jau")
         dossier.file_bar(z, "Jau")
         z.repliable("Jauge (loi de Bridgman)", ouvert=True, rendu=jauge, cle="Jau.jauge")
         z.repliable("Pont de Wheatstone", ouvert=True, rendu=pont, cle="Jau.pont")
@@ -140,6 +139,7 @@ class Jauges(PageCalcul):
         z.bouton("Recharger l'exemple", lambda: dossier._charge_exemple("Jau"))
 
     def visualisation(self, z: Zone) -> None:
+        synthese_resultat(z, "Jau")
         dossier.validation_button(z, "Jau")
         dossier.explanation_panel(z, "Jau")
         res = state.result("Jau")
@@ -170,5 +170,5 @@ class Jauges(PageCalcul):
 
 
 class PageHookeJauges(PageOnglets):
-    titre = "Hooke & jauges"
+    titre = "Hooke et jauges"
     sousPages = [("Loi de Hooke", Hooke), ("Jauges, pont et rosettes", Jauges)]

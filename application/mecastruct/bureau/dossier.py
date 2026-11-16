@@ -42,7 +42,7 @@ def _alerte_materiaux(saisies: dict[str, dict]) -> str:
     liste = " ; ".join(f"« {nom} » (onglets {', '.join(tabs)})" for nom, tabs in manquants.items())
     return (
         f"Matériau introuvable dans la base : {liste}. Le fichier ne contient que son nom : importez d'abord vos "
-        "données utilisateur (page « Base de données », onglet « Mes données », « Recharger mes ajouts »), "
+        "données utilisateur (page « Matériaux et profilés », onglet « Mes données », « Recharger mes ajouts »), "
         "puis rouvrez ce fichier."
     )
 

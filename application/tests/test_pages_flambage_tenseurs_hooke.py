@@ -1,4 +1,4 @@
-"""Tests des pages Flambage, Tenseurs & critères et Hooke & jauges : exécution, exemples, transferts."""
+"""Tests des pages Flambage, Tenseurs et critères et Hooke et jauges : exécution, exemples, transferts."""
 
 import pytest
 

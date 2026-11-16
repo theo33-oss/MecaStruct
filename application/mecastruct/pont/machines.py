@@ -11,7 +11,7 @@ from mecastruct.plots import machine_plots, machine_schemas
 from mecastruct.pont import exports, noyau
 from mecastruct.pont.formulaire import case, groupe, liste, nb
 from mecastruct.pont.noyau import calcul, dm, formulaires_de
-from mecastruct.services import criteres, machine
+from mecastruct.services import criteres, machine, valeurs_cles
 from mecastruct.services import machine_courses as mc
 from mecastruct.services.sources import avec_sources
 
@@ -25,6 +25,7 @@ def sortie(res: dict, figure=None, ident: str = "", s: dict | None = None) -> di
     r = res.get("result", {})
     return {
         "criteres": criteres.criteres(ident, s or {}, res),
+        "valeurs": valeurs_cles.valeurs(res.get("status", "")),
         "_brut": res,
         "status": res.get("status", ""),
         "ok": res.get("ok"),

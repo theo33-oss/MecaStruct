@@ -10,12 +10,18 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
+from mecastruct.bureau import theme
 from mecastruct.services import export_texte
 
-OK = ("#C8F0D2", "#0B3D1A", "#1E8E4A")  # fond de la pastille, texte, barre
-KO = ("#FFC2C2", "#6B0A12", "#C62B36")
-NEUTRE = ("#E4E0F3", "#3D246C", "#5C4B99")
-ENCRE, BORD, SILLON = "#1E1B2E", "#8E86AA", "#E4E0F3"
+
+def _couleurs(nom: str) -> tuple[str, str, str]:
+    """(fond de la pastille, texte, barre) de l'état « ok », « ko » ou « neutre » dans le thème en cours."""
+    p = theme.actuel()
+    if nom == "ok":
+        return (*p["succes"], p["jaugeOk"])
+    if nom == "ko":
+        return (*p["erreur"], p["jaugeKo"])
+    return (*p["info"], p["accent"])
 
 
 class Jauge(QWidget):
@@ -32,18 +38,19 @@ class Jauge(QWidget):
 
     def paintEvent(self, _event) -> None:  # noqa: N802 : nom imposé par Qt
         p = QPainter(self)
+        pal = theme.actuel()
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         x0, w, h = 1.0, self.width() - 2.0, 12.0
         y0 = (self.height() - h) / 2
-        p.setPen(QPen(QColor(BORD), 1))
-        p.setBrush(QColor(SILLON))
+        p.setPen(QPen(QColor(pal["bord"]), 1))
+        p.setBrush(QColor(pal["alt"]))
         p.drawRoundedRect(QRectF(x0, y0, w, h), 6, 6)
         remplie = max(4.0, w * min(self.taux, self.echelle) / self.echelle)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor((OK if self.ok else KO)[2]))
+        p.setBrush(QColor(_couleurs("ok" if self.ok else "ko")[2]))
         p.drawRoundedRect(QRectF(x0, y0, min(remplie, w), h), 6, 6)
         trait = x0 + w / self.echelle
-        p.setPen(QPen(QColor(ENCRE), 2))
+        p.setPen(QPen(QColor(pal["encre"]), 2))
         p.drawLine(int(trait), int(y0 - 3), int(trait), int(y0 + h + 3))
         p.end()
 
@@ -72,10 +79,12 @@ class ModesRuine(QFrame):
 
     def __init__(self, criteres: Sequence[dict], status: str, ok: bool | None, perime: bool = False) -> None:
         super().__init__()
-        etat = NEUTRE if ok is None else OK if ok else KO
+        etat = _couleurs("neutre" if ok is None else "ok" if ok else "ko")
+        pal = theme.actuel()
         self.setObjectName("modes")
         self.setStyleSheet(
-            f"#modes{{background:#FFFFFF;border:1px solid {BORD};border-left:6px solid {etat[2]};border-radius:6px;}}"
+            f"#modes{{background:{pal['carte']};border:1px solid {pal['bord']};border-left:6px solid {etat[2]};"
+            "border-radius:8px;}"
         )
         col = QVBoxLayout(self)
         col.setContentsMargins(12, 8, 12, 8)
@@ -89,7 +98,7 @@ class ModesRuine(QFrame):
         groupe = ""
         for c in criteres:
             if c.get("groupe") and c["groupe"] != groupe:
-                col.addWidget(_texte(c["groupe"].upper(), "color:#4A4560;font-size:8pt;font-weight:bold;margin-top:6px;"))
+                col.addWidget(_texte(c["groupe"].upper(), f"color:{pal['discret']};font-size:8pt;font-weight:bold;margin-top:6px;"))
             groupe = c.get("groupe") or ""
             col.addWidget(self._ligne(c, echelle, c is pire and len(criteres) > 1))
         col.addWidget(_texte(export_texte.phrase_etat(status), "font-size:9pt;margin-top:4px;"))
@@ -108,9 +117,9 @@ class ModesRuine(QFrame):
         haut = QHBoxLayout()
         nom = c["mode"] + (" · le plus sollicité" if pire else "")
         haut.addWidget(_texte(nom, "font-weight:bold;"), 1)
-        haut.addWidget(_pastille(("✓ Admissible" if c["ok"] else "✗ Non admissible"), OK if c["ok"] else KO, "8pt"))
+        haut.addWidget(_pastille(("✓ Admissible" if c["ok"] else "✗ Non admissible"), _couleurs("ok" if c["ok"] else "ko"), "8pt"))
         col.addLayout(haut)
         col.addWidget(Jauge(c["taux"], echelle, c["ok"]))
         valeurs, taux, marge = export_texte.chiffres(c)
-        col.addWidget(_texte("   ·   ".join(x for x in (valeurs, taux, marge) if x), "color:#4A4560;font-size:9pt;"))
+        col.addWidget(_texte("   ·   ".join(x for x in (valeurs, taux, marge) if x), f"color:{theme.actuel()['discret']};font-size:9pt;"))
         return boite

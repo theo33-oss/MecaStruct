@@ -1,17 +1,16 @@
 """Squelette des pages de calcul : en-tête, saisie à gauche, visualisation à droite, volets déplaçables."""
 
-import re
 from collections.abc import Callable
 from typing import Any, NamedTuple
 
-from mecastruct.bureau import state, tache
-from mecastruct.bureau.formula_panel import formula_panel
 from PySide6.QtWidgets import QTabWidget
 
+from mecastruct.bureau import state, tache
+from mecastruct.bureau.formula_panel import formula_panel
 from mecastruct.bureau.widgets import Page, Zone
+from mecastruct.services.pages_texte import INTROS
 
 POSITIONS = ("Haut", "Bas")
-_MORCEAU = re.compile(r"^(?P<label>[^=:]{1,25}?) = (?P<value>[^()]+?)(?: \((?P<note>[^()]+)\))?$")
 
 
 class Volet(NamedTuple):
@@ -45,24 +44,17 @@ def modes_resultat(z: Zone, tab: str, res: dict, status: str | None = None, ok: 
         z.modes(crit, status, ok, perime=not state.is_current(tab))
     else:
         z.statut(status, ok)
+    if tab != "Beam":  # Poutres a ses propres valeurs clés
+        synthese_resultat(z, tab)  # sous le verdict, comme les valeurs clés du site
 
 
 def synthese_statut(z: Zone, status: str) -> None:
     """Valeurs clés tirées d'une ligne d'état « A = 1 u, B = 2 u (vérifié) — C = 3 u » ; rien sans « x = y »."""
-    valeurs = []
-    for morceau in re.split(r",\s|\s—\s", status):
-        m = _MORCEAU.match(morceau.strip())
-        if m is None:
-            continue
-        valeur, _, verdict = m["value"].partition(" : ")
-        note = (m["note"] or verdict).strip()
-        v = {"label": m["label"].strip(), "value": valeur.strip()}
-        if note:
-            v["delta"] = note
-            v["delta_color"] = {"vérifié": "green", "NON vérifié": "red"}.get(note, "off")
-        valeurs.append(v)
-    if valeurs:
-        z.synthese(valeurs)
+    from mecastruct.services.valeurs_cles import valeurs as lire
+
+    cartes = lire(status)
+    if cartes:
+        z.synthese(cartes)
 
 
 def synthese_resultat(z: Zone, tab: str) -> None:
@@ -126,6 +118,8 @@ class PageCalcul(Page):
     def entete(self, z: Zone) -> None:
         if not self.sous:
             z.titre(self.titre)
+            if self.titre in INTROS:
+                z.intro(INTROS[self.titre])
         formula_panel(z, self.fiche)
 
     def visu(self, z: Zone) -> None:
@@ -198,6 +192,8 @@ class PageOnglets(Page):
     def construire(self) -> None:
         z = Zone(self, self.d)
         z.titre(self.titre)
+        if self.titre in INTROS:
+            z.intro(INTROS[self.titre])
         self.onglets = QTabWidget()
         self.pages = []
         for nom, classe in self.sousPages:

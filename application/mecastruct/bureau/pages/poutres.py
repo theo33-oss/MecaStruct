@@ -174,7 +174,7 @@ class PagePoutres(PageCalcul):
         y, z = etat["loc"][0] * 1e3, etat["loc"][1] * 1e3
         state.v["Beam_msg"] = (
             "tenseur",
-            f"État transmis à la page Tenseurs & critères : s = {etat['s']:.4g} m, (y, z) = ({y:.4g} ; {z:.4g}) mm, "
+            f"État transmis à la page Tenseurs et critères : s = {etat['s']:.4g} m, (y, z) = ({y:.4g} ; {z:.4g}) mm, "
             f"σxx = {etat['sig'][0, 0]:.5g} MPa",
         )
         state.reset_widgets("Ten")
@@ -191,7 +191,7 @@ class PagePoutres(PageCalcul):
         m = state.v.get("Beam_msg")
         z.messageGarde("Beam_msg")
         if m and m[0] == "tenseur":
-            z.lien("tenseurs", "⭕ Ouvrir Tenseurs & critères")
+            z.lien("tenseurs", "⭕ Ouvrir Tenseurs et critères")
 
     # --- volets de saisie --------------------------------------------------------------------------------------------
 
@@ -472,7 +472,6 @@ class PagePoutres(PageCalcul):
     def saisie(self, z: Zone) -> None:
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee("erreur.Beam")
-        z.section(lambda s: self._synthese(s, state.result("Beam")), suit=True)
         c = z.colonnes(2)
         c[0].bouton("↶ Annuler", lambda: self._historique(-1),
                     aide="Annule la dernière modification de la saisie (retour à l'état du dernier calcul ou exemple).")  # fmt: skip
@@ -556,6 +555,7 @@ class PagePoutres(PageCalcul):
         texte, ok, _ = state.v.get("Beam_etat", (None, None, None))
         if texte and res is not None:
             modes_resultat(z, "Beam", res, status=texte, ok=ok)
+            self._synthese(z, res)
         elif texte:
             z.statut(texte, ok)
         dossier.validation_button(z, "Beam")

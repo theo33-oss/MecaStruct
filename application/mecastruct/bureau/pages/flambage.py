@@ -7,7 +7,7 @@ import copy
 import math
 
 from mecastruct.bureau import dossier, state, transfert
-from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat
 from mecastruct.bureau.widgets import Zone
 from mecastruct.core import buckling
 from mecastruct.plots import other_plots
@@ -78,7 +78,6 @@ class PageFlambage(PageCalcul):
 
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee("erreur.Fla")
-        synthese_suivie(z, "Fla")
         dossier.file_bar(z, "Fla")
         dossier.example_picker(z, "Fla")
         z.repliable("Section", ouvert=True, rendu=section, cle="Fla.section")

@@ -12,7 +12,7 @@ def _page(bureau):
 
 def test_page_s_ouvre(bureau):
     _page(bureau)
-    assert bureau.a_texte("Sections droites")
+    assert bureau.a_texte("Aire, centre de gravité")
 
 
 def test_rectangle_par_defaut_iz(bureau):

@@ -1,4 +1,4 @@
-"""Page « Tenseurs & critères » : contraintes principales, facette, cercles de Mohr, critères, lieux de plasticité.
+"""Page « Tenseurs et critères » : contraintes principales, facette, cercles de Mohr, critères, lieux de plasticité.
 
 Port de l'onglet « Tenseurs & Critères » de MecaStruct_App.m (buildTensorTab, computeTensor, symmetrize). La page reçoit
 aussi l'état de contrainte envoyé par la page Poutres (« Envoyer au tenseur »).
@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSizePolicy, QTableWidget, QTableWidgetItem
 
 from mecastruct.bureau import dossier, state
-from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat
 from mecastruct.bureau.widgets import Zone, ajusterHauteur, differer, formatNombre, lireNombre
 from mecastruct.plots import other_plots
 from mecastruct.services import compute, sources
@@ -57,7 +57,7 @@ class GrilleTenseur(QTableWidget):
 
 
 class PageTenseurs(PageCalcul):
-    titre = "Tenseurs & critères"
+    titre = "Tenseurs et critères"
     fiche = "tenseurs"
     tab = "Ten"
 
@@ -88,7 +88,6 @@ class PageTenseurs(PageCalcul):
 
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee("erreur.Ten")
-        synthese_suivie(z, "Ten")
         dossier.file_bar(z, "Ten")
         dossier.example_picker(z, "Ten")
         z.repliable("Tenseur des contraintes σ (MPa)", ouvert=True, rendu=tenseur, cle="Ten.sigma")

@@ -1,4 +1,4 @@
-"""Tests des pages « Base de données » et « Convertisseur » : exécution, conversion, ajout d'un matériau."""
+"""Tests des pages « Matériaux et profilés » et « Convertisseur » : exécution, conversion, ajout d'un matériau."""
 
 import json
 

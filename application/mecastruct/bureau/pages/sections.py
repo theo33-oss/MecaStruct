@@ -9,7 +9,7 @@ import copy
 import pandas as pd
 
 from mecastruct.bureau import dossier, state, transfert
-from mecastruct.bureau.page_calcul import PageCalcul, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, synthese_resultat
 from mecastruct.bureau.widgets import Zone, nombre_col
 from mecastruct.core import geometry
 from mecastruct.core.data_manager import sectionPresets
@@ -43,7 +43,7 @@ TYPE_COMPOSITE = "composite"
 
 
 class PageSections(PageCalcul):
-    titre = "Sections droites"
+    titre = "Sections"
     fiche = "geometrie"
     tab = "Sec"
 
@@ -150,7 +150,6 @@ class PageSections(PageCalcul):
     def saisie(self, z: Zone) -> None:
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee("erreur.Sec")
-        synthese_suivie(z, "Sec")
         dossier.file_bar(z, "Sec")
         dossier.example_picker(z, "Sec")
         z.repliable("Type de section", ouvert=True, rendu=self._saisie_geometrie)
@@ -225,5 +224,6 @@ class PageSections(PageCalcul):
             z.legende("Aperçu mis à jour à chaque modification. Cliquez sur « Calculer » pour les résultats.")
         else:
             self._resultats(z, r["result"], r["tables"], r["status"], state.is_current("Sec"))
+        synthese_resultat(z, "Sec")
         dossier.validation_button(z, "Sec")
         dossier.explanation_panel(z, "Sec")

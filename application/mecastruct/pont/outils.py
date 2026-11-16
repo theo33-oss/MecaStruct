@@ -49,6 +49,14 @@ def references(_s):
     return load_json("references.json")
 
 
+@calcul("fiche")
+def fiche_de_formules(s):
+    """« Formulaire rapide » : fiches de formules (clés, fiche choisie, formules LaTeX, variables, notes)."""
+    from mecastruct.services import fiches
+
+    return fiches.fiche(s.get("cle"))
+
+
 @calcul("conv.catalogue")
 def catalogue(_s):
     """Grandeurs et unités, avec les unités proposées par défaut, et les deux tableaux d'aide."""

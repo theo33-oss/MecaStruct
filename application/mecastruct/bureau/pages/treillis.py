@@ -7,7 +7,7 @@ plans (2D) : la saisie 3D de la fiche n'est pas portée.
 import copy
 
 from mecastruct.bureau import dossier, state
-from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, modes_resultat
 from mecastruct.bureau.widgets import Zone, case_col, noeud_col, nombre_col, texte_col
 from mecastruct.plots import other_plots
 from mecastruct.services import compute
@@ -26,7 +26,6 @@ class PageTreillis(PageCalcul):
         dm = state.dm()
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee("erreur.Tr")
-        synthese_suivie(z, "Tr")
         dossier.file_bar(z, "Tr")
         dossier.example_picker(z, "Tr")
 

@@ -3,29 +3,7 @@
 from mecastruct.bureau.widgets import Zone
 from mecastruct.core import data_manager
 from mecastruct.core.utils import load_json
-
-# Libellés des fiches (port de formulaLabel de MecaStruct_App.m)
-_LIBELLES = {
-    "materiaux": "Matériaux",
-    "geometrie": "Géométrie des sections",
-    "equilibre": "Équilibre (PFS)",
-    "cohesion": "Torseur de cohésion",
-    "treillis": "Treillis",
-    "traction": "Traction / compression",
-    "cisaillement": "Cisaillement",
-    "matage": "Matage",
-    "torsion": "Torsion",
-    "flexion": "Flexion",
-    "deformee": "Déformée",
-    "energie": "Énergie",
-    "mohr_integrales": "Intégrales de Mohr",
-    "flambage": "Flambage",
-    "tenseurs": "Tenseurs",
-    "mohr_cercle": "Cercle de Mohr",
-    "criteres": "Critères",
-    "hooke": "Loi de Hooke",
-    "extensometrie": "Extensométrie",
-}
+from mecastruct.services.fiches import LIBELLES as _LIBELLES  # libellés partagés avec le site
 
 
 def _fiche(z: Zone, key: str) -> None:

@@ -77,6 +77,7 @@ class PageConvertisseur(Page):
 
     def rendre(self, z: Zone) -> None:
         z.titre("Convertisseur")
+        z.intro("Conversion entre unités de toutes les grandeurs.")
         if "conv.de" not in state.v:
             state.v.setdefault("conv.grandeur", NOMS[0])
             g = _grandeur(NOMS[0])

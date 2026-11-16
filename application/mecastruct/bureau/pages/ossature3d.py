@@ -185,7 +185,7 @@ def _materiaux(z: Zone, pieces: list[dict], dm) -> None:
     def corps(c: Zone) -> None:
         c.tableau(pd.DataFrame(lignes))
         c.legende(
-            "Valeurs de la base de données de l'application (page Base de données). "
+            "Valeurs de la base de données de l'application (page Matériaux et profilés). "
             "Changez le matériau dans « Pièces »."
         )
 

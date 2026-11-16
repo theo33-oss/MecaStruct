@@ -7,7 +7,7 @@ computeTorsion, computeBending). Cisaillement et flexion utilisent la section de
 import copy
 
 from mecastruct.bureau import dossier, machine_page, state
-from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets, Volet, modes_resultat, panels, synthese_suivie
+from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets, Volet, modes_resultat, panels
 from mecastruct.bureau.widgets import Zone
 from mecastruct.core import geometry, key_pin
 from mecastruct.plots import section_plots, sollicitation_plots
@@ -63,7 +63,6 @@ class _SousPage(PageCalcul):
     def saisie(self, z: Zone) -> None:
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee(f"erreur.{self.tab}")
-        synthese_suivie(z, self.tab)
         dossier.file_bar(z, self.tab)
         dossier.example_picker(z, self.tab)
         self.champs(z)

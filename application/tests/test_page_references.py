@@ -17,8 +17,8 @@ def test_normes_non_utilisees_et_liens_prives_absents(bureau):
         assert interdit not in texte
 
 
-def test_la_page_est_dans_le_groupe_outils_du_menu():
+def test_la_page_est_dans_le_groupe_donnees_et_aide_du_menu():
     import main
 
     idents = [ident for ident, _, _ in main.MENU]
-    assert idents.index("base_de_donnees") < idents.index("references") < idents.index("Informations")
+    assert idents.index("Données et aide") < idents.index("base_de_donnees") < idents.index("references") < idents.index("apropos")

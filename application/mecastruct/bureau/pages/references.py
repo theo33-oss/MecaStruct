@@ -20,6 +20,7 @@ GENRES = (
 class PageReferences(Page):
     def rendre(self, z: Zone) -> None:
         z.titre("Références")
+        z.intro("Normes, cours et documents cités par l'application.")
         z.legende(
             "Normes et cours sur lesquels l'application s'appuie ou qu'elle cite. Seuls le numéro, le titre et l'année "
             "sont donnés : les textes des normes sont protégés (AFNOR) et se consultent chez l'éditeur, les cours "

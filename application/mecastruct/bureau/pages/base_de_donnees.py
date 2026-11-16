@@ -1,4 +1,4 @@
-"""Page « Base de données » : matériaux, profilés, pressions de matage, abaques Kt, données utilisateur, documents.
+"""Page « Matériaux et profilés » : matériaux, profilés, pressions de matage, abaques Kt, données utilisateur, documents.
 
 Port des onglets de MecaStruct_App.m (buildDatabaseTab, refreshMaterialTable, refreshProfileTable, addMaterialFromForm,
 addProfileFromForm, computeKt). Unités d'affichage comme MATLAB : GPa, MPa, mm, cm², cm⁴, cm³.
@@ -31,7 +31,8 @@ class PageBaseDeDonnees(Page):
         self.rafraichirTout()
 
     def rendre(self, z: Zone) -> None:
-        z.titre("Base de données")
+        z.titre("Matériaux et profilés")
+        z.intro("Base de matériaux et de profilés normalisés.")
         z.messageGarde("db.message")
         z.onglets(
             {
