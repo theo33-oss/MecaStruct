@@ -1,4 +1,4 @@
-"""Page « À propos » : auteur, limites et confidentialité (remplace les quatre pages légales du site web)."""
+"""Page « À propos » : version, auteur, confidentialité et limites."""
 
 from mecastruct import __version__
 from mecastruct.bureau.widgets import Page, Zone

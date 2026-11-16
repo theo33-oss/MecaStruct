@@ -40,8 +40,24 @@ jobs:
           $v = (Select-String application/mecastruct/__init__.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
           $exe = Get-Item "dist/MecaStruct_Installation_$v.exe"
           $mo = [math]::Round($exe.Length / 1MB)
+          # nouveautés : la section de cette version dans CHANGELOG.md (du titre « ## x.y.z » au titre suivant)
+          $journal = @(Get-Content CHANGELOG.md -Encoding utf8)
+          $debut = ($journal | Select-String -Pattern "^## $([regex]::Escape($v))( |$)" | Select-Object -First 1).LineNumber
+          $nouveautes = "Voir [CHANGELOG.md](https://github.com/theo33-oss/MecaStruct/blob/main/CHANGELOG.md)."
+          if ($debut -and $debut -lt $journal.Length) {
+            $suite = @($journal[$debut..($journal.Length - 1)])
+            $fin = ($suite | Select-String -Pattern '^## ' | Select-Object -First 1).LineNumber
+            if ($fin -gt 1) { $suite = @($suite[0..($fin - 2)]) } elseif ($fin -eq 1) { $suite = @() }
+            if (($suite -join "").Trim()) { $nouveautes = ($suite -join "`n").Trim() }
+          }
           @"
           ## MecaStruct RdM Pro $v pour Windows
+
+          ### Nouveautés
+
+          $nouveautes
+
+          ### Installer
 
           **Télécharger** : ``MecaStruct_Installation_$v.exe`` ($mo Mo), ci-dessous dans « Assets ».
 
