@@ -28,6 +28,7 @@ from mecastruct.services import (
     beam_services,
     compute,
     criteres,
+    forces,
     ossature3d,
     project_io,
     valeurs_cles,
@@ -379,7 +380,11 @@ _enregistrer_communs("truss", "Tr")
 
 
 def _tables_3d(s: dict) -> dict:
-    return {k: pd.DataFrame(s.get(k) or []) for k in ossature3d.TABLES}
+    t = {k: pd.DataFrame(s.get(k) or []) for k in ossature3d.TABLES}
+    if "charges_nodales" in t and not t["charges_nodales"].empty:  # force inclinée : F, plan et α → Fx, Fy, Fz
+        lignes = [forces.appliquer_polaire(r, "xz") for r in t["charges_nodales"].to_dict("records")]
+        t["charges_nodales"] = pd.DataFrame(lignes)
+    return t
 
 
 @calcul("ossature")
@@ -650,11 +655,12 @@ def _formulaires() -> dict:
                        tableau("sup", "Appuis", [col("pos", "Position (m)"), col("type", "Type", "liste", TYPES_APPUI, "appui_simple"), col("name", "Nom", "texte", defaut="")],
                                aide="appui_simple et pivot_glissant bloquent y et z ; rotule et pivot bloquent x, y et z ; encastrement bloque tout."),
                        tableau("pl", "Forces ponctuelles", [col("pos", "Position (m)"), col("Fx", "Fx (kN)"), col("Fy", "Fy (kN)"), col("Fz", "Fz (kN)"),
-                                                            col("F", "F (kN), si inclinée"), col("ang", "α (°) depuis +x"),
+                                                            col("F", "F (kN), si inclinée"), col("plan", "Plan", "liste", ["xy", "xz"], "xy"), col("ang", "α (°) dans le plan"),
                                                             col("name", "Nom", "texte", defaut=""), col("case", "Cas", "liste", CAS, "G")],
                                aide="Fy < 0 : force vers le bas. Force inclinée : F et α remplissent Fx = F·cos α et Fy = F·sin α "
-                                    "(plan x,y, α depuis +x en sens trigonométrique ; α = −30° : vers le bas, 30° sous l'axe x).",
-                               polaire=["F", "ang", "Fx", "Fy"]),
+                                    "(plan xy : Fx = F·cos α, Fy = F·sin α ; plan xz : Fx = F·cos α, Fz = F·sin α ; α depuis le premier axe, "
+                                    "sens trigonométrique ; xy, α = −30° : vers le bas, 30° sous l'axe x).",
+                               polaire={"norme": "F", "angle": "ang", "plan": "plan", "plans": ["xy", "xz"]}),
                        tableau("pm", "Couples ponctuels", [col("pos", "Position (m)"), col("Mx", "Mx (kN·m)"), col("My", "My (kN·m)"), col("Mz", "Mz (kN·m)"),
                                                            col("name", "Nom", "texte", defaut=""), col("case", "Cas", "liste", CAS, "G")]),
                        tableau("dl", "Charges réparties", [col("a", "a (m)"), col("b", "b (m)"), col("dir", "Dir.", "liste", ["x", "y", "z"], "y"),
@@ -732,7 +738,11 @@ def _formulaires() -> dict:
                                                     col("liaison_debut", "Liaison début", "liste", ossature3d.LIAISONS, "rigide"), col("liaison_fin", "Liaison fin", "liste", ossature3d.LIAISONS, "rigide")],
                                aide="Dimensions : " + " ; ".join(f"{k} : « {v} »" for k, v in ossature3d.EXEMPLES_DIM.items()))),
                 groupe("Charges (repère global)",
-                       tableau("charges_nodales", "Charges nodales", [col("noeud", "Nœud", defaut=1, entier=True), *[col(c, f"{c} (N)") for c in ("Fx", "Fy", "Fz")], *[col(c, f"{c} (N·m)") for c in ("Mx", "My", "Mz")]]),
+                       tableau("charges_nodales", "Charges nodales", [col("noeud", "Nœud", defaut=1, entier=True), *[col(c, f"{c} (N)") for c in ("Fx", "Fy", "Fz")], *[col(c, f"{c} (N·m)") for c in ("Mx", "My", "Mz")],
+                                                                      col("F", "F (N), si inclinée"), col("plan", "Plan", "liste", ["xy", "xz", "yz"], "xz"), col("ang", "α (°) dans le plan")],
+                               aide="Force inclinée : F, le plan et α remplissent Fx, Fy, Fz (plan xy : Fx = F·cos α, Fy = F·sin α ; xz : Fx = F·cos α, Fz = F·sin α ; "
+                                    "yz : Fy = F·cos α, Fz = F·sin α ; α depuis le premier axe du plan, sens trigonométrique). Ex. 30° dans xz : Fx = 0,866·F, Fz = 0,5·F.",
+                               polaire={"norme": "F", "angle": "ang", "plan": "plan", "plans": ["xy", "xz", "yz"]}),
                        tableau("charges_reparties", "Charges réparties", [col("piece", "Pièce", defaut=1, entier=True), *[col(c, f"{c} (N/m)") for c in ("qx", "qy", "qz")]]),
                        case("pp", "Poids propre (ρ·g·A selon −Z, g = 9,81 m/s²)")),
                 groupe("Affichage", nb("ampli", "Amplification de la déformée (0 = automatique)", "", 0.0), nb("piece", "Pièce des efforts internes (0 = première)", "", 0.0, entier=True), ouvert=False),

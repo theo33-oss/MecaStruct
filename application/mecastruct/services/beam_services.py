@@ -20,6 +20,7 @@ from mecastruct.core.errors import MecaStructError
 from mecastruct.core.pp import ppEval
 from mecastruct.core.solicitations import bendingStress
 from mecastruct.core.units import toSI
+from mecastruct.services import forces
 from mecastruct.services.limits import checkLimits
 
 _ID = "MecaStruct:App:invalidInput"
@@ -274,16 +275,17 @@ def buildBeamModel(saisie: dict, dm: DataManager, fac: dict | None = None) -> di
         if k == 0:
             continue
         Fx, Fy = _num(row["Fx"], "Fx"), _num(row["Fy"], "Fy")
+        Fz = _num(row["Fz"], "Fz")
         F, ang = float(row.get("F") or 0.0), float(row.get("ang") or 0.0)
-        if F != 0:  # force inclinée : F et α, plan (x,y), depuis +x en sens trigonométrique
-            Fx, Fy = F * math.cos(math.radians(ang)), F * math.sin(math.radians(ang))
-            Fx, Fy = (0.0 if abs(v) < 1e-12 * abs(F) else v for v in (Fx, Fy))
+        if F != 0:  # force inclinée : F, plan (xy ou xz) et α, depuis le premier axe en sens trigonométrique
+            c = forces.composantes(F, ang, str(row.get("plan") or "xy"))
+            Fx, Fy, Fz = c["Fx"], c["Fy"], c["Fz"]
         pl.append(
             {
                 "pos": _num(row["pos"], "Force : position"),
                 "Fx": k * toSI(Fx, "kN"),
                 "Fy": k * toSI(Fy, "kN"),
-                "Fz": k * toSI(_num(row["Fz"], "Fz"), "kN"),
+                "Fz": k * toSI(Fz, "kN"),
                 "name": str(row["name"]),
                 "F": k * toSI(F, "kN"),
                 "ang": ang,

@@ -200,20 +200,25 @@
       const invalide = corps.querySelector(".invalide");
       changer(c.id, invalide ? NaN : copie(lignes));
     };
-    // Tableau « polaire » (force inclinée) : F et α remplissent Fx = F·cos α et Fy = F·sin α ; taper Fx ou Fy remet F à 0.
+    // Tableau « polaire » (force inclinée) : F, le plan et α remplissent Fx, Fy, Fz (même règle que services/forces.py) ;
+    // taper à la main une composante remet F et α à 0.
     const champs = new Map(); // ligne → { id de colonne : champ de saisie }
+    const AXES = { xy: ["Fx", "Fy"], xz: ["Fx", "Fz"], yz: ["Fy", "Fz"] };
+    const COMPOSANTES = ["Fx", "Fy", "Fz"];
     function majPolaire(ligne, id) {
-      if (!c.polaire) return;
-      const [nF, nA, nX, nY] = c.polaire;
-      if (id === nX || id === nY) { ligne[nF] = 0; ligne[nA] = 0; }
-      else if ((id === nF || id === nA) && Number(ligne[nF]) !== 0) {
-        const f = Number(ligne[nF]), a = (Number(ligne[nA]) || 0) * Math.PI / 180;
-        const r = (v) => (Math.abs(v) < 1e-12 * Math.abs(f) ? 0 : Number(v.toPrecision(12)));
-        ligne[nX] = r(f * Math.cos(a));
-        ligne[nY] = r(f * Math.sin(a));
+      const po = c.polaire;
+      if (!po) return;
+      if (COMPOSANTES.includes(id)) { ligne[po.norme] = 0; ligne[po.angle] = 0; }
+      else if ([po.norme, po.angle, po.plan].includes(id) && Number(ligne[po.norme]) !== 0) {
+        const f = Number(ligne[po.norme]), a = (Number(ligne[po.angle]) || 0) * Math.PI / 180;
+        const [u, v] = AXES[ligne[po.plan]] || AXES[po.plans[0]];
+        const r = (x) => (Math.abs(x) < 1e-12 * Math.abs(f) ? 0 : Number(x.toPrecision(12)));
+        for (const n of COMPOSANTES) if (n in ligne) ligne[n] = n === u ? r(f * Math.cos(a)) : n === v ? r(f * Math.sin(a)) : 0;
       } else return;
       for (const [cle, champ] of Object.entries(champs.get(ligne) || {}))
-        if (cle !== id && c.polaire.includes(cle)) { champ.value = affiche(ligne[cle]); champ.classList.remove("invalide"); champ.title = ""; }
+        if (cle !== id && (COMPOSANTES.includes(cle) || cle === po.norme || cle === po.angle)) {
+          champ.value = affiche(ligne[cle]); champ.classList.remove("invalide"); champ.title = "";
+        }
     }
     const cellule = (ligne, k) => {
       if (k.genre === "case") {
@@ -225,7 +230,7 @@
       if (k.genre === "liste") {
         const s = el("select", { "aria-label": k.libelle }, k.options.map((o) => el("option", { value: o, texte: o })));
         s.value = ligne[k.id] ?? k.defaut;
-        s.addEventListener("change", () => { ligne[k.id] = s.value; publier(); });
+        s.addEventListener("change", () => { ligne[k.id] = s.value; majPolaire(ligne, k.id); publier(); });
         return s;
       }
       const i = el("input", { type: "text", "aria-label": k.libelle, inputmode: k.genre === "nombre" ? "decimal" : undefined });
@@ -267,9 +272,9 @@
           else lignes[n][k.id] = v.trim();
         });
         if (c.polaire) {
-          const [nF, nA, nX, nY] = c.polaire;
-          if (collees.includes(nF) || collees.includes(nA)) majPolaire(lignes[n], nF);
-          else if (collees.includes(nX) || collees.includes(nY)) majPolaire(lignes[n], nX);
+          const po = c.polaire;
+          if ([po.norme, po.angle, po.plan].some((x) => collees.includes(x))) majPolaire(lignes[n], po.norme);
+          else if (COMPOSANTES.some((x) => collees.includes(x))) majPolaire(lignes[n], "Fx");
         }
       });
       dessiner();
