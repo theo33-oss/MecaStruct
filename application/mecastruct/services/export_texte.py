@@ -55,7 +55,7 @@ def donnees(formulaire: dict, saisie: dict) -> list[dict]:
             if c["type"] == "liste" and c.get("etiquettes") and v in c["options"]:
                 v = c["etiquettes"][c["options"].index(v)]
             lignes.append({"id": c["id"], "groupe": g["titre"], "libelle": c["libelle"], "valeur": v, "brut": brut,
-                           "unite": c.get("unite", "")})  # fmt: skip
+                           "unite": c.get("unite", ""), "securite": bool(c.get("securite"))})  # fmt: skip
     return lignes
 
 
@@ -96,14 +96,19 @@ def _titre(t: str) -> list[str]:
     return ["", t.upper(), "=" * len(t)]
 
 
-def chiffres(c: dict) -> tuple[str, str, str]:
-    """(« 159,2 MPa pour 156,7 MPa admissibles », « taux 102 % », « s = 1,48 · demandé 1,5 » ou « marge 17 % »)."""
+def chiffres(c: dict, en_marge: bool = False) -> tuple[str, str, str]:
+    """(« 159,2 MPa pour 156,7 MPa admissibles », « taux 102 % », « s = 1,48 · demandé 1,5 » ou « marge 17 % »).
+
+    `en_marge` : une résistance s'écrit en marge de sécurité (s − 1, en %) : « marge 48 % · demandée 50 % »."""
     u = f" {c['unite']}" if c["unite"] else ""
     sans_unite = not c["unite"] and c["limite"] == 1  # rapport d'une norme (effort / résistance ≤ 1) : le taux suffit
     mot = "admissibles" if c["sens"] == "max" else "requis"
     valeurs = "" if sans_unite else f"{nombre(c['valeur'], 4)}{u} pour {nombre(c['limite'], 4)}{u} {mot}"
     taux = f"taux {nombre(100 * c['taux'], 3)} %"
     if c.get("genre", "resistance") == "resistance":
+        if en_marge:
+            return (valeurs, taux, f"marge {nombre(100 * (c['s_obtenu'] - 1), 3)} % · demandée "
+                                   f"{nombre(100 * (c['s_demande'] - 1), 3)} %")  # fmt: skip
         return valeurs, taux, f"s = {nombre(c['s_obtenu'], 3)} · demandé {nombre(c['s_demande'], 3)}"
     marge_ = f"marge {nombre(100 * (1 - c['taux']), 3)} %" if c["taux"] <= 1 else f"dépassement {nombre(100 * (c['taux'] - 1), 3)} %"
     return valeurs, taux, marge_
@@ -123,7 +128,7 @@ def phrase_etat(status) -> str:
     return t[:1].upper() + t[1:] if re.match(r"[a-zà-ÿ]{2}", t) else t
 
 
-def lignes_criteres(crit: list[dict]) -> list[str]:
+def lignes_criteres(crit: list[dict], en_marge: bool = False) -> list[str]:
     if not crit:
         return ["Ce calcul ne compare pas de valeur à une limite."]
     lignes, groupe = [], None
@@ -131,7 +136,7 @@ def lignes_criteres(crit: list[dict]) -> list[str]:
         if c.get("groupe") and c["groupe"] != groupe:
             lignes.append([f"[{c['groupe']}]", "", "", "", ""])
         groupe = c.get("groupe") or None
-        valeurs, taux, marge = chiffres(c)
+        valeurs, taux, marge = chiffres(c, en_marge)
         lignes.append([c["mode"], valeurs, taux.removeprefix("taux "), marge, "ADMISSIBLE" if c["ok"] else "NON ADMISSIBLE"])
     return _colonnes(["Mode de ruine", "Valeur et limite", "Taux", "Coefficient ou marge", "Verdict"], lignes)
 
@@ -142,18 +147,22 @@ def texte(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[d
     ok = sortie.get("ok")
     verdict = "VÉRIFIÉ" if ok is True else "NON VÉRIFIÉ" if ok is False else "sans verdict (calcul d'information)"
     L = [f"MecaStruct RdM Pro {__version__} - {titre}", f"Calcul du {quand:%d/%m/%Y à %H h %M}", "-" * LARGEUR]
+    en_marge = saisie.get("_securite") == "marge"  # réglage de la page : sécurité donnée en marge (%)
     L += _titre("Données")
     groupe = None
     for d in donnees(formulaire, saisie):
         if d["groupe"] != groupe:
             groupe = d["groupe"]
             L += ["", f"[{groupe}]"]
-        L.append(f"  {d['libelle']:<58.58} {nombre(d['valeur'], 8)} {d['unite']}".rstrip())
+        ligne = f"  {d['libelle']:<58.58} {nombre(d['valeur'], 8)} {d['unite']}".rstrip()
+        if en_marge and d["securite"] and isinstance(d["brut"], (int, float)):
+            ligne += f"  (marge de sécurité {nombre(100 * (d['brut'] - 1), 8)} %)"
+        L.append(ligne)
     for nom, t in tableaux_saisie(formulaire, saisie).items():
         L += ["", f"[{nom}]", *("  " + x for x in _table(t))]
     L += _titre("Verdict et modes de ruine")
     L += [f"Verdict : {verdict}", fr(sortie.get("status", "")), ""]
-    L += lignes_criteres(crit)
+    L += lignes_criteres(crit, en_marge)
     tables = {n: t for n, t in (sortie.get("tables") or {}).items() if isinstance(t, pd.DataFrame) and len(t)}
     if tables:
         L += _titre("Résultats")

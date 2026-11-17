@@ -70,9 +70,13 @@ def _explications(tab: str, saisie: dict, calc: dict) -> list[dict]:
 
 def _sortie(tab: str, saisie: dict, calc: dict, figures: list, metriques=None, rapport=None, latex=None) -> dict:
     status = str(calc.get("status", ""))
+    crit = criteres.criteres(tab, saisie, calc)
+    ok = _ok(status)
+    if tab == "Cis":  # Jourawski, clavette et goupille comptent dans le verdict, comme dans le diagramme
+        status, ok = criteres.completer_cisaillement(status, ok, crit)
     return {
         "status": status,
-        "ok": _ok(status),
+        "ok": ok,
         "metriques": metriques or [],
         "figures": [{"titre": t, "figure": f} for t, f in figures if f is not None],
         "tables": calc.get("tables", {}),
@@ -80,7 +84,7 @@ def _sortie(tab: str, saisie: dict, calc: dict, figures: list, metriques=None, r
         "latex": latex if latex is not None else [],
         "explications": _figure(lambda: _explications(tab, saisie, calc)) or [],
         "blocs": [{"nom": n, "formules": f} for n, f in (_figure(lambda: validation_report.solverEquations(tab, calc)) or [])],
-        "criteres": criteres.criteres(tab, saisie, calc),
+        "criteres": crit,
         "valeurs": valeurs_cles.valeurs(status),
         "_brut": calc,
     }
@@ -93,6 +97,7 @@ def _enregistrer_communs(ident: str, tab: str) -> None:
     def exemple(s):
         ex = loadExample(tab, s.get("nom"))
         if tab == "Beam":  # sa section vient du catalogue (IPE) ou de la page Sections : elle est dessinée
+            ex["selfw"] = True  # poids propre coché de base, comme à l'ouverture de la page
             ex["secSrc"] = "catalogue" if isinstance(ex.get("section"), dict) and ex["section"].get("type") == "profile" else "sections"
         return ex
 
@@ -232,6 +237,16 @@ def poutreForme(s):
     sec, _ = trouve
     out = beam_design.sectionToBeamInput(saisie, sec, geometry.analytical(sec), None)
     return {k: out[k] for k in ("S", "Iz", "Iy", "Ix", "Iyz", "ky", "kz", "vy", "vz", "section", "secTabulated")}
+
+
+@calcul("beam.filetage")
+def poutreFiletage(s):
+    """Schéma du filetage de la tige choisie (d, d2, ds, d3 sur le profil ISO), seulement pour une tige filetée."""
+    if s.get("secSrc") != "tige":
+        return {"vide": "Le schéma du filetage s'affiche pour une tige filetée."}
+    nom = s.get("tigeM", "M10")
+    diametre = s.get("tigeD", "noyau")
+    return section_plots.filetage(nom, tige_filetee(nom, diametre), diametre)
 
 
 @calcul("beam.section")
@@ -568,7 +583,7 @@ def _formulaires() -> dict:
     noms = dm().listMaterials()
     return {
         "beam": {
-            "titre": "Poutre 2D", "defaut": {**loadExample("Beam"), **DEFAUT_SECTION}, "apercu": True, "auto": False, "dossier": True,
+            "titre": "Poutre 2D", "defaut": {**loadExample("Beam"), **DEFAUT_SECTION, "selfw": True}, "apercu": True, "auto": False, "dossier": True,
             "exemples": exampleNames("Beam"), "paquets": ["scipy", "shapely"],
             "caches": ["secTabulated", "section"],
             "suites": {"mat": {"calcul": "materiau", "champs": ["E", "G", "Re"]}, "na": {"calcul": "annexe", "champs": []},
@@ -598,6 +613,8 @@ def _formulaires() -> dict:
                        {"id": "secImage", "type": "figure", "calcul": "beam.section", "libelle": "Section",
                         "depend": ["secSrc", "secForme", "tigeM", "tigeD", "pfam", "section", *["f_" + k for k in DIMENSIONS]]},
                        # masqués pour une forme ou une tige (calculés d'office), mais toujours dans les exports
+                       si({"id": "filetageImage", "type": "figure", "calcul": "beam.filetage", "libelle": "Filetage",
+                           "depend": ["secSrc", "tigeM", "tigeD"]}, "secSrc", "tige"),
                        *[{**si(c, "secSrc", "catalogue", "sections", "saisie"), "exporte": True} for c in (
                            nb("S", "S", "mm²", aide="Aire de la section droite."),
                            nb("Iz", "Iz, flexion (x,y)", "mm⁴", aide="Moment quadratique pour la flexion dans le plan (x,y), charges verticales."),
@@ -628,7 +645,7 @@ def _formulaires() -> dict:
                        nb("Kt", "Kt", "", 0.0, aide="Concentration de contrainte (1 sans trou ni épaulement)."),
                        nb("thDT", "ΔT uniforme", "°C"), nb("thGy", "Gradient selon y : T(+y) − T(−y)", "°C"),
                        nb("thGz", "Gradient selon z : T(+z) − T(−z)", "°C"),
-                       case("selfw", "Poids propre (ρ·S·g, cas G)"), ouvert=False),
+                       case("selfw", "Poids propre (ρ·S·g, cas G)")),  # ouvert : le poids propre est coché de base
                 groupe("Ressorts, tassements, rotules",
                        tableau("supx", "Appuis élastiques et tassements (appui désigné par son nom)",
                                [col("name", "Appui (nom)", "texte", defaut=""), col("k", "Ressort k (kN/m)"), col("dx", "Tassement x (mm)"),

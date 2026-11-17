@@ -3,6 +3,17 @@
 Le numéro de version est celui de `application/mecastruct/__init__.py`. Le site suit toujours la dernière version ;
 l'installateur Windows de chaque version est dans les [Releases](https://github.com/theo33-oss/MecaStruct/releases).
 
+## Non publié (site)
+
+- Poutres : plus de gel quand on tape une petite longueur ; section au choix (catalogue, forme paramétrée, tige
+  filetée ISO avec son schéma d, d2, ds, d3, page Sections ou valeurs à la main) avec son image ; poids propre coché
+  de base et bloc Calcul ouvert ; le schéma de la poutre ne plante plus avec le poids propre.
+- Sécurité en coefficient s ou en marge (%) sur toutes les pages qui demandent s (marge = s − 1), dans le diagramme
+  des modes de ruine et le bloc-notes.
+- Cisaillement : Jourawski, clavette et goupille comptent dans le verdict (un mode non admissible rend le calcul
+  « NON vérifié »).
+- Graphiques à hauteur réglable, liste d'exemples qui garde l'exemple chargé, cas personnalisé (tableaux vides).
+
 ## 1.6.0 (16 novembre 2026)
 
 - Bureau : l'accueil est celui du site (titre, deux façons de l'utiliser, une carte par famille) ; « Données et aide »

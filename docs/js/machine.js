@@ -38,6 +38,8 @@
 
   // ---------- champs ----------
 
+  const securiteEnMarge = () => App.memoire.lire("securite", "coef") === "marge"; // réglage commun à toutes les pages
+
   function champ(c, saisie, changer, outils) {
     const aide = c.aide || undefined;
     const titre = c.libelle + (c.unite ? ` (${c.unite})` : "");
@@ -112,17 +114,29 @@
     if (c.type === "extra") { // calcul complémentaire (combinaisons, Eurocode 3…) : son résultat s'affiche sous le résultat principal
       return el("div", { class: "action" }, el("button", { type: "button", class: "primaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.extra(c) }));
     }
+    // sécurité : coefficient s ou marge en % (marge = s − 1), au choix ; la saisie garde toujours s
+    const enMarge = !!c.securite && securiteEnMarge();
     const input = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false" });
-    input.value = affiche(valeur);
+    input.value = affiche(enMarge && typeof valeur === "number" ? 100 * (valeur - 1) : valeur);
     const erreur = el("span", { class: "erreur-champ", hidden: true });
     input.addEventListener("input", () => {
-      const [v, texte] = verifierNombre(c, input.value);
+      let [v, texte] = verifierNombre(enMarge ? { ...c, min: 0, max: null } : c, input.value);
+      if (enMarge && !texte) v = Number((1 + v / 100).toPrecision(12));
       input.classList.toggle("invalide", !!texte);
       input.setAttribute("aria-invalid", String(!!texte));
       erreur.textContent = texte;
       erreur.hidden = !texte;
       changer(c.id, v);
     });
+    if (c.securite) {
+      const forme = el("select", { "aria-label": "Forme de la sécurité", class: "forme-securite",
+        aide: "Coefficient de sécurité s, ou marge en % (marge = s − 1 : 30 % de marge donne s = 1,30). Valable pour toutes les pages." },
+        el("option", { value: "coef", texte: "Coefficient s" }), el("option", { value: "marge", texte: "Marge (%)" }));
+      forme.value = enMarge ? "marge" : "coef";
+      forme.addEventListener("change", () => { App.memoire.ecrire("securite", forme.value); outils.rafraichir(); });
+      return el("label", { aide: aide || (enMarge ? "Marge de sécurité = s − 1 : on exige σ ≤ Re / (1 + marge)." : undefined) },
+        el("span", { class: "titre-securite" }, enMarge ? "Marge de sécurité (%)" : titre, forme), input, erreur);
+    }
     return el("label", { aide }, titre, input, erreur);
   }
 
@@ -290,6 +304,7 @@
     const zoneExtras = el("div", { class: "extras", "aria-live": "polite" });
     const extras = {}; // calcul → { saisie au moment du calcul, bloc affiché }
     const outils = {
+      rafraichir: () => { dessinerChamps(); if (derniere) afficherResultat(derniere); },
       // Les saisies des pages sources partent au calcul ; ce qu'il rend est écrit dans la saisie de chaque page cible
       // (fusion champ par champ : un champ absent du résultat garde sa valeur). « self » désigne cette page.
       transfert: (c) => {
@@ -494,7 +509,9 @@
       }
     }
 
+    let derniere = null; // dernier résultat affiché (redessiné quand on change la forme de la sécurité)
     function afficherResultat(s) {
+      derniere = s;
       zoneResultat.replaceChildren(...construireResultat(s, ident, barreExports(), !auto));
     }
     // Après un clic sur « Calculer » : le résultat vient à l'écran et son cadre s'éclaire un instant.
@@ -541,8 +558,11 @@
           el("span", { class: "remplie", style: `width:${(100 * Math.min(c.taux, echelle) / echelle).toFixed(1)}%` }),
           el("span", { class: "repere", style: `left:${(100 / echelle).toFixed(1)}%` }));
         const marge = c.genre === "resistance"
-          ? [el("strong", { texte: `s = ${nf(c.s_obtenu)}`, aide: "Coefficient de sécurité obtenu : la limite du matériau divisée par la valeur calculée." }),
-            el("span", { texte: `demandé ${nf(c.s_demande)}` })]
+          ? (securiteEnMarge()
+            ? [el("strong", { texte: `marge ${nf(100 * (c.s_obtenu - 1))} %`, aide: "Marge de sécurité obtenue : s − 1, avec s la limite du matériau divisée par la valeur calculée." }),
+              el("span", { texte: `demandée ${nf(100 * (c.s_demande - 1))} %` })]
+            : [el("strong", { texte: `s = ${nf(c.s_obtenu)}`, aide: "Coefficient de sécurité obtenu : la limite du matériau divisée par la valeur calculée." }),
+              el("span", { texte: `demandé ${nf(c.s_demande)}` })])
           : [el("strong", { texte: c.taux <= 1 ? `marge ${nf(100 * (1 - c.taux))} %` : `dépassement ${nf(100 * (c.taux - 1))} %`,
             aide: "Part de l'admissible encore disponible, ou dépassement de la limite." })];
         lignes.push(el("li", { class: "mode " + (c.ok ? "ok" : "ko") + (c === pire && crit.length > 1 ? " pire" : "") },
@@ -630,7 +650,7 @@
       if (f.exports) {
         const note = el("button", { type: "button", class: "secondaire", texte: "Bloc-notes (.txt)",
           aide: "Données, modes de ruine, résultats et démarche dans un fichier texte lisible partout.", onclick: () => {
-            const r = App.calculer(ident + ".texte", saisie);
+            const r = App.calculer(ident + ".texte", { ...saisie, _securite: App.memoire.lire("securite", "coef") });
             if (r.ok) App.telecharger(r.sortie.nom, r.sortie.texte, "text/plain;charset=utf-8");
             else signaler("erreur", r.erreur);
           } });
