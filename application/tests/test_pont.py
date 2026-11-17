@@ -39,7 +39,7 @@ def test_chaque_calcul_repond_avec_ses_valeurs_de_depart(ident):
 def test_les_champs_couvrent_la_saisie(ident):
     """Chaque valeur de départ a son champ, et chaque champ a sa valeur de départ (sinon la page perd une donnée)."""
     f = FORMULAIRES[ident]
-    boutons = ("action", "bouton", "extra", "transfert")
+    boutons = ("action", "bouton", "extra", "transfert", "figure")
     champs = {c["id"] for g in f["groupes"] for c in g["champs"] if c["type"] not in boutons} | set(f.get("caches", []))
     assert champs == set(f["defaut"]), champs ^ set(f["defaut"])
 
