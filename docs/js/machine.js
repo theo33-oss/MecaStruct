@@ -565,6 +565,10 @@
               el("span", { texte: `demandé ${nf(c.s_demande)}` })])
           : [el("strong", { texte: c.taux <= 1 ? `marge ${nf(100 * (1 - c.taux))} %` : `dépassement ${nf(100 * (c.taux - 1))} %`,
             aide: "Part de l'admissible encore disponible, ou dépassement de la limite." })];
+        // s < 1 : la valeur calculée dépasse déjà la limite du matériau (Re) ; le dire en clair (s − 1 ne passe jamais sous −100 %)
+        if (c.genre === "resistance" && c.sens === "max" && c.s_obtenu > 0 && c.s_obtenu < 1)
+          marge.push(el("span", { class: "depasse-limite", texte: `dépasse la limite du matériau de ${nf(100 * (1 / c.s_obtenu - 1))} %`,
+            aide: "Valeur calculée divisée par la limite du matériau (Re, sans sécurité), moins 1." }));
         lignes.push(el("li", { class: "mode " + (c.ok ? "ok" : "ko") + (c === pire && crit.length > 1 ? " pire" : "") },
           el("span", { class: "mode-nom", texte: c.mode }),
           el("span", { class: "mode-etat", texte: c.ok ? "Admissible" : "Non admissible" }),
