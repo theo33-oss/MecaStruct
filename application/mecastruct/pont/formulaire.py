@@ -6,10 +6,12 @@ Chaque champ est un dict JSON que docs/js/machine.js sait dessiner. Aucune logiq
 
 def nb(ident, libelle, unite="", mini=None, maxi=None, aide="", entier=False):
     """Champ numérique (virgule ou point acceptés), borné si mini ou maxi."""
-    return {"id": ident, "type": "nombre", "libelle": libelle, "unite": unite, "min": mini, "max": maxi, "aide": aide,
-            "entier": entier,
+    securite = ident == "s" and libelle.startswith("Coefficient de sécurité")
+    exclu = securite and (mini is None or mini <= 0)  # s = 0 n'a pas de sens : strictement positif
+    return {"id": ident, "type": "nombre", "libelle": libelle, "unite": unite, "min": 0.0 if exclu else mini, "max": maxi, "aide": aide,
+            "entier": entier, "minExclu": exclu,
             # coefficient de sécurité s : la page propose aussi la marge en % (marge = s − 1), le calcul garde s
-            "securite": ident == "s" and libelle.startswith("Coefficient de sécurité")}  # fmt: skip
+            "securite": securite}  # fmt: skip
 
 
 def liste(ident, libelle, options, aide="", etiquettes=None):

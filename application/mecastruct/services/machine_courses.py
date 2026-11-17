@@ -262,6 +262,8 @@ def computePlanetary(s: dict) -> dict:
     """
     Z1, Z21, Z22, Z4, nSat = (int(s[k]) for k in ("Z1", "Z21", "Z22", "Z4", "nSat"))
     rb = planetary.basicRatio(Z1, Z21, Z22, Z4)
+    if not float(s["Ne"]) != 0:
+        raise MecaStructError("MecaStruct:Planetary:invalidInput", "La fréquence de rotation de l'entrée Ne doit être différente de 0.")
     v = planetary.speeds(rb, s["bloque"], s["entree"], s["Ne"])
     sortie = next(e for e in planetary.ELEMENTS if e not in (s["bloque"], s["entree"]))
     r = v[sortie] / s["Ne"]
