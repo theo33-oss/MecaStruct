@@ -24,6 +24,9 @@ def init(page: str, defaut: dict) -> None:
 def num(z: Zone, page: str, champ: str, label: str, unite: str = "", min_value: float | None = None,
         max_value: float | None = None, step: Any = None) -> None:  # fmt: skip
     """Champ numérique « label (unité) » de la page."""
+    if champ == "s" and label.startswith("Coefficient de sécurité"):
+        z.securite(label, f"{page}.{champ}")
+        return
     z.nombre(f"{label} ({unite})" if unite else label, f"{page}.{champ}", mini=min_value, maxi=max_value)
 
 

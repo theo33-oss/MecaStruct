@@ -10,7 +10,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
-from mecastruct.bureau import theme
+from mecastruct.bureau import state, theme
 from mecastruct.services import export_texte
 
 
@@ -120,6 +120,6 @@ class ModesRuine(QFrame):
         haut.addWidget(_pastille(("✓ Admissible" if c["ok"] else "✗ Non admissible"), _couleurs("ok" if c["ok"] else "ko"), "8pt"))
         col.addLayout(haut)
         col.addWidget(Jauge(c["taux"], echelle, c["ok"]))
-        valeurs, taux, marge = export_texte.chiffres(c)
+        valeurs, taux, marge = export_texte.chiffres(c, state.lire("securite", "coef") == "marge")
         col.addWidget(_texte("   ·   ".join(x for x in (valeurs, taux, marge) if x), f"color:{theme.actuel()['discret']};font-size:9pt;"))
         return boite
