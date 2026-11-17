@@ -14,7 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from mecastruct.core import buckling, frame3d, geometry
+from mecastruct.core import beam_solver, buckling, frame3d, geometry
 from mecastruct.core.data_manager import sectionPresets
 from mecastruct.core.pp import asPP
 from mecastruct.core.units import fromSI
@@ -91,7 +91,10 @@ def _enregistrer_communs(ident: str, tab: str) -> None:
 
     @calcul(f"{ident}.exemple")
     def exemple(s):
-        return loadExample(tab, s.get("nom"))
+        ex = loadExample(tab, s.get("nom"))
+        if tab == "Beam":  # sa section vient du catalogue (IPE) ou de la page Sections : elle est dessinée
+            ex["secSrc"] = "catalogue" if isinstance(ex.get("section"), dict) and ex["section"].get("type") == "profile" else "sections"
+        return ex
 
     @calcul(f"{ident}.dossier")
     def dossierValidation(s):
@@ -165,18 +168,86 @@ def poutre(s):
 
 @calcul("beam.apercu")
 def poutreApercu(s):
-    return beam_plots.beamSchematic(beam_services.buildBeamModel(s, dm()), None)
+    modele = beam_services.buildBeamModel(s, dm())
+    beam_solver._normalizeModel(modele)  # appui ou charge hors de la poutre : le message du calcul, pas un schéma faux
+    return beam_plots.beamSchematic(modele, None)
 
 
 @calcul("beam.profil")
 def poutreProfil(s):
-    """Section d'un profilé du catalogue : S, inerties, fibres extrêmes (valeurs du catalogue)."""
+    """Section d'un profilé du catalogue : S, inerties, fibres extrêmes (valeurs du catalogue) et sa géométrie."""
     p = dm().getProfile(s["pfam"], s["choix"])
     sec = geometry.fromProfile(p)
     P, Pt = geometry.analytical(sec), geometry.tabulated(sec)
     return {"S": p["S"] * 1e6, "Iz": p["Iz"] * 1e12, "Iy": p["Iy"] * 1e12, "Ix": P["J"] * 1e12, "Iyz": 0.0,
             "ky": Pt["ky"], "kz": Pt["kz"], "vy": p["h"] / 2 * 1e3, "vz": p["b"] / 2 * 1e3,
-            "section": None, "secTabulated": False}  # fmt: skip
+            "section": sec, "secTabulated": True, "secSrc": "catalogue"}  # fmt: skip
+
+
+# --------------------------------------------------------------------- section de la poutre : forme ou tige filetée
+# Formes paramétrées proposées dans Poutres (celles de la page Sections, sans profilé ni section composée)
+FORMES_POUTRE = ["rectangle", "disque", "couronne", "rectangle_creux", "I", "T", "U", "L"]
+# Filetage métrique à pas gros (ISO 261) : diamètre nominal d (mm) → pas P (mm)
+PAS_ISO = {"M3": 0.5, "M4": 0.7, "M5": 0.8, "M6": 1.0, "M8": 1.25, "M10": 1.5, "M12": 1.75, "M14": 2.0, "M16": 2.0,
+           "M18": 2.5, "M20": 2.5, "M22": 2.5, "M24": 3.0, "M27": 3.0, "M30": 3.5, "M33": 3.5, "M36": 4.0}  # fmt: skip
+
+
+def tige_filetee(nom: str, diametre: str) -> dict:
+    """Diamètres d'une tige filetée ISO : d, pas P, d2 = d − 0,6495·P, noyau d3 = d − 1,2269·P, ds = (d2 + d3)/2 et
+    section résistante As = π·ds²/4 (ISO 898-1), en mm et mm². `diametre` choisit le disque de calcul : « noyau » (d3,
+    prudent) ou « resistant » (ds, section As)."""
+    d, P = float(nom[1:]), PAS_ISO[nom]
+    d2, d3 = d - 0.649519 * P, d - 1.226869 * P
+    ds = (d2 + d3) / 2
+    return {"d": d, "P": P, "d2": d2, "d3": d3, "ds": ds, "As": math.pi * ds**2 / 4, "D": d3 if diametre == "noyau" else ds}
+
+
+def _section_parametree(s: dict) -> tuple[dict, str] | None:
+    """Section (dimensions en m) décrite par la saisie de Poutres si son origine est une forme ou une tige, sinon None."""
+    if s.get("secSrc") == "forme":
+        forme = s.get("secForme", "rectangle")
+        dims = {k: float(s["f_" + k]) / 1e3 for k, types in TYPES_PAR_DIMENSION.items() if forme in types}
+        sec = geometry.validateSection({"type": forme, **dims})
+        return sec, compute._sectionLabel(sec)
+    if s.get("secSrc") == "tige":
+        t = tige_filetee(s.get("tigeM", "M10"), s.get("tigeD", "noyau"))
+        sec = geometry.validateSection({"type": "disque", "D": t["D"] / 1e3})
+        quoi = "noyau d3" if s.get("tigeD", "noyau") == "noyau" else "diamètre résistant ds"
+        return sec, (f"Tige filetée {s.get('tigeM', 'M10')} × {t['P']:g} : calcul sur le {quoi} = {t['D']:.3f} mm "
+                     f"(d3 = {t['d3']:.3f} mm, As = {t['As']:.1f} mm²)")  # fmt: skip
+    return None
+
+
+@calcul("beam.forme")
+def poutreForme(s):
+    """Suite des champs de la section : S, inerties, ky, kz, fibres et géométrie d'une forme paramétrée ou d'une tige.
+
+    Entrée : {nom, champs, saisie} (la saisie entière de Poutres). Sortie : champs à recopier ({} si l'origine de la
+    section n'est ni une forme ni une tige : les valeurs saisies restent).
+    """
+    saisie = s.get("saisie") or {}
+    trouve = _section_parametree(saisie)
+    if trouve is None:
+        return {}
+    sec, _ = trouve
+    out = beam_design.sectionToBeamInput(saisie, sec, geometry.analytical(sec), None)
+    return {k: out[k] for k in ("S", "Iz", "Iy", "Ix", "Iyz", "ky", "kz", "vy", "vz", "section", "secTabulated")}
+
+
+@calcul("beam.section")
+def poutreSection(s):
+    """Image de la section de la poutre, avec ses dimensions principales, pour la saisie ; rien si elle est inconnue."""
+    trouve = _section_parametree(s)
+    if trouve is not None:
+        sec, titre = trouve
+    elif s.get("secSrc") != "saisie" and isinstance(s.get("section"), dict):
+        sec = geometry.validateSection(s["section"])
+        titre = compute._sectionLabel(sec)
+    else:
+        return {"vide": "Valeurs saisies à la main : la forme de la section n'est pas connue, elle n'est pas dessinée."}
+    fig = section_plots.section(sec, geometry.analytical(sec))
+    fig.update_layout(title=titre, showlegend=False, height=300, margin=dict(l=40, r=20, t=60, b=40))
+    return fig
 
 
 _enregistrer_communs("beam", "Beam")
@@ -497,10 +568,12 @@ def _formulaires() -> dict:
     noms = dm().listMaterials()
     return {
         "beam": {
-            "titre": "Poutre 2D", "defaut": loadExample("Beam"), "apercu": True, "auto": False, "dossier": True,
+            "titre": "Poutre 2D", "defaut": {**loadExample("Beam"), **DEFAUT_SECTION}, "apercu": True, "auto": False, "dossier": True,
             "exemples": exampleNames("Beam"), "paquets": ["scipy", "shapely"],
             "caches": ["secTabulated", "section"],
-            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "G", "Re"]}, "na": {"calcul": "annexe", "champs": []}},
+            "suites": {"mat": {"calcul": "materiau", "champs": ["E", "G", "Re"]}, "na": {"calcul": "annexe", "champs": []},
+                       **{k: {"calcul": "beam.forme", "champs": [], "discret": True}
+                          for k in ("secSrc", "secForme", "tigeM", "tigeD", *["f_" + d for d in DIMENSIONS])}},
             "groupes": [
                 groupe("Poutre et matériau",
                        nb("L", "Longueur L", "m", 0.0, aide="Longueur de la poutre entre ses deux extrémités."),
@@ -509,17 +582,30 @@ def _formulaires() -> dict:
                        nb("G", "G", "GPa", aide="Module de cisaillement : G = E / (2(1+ν))."),
                        nb("Re", "Re", "MPa", aide="Limite élastique.")),
                 groupe("Section",
-                       liste("pfam", "Famille de profilés", FAMILLES_PROFILES),
-                       {"id": "profil", "type": "action", "libelle": "Profilé du catalogue", "options_de": {"calcul": "profils", "cle": "famille", "depuis": "pfam"},
-                        "bouton": "Utiliser ce profilé", "calcul": "beam.profil", "aide": "Remplit S, inerties et fibres extrêmes avec les valeurs du catalogue."},
-                       nb("S", "S", "mm²", aide="Aire de la section droite."),
-                       nb("Iz", "Iz, flexion (x,y)", "mm⁴", aide="Moment quadratique pour la flexion dans le plan (x,y), charges verticales."),
-                       nb("Iy", "Iy, flexion (x,z)", "mm⁴", aide="Moment quadratique pour la flexion dans le plan (x,z)."),
-                       nb("Ix", "Ix, constante de torsion", "mm⁴"),
-                       nb("Iyz", "Iyz, produit d'inertie (0 si axes principaux)", "mm⁴"),
-                       nb("ky", "ky, section réduite (Ty)", "", aide="Le cisaillement est repris par S/ky ; 1 par défaut."),
-                       nb("kz", "kz, section réduite (Tz)", ""),
-                       nb("vy", "Fibre extrême |y|max", "mm"), nb("vz", "Fibre extrême |z|max", "mm")),
+                       liste("secSrc", "Origine de la section", list(ORIGINES_SECTION), etiquettes=list(ORIGINES_SECTION.values()),
+                             aide="D'où viennent S, les inerties et les fibres extrêmes de la poutre."),
+                       si(liste("pfam", "Famille de profilés", FAMILLES_PROFILES), "secSrc", "catalogue"),
+                       si({"id": "profil", "type": "action", "libelle": "Profilé du catalogue", "options_de": {"calcul": "profils", "cle": "famille", "depuis": "pfam"},
+                           "bouton": "Utiliser ce profilé", "calcul": "beam.profil", "aide": "Remplit S, inerties et fibres extrêmes avec les valeurs du catalogue."}, "secSrc", "catalogue"),
+                       si(liste("secForme", "Forme", FORMES_POUTRE, etiquettes=[t["label"] for t in geometry.sectionTypes() if t["type"] in FORMES_POUTRE]), "secSrc", "forme"),
+                       *[{**nb("f_" + k, v, "mm", 0.0), "si": [{"id": "secSrc", "valeurs": ["forme"]}, {"id": "secForme", "valeurs": TYPES_PAR_DIMENSION[k]}]}
+                         for k, v in DIMENSIONS.items()],
+                       si(liste("tigeM", "Tige filetée (ISO, pas gros)", list(PAS_ISO), aide="Diamètre nominal ; le pas normal ISO 261 est pris d'office."), "secSrc", "tige"),
+                       si(liste("tigeD", "Diamètre de calcul", ["noyau", "resistant"], etiquettes=["Noyau d3 (prudent)", "Diamètre résistant ds (section As, ISO 898-1)"],
+                                aide="Le noyau d3 donne la plus petite section ; ds donne la section résistante As des normes de boulonnerie."), "secSrc", "tige"),
+                       si(_transfert("section_poutre", {"sec": "sec", "beam": "self"}, {"beam": "self"}, calcul="transfert.section", libelle="← Reprendre la section de la page Sections",
+                                     aide="S, inerties, ky, kz, fibres extrêmes et matériau de la section calculée dans la page Sections."), "secSrc", "sections"),
+                       {"id": "secImage", "type": "figure", "calcul": "beam.section", "libelle": "Section",
+                        "depend": ["secSrc", "secForme", "tigeM", "tigeD", "pfam", "section", *["f_" + k for k in DIMENSIONS]]},
+                       *[si(c, "secSrc", "catalogue", "sections", "saisie") for c in (
+                           nb("S", "S", "mm²", aide="Aire de la section droite."),
+                           nb("Iz", "Iz, flexion (x,y)", "mm⁴", aide="Moment quadratique pour la flexion dans le plan (x,y), charges verticales."),
+                           nb("Iy", "Iy, flexion (x,z)", "mm⁴", aide="Moment quadratique pour la flexion dans le plan (x,z)."),
+                           nb("Ix", "Ix, constante de torsion", "mm⁴"),
+                           nb("Iyz", "Iyz, produit d'inertie (0 si axes principaux)", "mm⁴"),
+                           nb("ky", "ky, section réduite (Ty)", "", aide="Le cisaillement est repris par S/ky ; 1 par défaut."),
+                           nb("kz", "kz, section réduite (Tz)", ""),
+                           nb("vy", "Fibre extrême |y|max", "mm"), nb("vz", "Fibre extrême |z|max", "mm"))]),
                 groupe("Appuis et charges",
                        tableau("sup", "Appuis", [col("pos", "Position (m)"), col("type", "Type", "liste", TYPES_APPUI, "appui_simple"), col("name", "Nom", "texte", defaut="")],
                                aide="appui_simple et pivot_glissant bloquent y et z ; rotule et pivot bloquent x, y et z ; encastrement bloque tout."),
@@ -639,6 +725,13 @@ DIMENSIONS = {"b": "b, largeur selon z", "h": "h, hauteur selon y", "D": "D, dia
 TYPES_PAR_DIMENSION = {"b": ["rectangle", "I", "T", "U", "L"], "h": ["rectangle", "I", "T", "U", "L"], "D": ["disque", "couronne"],
                        "d": ["couronne"], "B": ["rectangle_creux"], "H": ["rectangle_creux"], "t": ["rectangle_creux", "L"],
                        "tw": ["I", "T", "U"], "tf": ["I", "T", "U"]}
+
+
+ORIGINES_SECTION = {"catalogue": "Profilé du catalogue", "forme": "Forme paramétrée (mes dimensions)", "tige": "Tige filetée",
+                    "sections": "Section de la page Sections", "saisie": "Valeurs saisies à la main"}
+# section de départ de Poutres : l'exemple (IPE 300 du catalogue), puis des dimensions prêtes pour chaque forme
+DEFAUT_SECTION = {"secSrc": "catalogue", "secForme": "disque", "tigeM": "M10", "tigeD": "noyau",
+                  "f_b": 20.0, "f_h": 40.0, "f_D": 20.0, "f_d": 16.0, "f_B": 40.0, "f_H": 60.0, "f_t": 3.0, "f_tw": 5.0, "f_tf": 8.0}
 
 
 def si(champ, ident, *valeurs):

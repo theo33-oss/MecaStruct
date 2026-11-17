@@ -46,6 +46,11 @@ def _txt(
     )
 
 
+# au plus ce nombre de flèches par charge répartie : chaque flèche est une annotation Plotly, dont l'ajout coûte de plus
+# en plus cher (une charge de 6 m sur une poutre de 4 cm en demandait 2 100 et gelait le navigateur)
+_FLECHES_MAX = 30
+
+
 def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
     """Schéma de la poutre : appuis, forces, couples, charges réparties et réactions (avec valeurs si sol est fourni).
 
@@ -135,7 +140,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
             polyShape(fig, np.column_stack([xs, env]), cDist, 1.5)
             polyShape(fig, [(a, base), (a, env[0])], cDist, 1)
             polyShape(fig, [(b, base), (b, env[-1])], cDist, 1)
-            nArr = max(5, _arrondi(14 * (b - a) / L))
+            nArr = min(_FLECHES_MAX, max(5, _arrondi(14 * (b - a) / L)))
             xa = np.linspace(a, b, nArr)
             for xk, pk in zip(xa, np.polyval(c, xa - a), strict=True):
                 hk = Hq * abs(pk) / max(pmaxAll, np.finfo(float).tiny)
@@ -174,7 +179,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
             fig.add_shape(
                 type="line", x0=a, x1=b, y0=0.03 * L, y1=0.03 * L, line=dict(color=cDist, width=1.2, dash="dot")
             )
-            nArr = max(3, _arrondi(8 * (b - a) / L))
+            nArr = min(_FLECHES_MAX, max(3, _arrondi(8 * (b - a) / L)))
             xa = np.linspace(a, b, nArr + 1)
             pa = np.polyval(c, (xa[:-1] + xa[1:]) / 2 - a)
             for k in range(nArr):
@@ -186,7 +191,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
             _txt(fig, (a + b) / 2, 0.05 * L, f"p<sub>x</sub> : {label(nm)}", cDist, taille=9)
             yTop = max(yTop, 0.1 * L)
         else:
-            nArr = max(3, _arrondi(10 * (b - a) / L))
+            nArr = min(_FLECHES_MAX, max(3, _arrondi(10 * (b - a) / L)))
             xa = np.linspace(a, b, nArr)
             pa = np.polyval(c, xa - a)
             fig.add_shape(
