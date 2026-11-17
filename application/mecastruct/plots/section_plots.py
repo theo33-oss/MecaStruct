@@ -337,3 +337,48 @@ def sectionStress(sec: dict, P: dict | None, bend: dict | None, jour: dict | Non
         legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
     )
     return fig
+
+
+def filetage(nom: str, t: dict, diametre: str) -> go.Figure:
+    """Filetage métrique en coupe axiale : où se trouvent d, d2, ds et d3 sur le profil ISO 68-1.
+
+    Entrées : `nom` (« M10 »), `t` (sortie de tige_filetee : d, P, d2, d3, ds, As en mm et mm²), `diametre` (« noyau » ou
+    « resistant », celui du calcul, mis en avant). Profil de base de l'ISO 68-1 : sommets plats de P/8 au diamètre d,
+    fonds plats de P/4, flancs à 60°, hauteur de flanc 5H/8 avec H = 0,866·P. Sortie : figure Plotly, axes égaux ;
+    les étiquettes sont reliées à leur trait par une ligne et décalées en pixels (d2, ds et d3 sont très proches).
+    """
+    d, P = t["d"], t["P"]
+    r = d / 2
+    flanc = 0.3125 * P  # étendue axiale d'un flanc : (5H/8)·tan 30°
+    r1 = r - 5 * 0.866025 * P / 8  # rayon du fond de filet (d1 / 2)
+    x, y = [0.0], [r]
+    for k in range(3):  # trois pas
+        x0 = k * P
+        x += [x0 + P / 8, x0 + P / 8 + flanc, x0 + P / 8 + flanc + P / 4, x0 + P]
+        y += [r, r1, r1, r]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x + [x[-1], 0], y=y + [0, 0], mode="lines", fill="toself", fillcolor=rgb(_CONTOUR, 0.55),
+                             line=dict(color=COULEUR["trait"], width=1.5), hoverinfo="skip", showlegend=False))
+    fin = 3 * P
+    lim = {"noyau": "d3", "resistant": "ds"}[diametre]
+    lignes = [("d", t["d"], "nominal"), ("d2", t["d2"], "sur flancs"),
+              ("ds", t["ds"], "résistant, section As"), ("d3", t["d3"], "noyau")]  # fmt: skip
+    accent = rgb(_VERT)
+    for k, (cle, valeur, mot) in enumerate(lignes):
+        choisi = cle == lim
+        couleur = accent if choisi else COULEUR["trait"]
+        fig.add_shape(type="line", x0=0, x1=fin, y0=valeur / 2, y1=valeur / 2,
+                      line=dict(color=couleur, width=2.8 if choisi else 1, dash="solid" if choisi else "dot"))
+        texte = f"{cle} = {valeur:.3f} mm ({mot})" + ("  ← calcul" if choisi else "")
+        # la pointe touche la fin du trait ; le texte est décalé en pixels, de 26 px de plus à chaque ligne : jamais de chevauchement
+        fig.add_annotation(x=fin, y=valeur / 2, ax=70, ay=-6 + 26 * k, axref="pixel", ayref="pixel", text=f"<b>{texte}</b>" if choisi else texte,
+                           showarrow=True, arrowhead=0, arrowwidth=1.4 if choisi else 0.8, arrowcolor=couleur, xanchor="left",
+                           yanchor="middle", font=dict(color=couleur, size=14 if choisi else 13))  # fmt: skip
+    fig.add_shape(type="line", x0=-0.2 * d, x1=fin + 0.1 * d, y0=0, y1=0, line=dict(color=rgb(_AXES), width=1.2, dash="dashdot"))
+    fig.add_annotation(x=-0.2 * d, y=0, text="axe", showarrow=False, xanchor="right", font=dict(color=rgb(_AXES), size=12))
+    fig.add_annotation(xref="paper", yref="paper", x=0, y=-0.03, xanchor="left", yanchor="top", showarrow=False, font=dict(size=12),
+                       text=f"d2 = d − 0,6495·P ; d3 = d − 1,2269·P ; ds = (d2 + d3)/2 ; As = π·ds²/4 = {t['As']:.1f} mm² (ISO 898-1)")
+    fig.update_layout(title=f"Filetage {nom} × {P:g} mm : où se trouvent d3 et ds", showlegend=False, height=380,
+                      margin=dict(l=10, r=10, t=60, b=60), xaxis=dict(visible=False, range=[-0.45 * d, 1.55 * d]),
+                      yaxis=dict(visible=False, range=[-0.18 * d, 0.58 * d], scaleanchor="x"))  # fmt: skip
+    return fig

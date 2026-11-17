@@ -249,3 +249,36 @@ def test_schema_de_poutre_borne_le_nombre_de_fleches():
               "distLoads": [{"a": 0.0, "b": 0.05, "dir": "y", "coeffs": [-1000.0], "name": "q"}]}
     fig = beam_plots.beamSchematic(modele, None)
     assert len(fig.layout.annotations) < 60
+
+
+def test_schema_du_filetage_pour_chaque_diametre():
+    """Le schéma du filetage donne d > d2 > ds > d3 et met en avant le diamètre de calcul choisi."""
+    from mecastruct.pont import noyau
+    from mecastruct.pont import structures as st
+
+    noyau.charger("structures")
+    for nom in st.PAS_ISO:
+        for choix, cle in (("noyau", "d3"), ("resistant", "ds")):
+            t = st.tige_filetee(nom, choix)
+            assert t["d"] > t["d2"] > t["ds"] > t["d3"] > 0
+            r = json.loads(noyau.appeler("beam.filetage", json.dumps({"secSrc": "tige", "tigeM": nom, "tigeD": choix})))
+            assert r["ok"], r
+            textes = [a["text"] for a in r["sortie"]["layout"]["annotations"]]
+            assert sum("← calcul" in x for x in textes) == 1
+            assert any(x.startswith(f"<b>{cle} = ") for x in textes)
+    vide = json.loads(noyau.appeler("beam.filetage", json.dumps({"secSrc": "forme"})))
+    assert "vide" in vide["sortie"]
+
+
+def test_poutre_poids_propre_coche_de_base_avec_son_schema():
+    """Poutres : poids propre coché de base (page et exemples), schéma tracé avec la charge du poids propre."""
+    from mecastruct.pont import noyau
+
+    noyau.charger("structures")
+    f = noyau.tous_formulaires()["beam"]
+    assert f["defaut"]["selfw"] is True
+    assert next(g for g in f["groupes"] if g["titre"] == "Calcul")["ouvert"] is True
+    for nom in f["exemples"]:
+        assert json.loads(noyau.appeler("beam.exemple", json.dumps({"nom": nom})))["sortie"]["selfw"] is True
+    r = json.loads(noyau.appeler("beam.apercu", json.dumps(f["defaut"])))
+    assert r["ok"] and r["sortie"]["data"]

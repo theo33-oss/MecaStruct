@@ -37,7 +37,7 @@ def test_ligne_sens_max_et_min():
 
 
 def test_poutre_de_l_exemple():
-    c = appel("beam")["criteres"]
+    c = appel("beam", {**FORMULAIRES["beam"]["defaut"], "selfw": False})["criteres"]  # sans le poids propre, coché de base
     flexion = next(x for x in c if x["mode"].startswith("Flexion"))
     assert flexion["s_obtenu"] == pytest.approx(235 / 120.672, rel=1e-3) and flexion["s_demande"] == 1.5
     assert flexion["taux"] == pytest.approx(120.672 / 156.667, rel=1e-3)
@@ -207,3 +207,26 @@ def test_fichiers_ouverts_pour_de_vrai():
     assert "σmax = 159,2 MPa" in t and "159.2" not in t and "159,155" in t
     assert "\n" not in t.replace("\r\n", "")  # fins de ligne Windows partout
     assert "marge" in appel("rlt.texte")["texte"] and "[Matage]" in appel("cis.texte")["texte"]
+
+
+def test_bloc_notes_en_marge_de_securite():
+    """Réglage « marge (%) » de la page : le bloc-notes écrit la marge (s − 1) à côté de s, le calcul ne change pas."""
+    from mecastruct.pont import noyau
+
+    noyau.charger("structures")
+    s = json.loads(json.dumps(noyau.tous_formulaires()["beam"]["defaut"]))
+    s["s"] = 1.3
+    coef = json.loads(noyau.appeler("beam.texte", json.dumps(s)))["sortie"]["texte"]
+    marge = json.loads(noyau.appeler("beam.texte", json.dumps({**s, "_securite": "marge"})))["sortie"]["texte"]
+    assert "marge de sécurité 30 %" in marge and "marge de sécurité" not in coef
+    assert "demandée 30 %" in marge and "demandé 1,3" in coef
+
+
+def test_champs_de_securite_reperes():
+    """Chaque champ « Coefficient de sécurité » des pages porte le marqueur qui propose la marge en %."""
+    from mecastruct.pont import noyau
+
+    noyau.charger("machines"); noyau.charger("outils"); noyau.charger("structures")
+    trouves = [(i, c["id"]) for i, f in noyau.tous_formulaires().items() for g in f.get("groupes", []) for c in g["champs"] if c.get("securite")]
+    assert len(trouves) >= 10
+    assert ("beam", "s") in trouves and ("fla", "s") in trouves

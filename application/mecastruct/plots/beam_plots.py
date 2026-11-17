@@ -118,7 +118,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
     # ---- charges réparties (empilées si elles se recouvrent)
     dl = model.get("distLoads") or []
     pmaxAll = max(
-        (float(np.max(np.abs(np.polyval(d["coeffs"], np.linspace(0, d["b"] - d["a"], 50))))) for d in dl), default=0.0
+        (float(np.max(np.abs(np.polyval(np.asarray(d["coeffs"], dtype=float).ravel(), np.linspace(0, d["b"] - d["a"], 50))))) for d in dl), default=0.0
     )
     placed = []  # [a, b, sommet] des charges déjà tracées
     for i, d in enumerate(dl, start=1):

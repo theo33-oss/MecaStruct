@@ -55,6 +55,25 @@ def ossature(contraintes: dict, limites: dict) -> list[dict]:
     return trier(_garde(lignes))[:1]
 
 
+def completer_cisaillement(status: str, ok, crit: list[dict]) -> tuple[str, object]:
+    """Ligne d'état et verdict du Cisaillement, complétés par tous les modes de ruine de la page.
+
+    Le calcul ne juge que τ max et la pression de matage : Jourawski, la clavette et la goupille n'étaient dans
+    le verdict ni en toutes lettres ni dans « vérifié » (un mode rouge dans le diagramme laissait « vérifié »).
+    Chaque étude (Jourawski, Clavette, Goupille) est ajoutée à la ligne d'état, et un seul mode non admissible rend
+    le calcul « NON vérifié ».
+    """
+    for nom, repere in (("Jourawski", lambda c: c["mode"].startswith("Jourawski")),
+                        ("Clavette", lambda c: c.get("groupe") == "Clavette"),
+                        ("Goupille", lambda c: c.get("groupe") == "Goupille")):  # fmt: skip
+        modes = [c for c in crit if repere(c)]
+        if modes:
+            status += f" — {nom} : {'vérifié' if all(c['ok'] for c in modes) else 'NON vérifié'}"
+    if any(not c["ok"] for c in crit):
+        ok = False
+    return status, ok
+
+
 def _garde(lignes) -> list[dict]:
     return [x for x in lignes if x is not None]
 
