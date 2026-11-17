@@ -988,10 +988,37 @@ class Zone:
 
     # --- gestes sur la saisie d'un onglet ---
 
+    def securite(self, libelle: str, cle: Any, aide: str | None = None, apres: Callable[[], None] | None = None,
+                 actif: bool = True) -> float:
+        """Coefficient de sécurité s, ou marge en % (marge = s − 1) : réglage commun à toutes les pages (comme le site).
+
+        La saisie garde toujours s ; la marge n'est qu'une autre façon de l'écrire."""
+        marge = state.lire("securite", "coef") == "marge"
+        s = state.lire(cle, 1.0)
+        s = float(s) if isinstance(s, (int, float)) else 1.0
+        boite = QComboBox()
+        boite.addItems(["Coefficient s", "Marge (%)"])
+        boite.setCurrentIndex(1 if marge else 0)
+        boite.setToolTip("Coefficient de sécurité s, ou marge en % : marge = s − 1 (30 % donne s = 1,30). Valable pour toutes les pages.")
+
+        def bascule(i: int) -> None:
+            state.ecrire("securite", "marge" if i == 1 else "coef")
+            differer(self.page.rafraichirTout)
+
+        boite.currentIndexChanged.connect(bascule)
+        champ = ChampNombre((s - 1.0) * 100.0 if marge else s, False, 0.0 if marge else 1e-12, None,
+                            lambda x: self._rappel(cle, 1.0 + x / 100.0 if marge else x, apres))  # fmt: skip
+        champ.setEnabled(actif)
+        self._etiquette("Sécurité exprimée en", boite, "Coefficient s, ou marge en % (marge = s − 1) : même réglage sur toutes les pages.")
+        self._etiquette("Marge de sécurité (%)" if marge else libelle, champ, aide)
+        return s
+
     def num(self, tab: str, champ: str, label: str, unit: str = "", help: str | None = None,
             min_value: float | None = None, max_value: float | None = None, entier: bool = False,
             on_change: Callable[[], None] | None = None, actif: bool = True) -> Any:  # fmt: skip
         """Champ numérique lié à saisie[tab][champ] ; libellé « label (unit) »."""
+        if champ == "s" and label.startswith("Coefficient de sécurité"):
+            return self.securite(label, (tab, champ), help, on_change, actif)
         return self.nombre(f"{label} ({unit})" if unit else label, (tab, champ), mini=min_value, maxi=max_value,
                            entier=entier, apres=on_change, aide=help, actif=actif)  # fmt: skip
 

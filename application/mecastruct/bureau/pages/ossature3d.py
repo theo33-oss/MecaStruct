@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from mecastruct.bureau import exports, state
 from mecastruct.bureau.widgets import Colonne, Zone, liste_col, nombre_col
 from mecastruct.core import frame3d
-from mecastruct.services import criteres
+from mecastruct.services import criteres, forces
 from mecastruct.services.exemples_3d import EXPLICATIONS, exemples
 from mecastruct.services.ossature3d import (  # noqa: F401 : réexportés pour la page et les tests
     APPUIS,
@@ -61,6 +61,8 @@ def _colonnes(dm) -> dict[str, list[Colonne]]:
             _id("noeud", "Nœud"),
             *[nombre_col(c, f"{c} (N)") for c in ("Fx", "Fy", "Fz")],
             *[nombre_col(c, f"{c} (N·m)") for c in ("Mx", "My", "Mz")],
+            nombre_col("F", "F (N), si inclinée"), liste_col("plan", "Plan", ["xy", "xz", "yz"], "xz"),
+            nombre_col("ang", "α (°) dans le plan"),
         ],
         "charges_reparties": [_id("piece", "Pièce"), *[nombre_col(c, f"{c} (N/m)") for c in ("qx", "qy", "qz")]],
     }  # fmt: skip
@@ -220,6 +222,9 @@ def construire(page) -> object:
         def travail():
             try:
                 tables = {k: pd.DataFrame(s[k], columns=[c.cle for c in cols[k]]) for k in TABLES}
+                if not tables["charges_nodales"].empty:  # force inclinée : F, plan et α → Fx, Fy, Fz (règle du site)
+                    lignes = [forces.appliquer_polaire(r, "xz") for r in tables["charges_nodales"].to_dict("records")]
+                    tables["charges_nodales"] = pd.DataFrame(lignes)
                 data = _donnees(tables, s["pp"], dm)
                 res = frame3d.solveFrame3D(data)
             except (ValueError, frame3d.FrameMechanismError) as err:
@@ -256,7 +261,9 @@ def construire(page) -> object:
             strict=True,
         ):  # fmt: skip
             z.texte(f"**{titre}**")
-            z.table("P3D", k, cols[k])
+            z.table("P3D", k, cols[k],
+                    polaire=({"norme": "F", "angle": "ang", "plan": "plan", "composantes": ["Fx", "Fy", "Fz"]}
+                             if k == "charges_nodales" else None))
             if k == "pieces":
                 _materiaux(z, state.extra["P3D"]["pieces"], dm)
         z.case("Poids propre", ("P3D", "pp"), aide="ρ·g·A selon -Z, g = 9,81 m/s².")

@@ -294,3 +294,36 @@ def test_force_inclinee_remplit_fx_fy_dans_le_tableau(bureau):
     ligne["Fy"] = 3.0
     tableau._suit_polaire(ligne, "Fy")
     assert ligne["F"] == 0.0 and ligne["ang"] == 0.0
+
+
+def test_marge_de_securite_en_pourcentage_sur_toutes_les_pages(bureau):
+    """Réglage « Marge (%) » : la page écrit s = 1 + m/100 (30 % donne 1,3) et affiche la marge, comme le site."""
+    s = _poutres(bureau)
+    state.ecrire("securite", "marge")
+    bureau.page.rafraichirTout()
+    bureau.saisit("Marge de sécurité (%)", "30")
+    assert state.saisie("Beam")["s"] == pytest.approx(1.3, rel=1e-9)
+    bureau.clique("Calculer")
+    assert state.result("Beam") is not None
+    state.ecrire("securite", "coef")
+    bureau.page.rafraichirTout()
+    assert state.saisie("Beam")["s"] == pytest.approx(1.3, rel=1e-9)  # la saisie garde s
+
+
+def test_ossature_3d_force_inclinee_dans_le_plan_yz(bureau):
+    """Ossature 3D (bureau) : F = 1000 N à −90° dans yz équivaut à Fz = −1000 N (même chemin de calcul que le site)."""
+    import copy
+
+    import pandas as pd
+
+    from mecastruct.bureau.pages import ossature3d as o3
+    from mecastruct.services import forces
+
+    cols = o3._colonnes(state.dm())["charges_nodales"]
+    ligne = {c.cle: c.defaut for c in cols}
+    ligne.update({"noeud": 2, "F": 1000.0, "plan": "yz", "ang": -90.0})
+    lignes = [forces.appliquer_polaire(ligne, "xz")]
+    df = pd.DataFrame(lignes)
+    assert float(df.loc[0, "Fy"]) == pytest.approx(0.0, abs=1e-9) and float(df.loc[0, "Fz"]) == pytest.approx(-1000.0)
+    assert float(df.loc[0, "Fx"]) == 0.0
+    assert copy.deepcopy(ligne)["F"] == 1000.0
