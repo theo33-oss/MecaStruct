@@ -597,7 +597,8 @@ def _formulaires() -> dict:
                                      aide="S, inerties, ky, kz, fibres extrêmes et matériau de la section calculée dans la page Sections."), "secSrc", "sections"),
                        {"id": "secImage", "type": "figure", "calcul": "beam.section", "libelle": "Section",
                         "depend": ["secSrc", "secForme", "tigeM", "tigeD", "pfam", "section", *["f_" + k for k in DIMENSIONS]]},
-                       *[si(c, "secSrc", "catalogue", "sections", "saisie") for c in (
+                       # masqués pour une forme ou une tige (calculés d'office), mais toujours dans les exports
+                       *[{**si(c, "secSrc", "catalogue", "sections", "saisie"), "exporte": True} for c in (
                            nb("S", "S", "mm²", aide="Aire de la section droite."),
                            nb("Iz", "Iz, flexion (x,y)", "mm⁴", aide="Moment quadratique pour la flexion dans le plan (x,y), charges verticales."),
                            nb("Iy", "Iy, flexion (x,z)", "mm⁴", aide="Moment quadratique pour la flexion dans le plan (x,z)."),

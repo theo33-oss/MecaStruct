@@ -39,8 +39,9 @@ def fr(texte) -> str:
 
 
 def _visible(champ: dict, saisie: dict) -> bool:
-    si = champ.get("si")
-    return not si or saisie.get(si["id"]) in si["valeurs"]
+    """Champ affiché sur la page : chacune de ses conditions (une seule, ou une liste) est remplie."""
+    si = champ.get("si") or []
+    return all(saisie.get(k["id"]) in k["valeurs"] for k in ([si] if isinstance(si, dict) else si))
 
 
 def donnees(formulaire: dict, saisie: dict) -> list[dict]:
@@ -48,7 +49,7 @@ def donnees(formulaire: dict, saisie: dict) -> list[dict]:
     lignes = []
     for g in formulaire.get("groupes", []):
         for c in g["champs"]:
-            if c.get("type") not in _SCALAIRES or c["id"] not in saisie or not _visible(c, saisie):
+            if c.get("type") not in _SCALAIRES or c["id"] not in saisie or not (_visible(c, saisie) or c.get("exporte")):
                 continue
             v = brut = saisie[c["id"]]
             if c["type"] == "liste" and c.get("etiquettes") and v in c["options"]:
