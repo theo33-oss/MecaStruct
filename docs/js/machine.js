@@ -208,7 +208,12 @@
     function majPolaire(ligne, id) {
       const po = c.polaire;
       if (!po) return;
-      if (COMPOSANTES.includes(id)) { ligne[po.norme] = 0; ligne[po.angle] = 0; }
+      if (COMPOSANTES.includes(id)) {
+        // première saisie à la main sur une ligne inclinée : les autres composantes venaient de F et α, elles repartent de 0
+        if (Number(ligne[po.norme]) !== 0) for (const n of COMPOSANTES) if (n !== id && n in ligne) ligne[n] = 0;
+        ligne[po.norme] = 0;
+        ligne[po.angle] = 0;
+      }
       else if ([po.norme, po.angle, po.plan].includes(id) && Number(ligne[po.norme]) !== 0) {
         const f = Number(ligne[po.norme]), a = (Number(ligne[po.angle]) || 0) * Math.PI / 180;
         const [u, v] = AXES[ligne[po.plan]] || AXES[po.plans[0]];
@@ -239,6 +244,12 @@
       champs.get(ligne)[k.id] = i;
       i.addEventListener("input", () => {
         if (k.genre !== "nombre") { ligne[k.id] = i.value; return publier(); }
+        if (c.polaire && [c.polaire.norme, c.polaire.angle].includes(k.id) && i.value.trim() === "") {
+          // F ou α vidé = plus de force inclinée : Fx, Fy, Fz gardent leur valeur et se saisissent de nouveau à la main
+          i.classList.remove("invalide"); i.title = "";
+          ligne[k.id] = 0;
+          return publier();
+        }
         const [v, texte] = verifierNombre({ entier: k.entier }, i.value);
         i.classList.toggle("invalide", !!texte);
         i.title = texte;

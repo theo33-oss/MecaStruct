@@ -367,6 +367,16 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
         legende.append(("Réactions", cReac))
     for nom, couleur in legende:
         fig.add_trace(go.Scatter(x=[None], y=[None], mode="lines", name=nom, line=dict(color=couleur, width=3)))
+    # repère de la poutre, dans la marge de droite sous la légende : x suivant l'axe de la poutre, y perpendiculaire, z hors du plan
+    # (flèches tracées depuis l'origine, en pixels, avec la pointe au bout libre : arrowside="start")
+    origine = dict(xref="paper", yref="paper", x=1.05, y=0.1, axref="pixel", ayref="pixel")
+    for dx, dy in ((46, 0), (0, -46)):
+        fig.add_annotation(text="", showarrow=True, ax=dx, ay=dy, arrowhead=2, arrowside="start", arrowwidth=2, arrowcolor=fg, **origine)
+    for texte, xs, ys in (("x", 58, 0), ("y", 0, 58), ("⊙ z", -22, -14)):
+        fig.add_annotation(text=f"<b>{texte}</b>", showarrow=False, xshift=xs, yshift=ys, font=dict(size=13, color=fg),
+                           xref="paper", yref="paper", x=1.05, y=0.1)
+    fig.add_annotation(text="x : axe de la poutre", showarrow=False, xshift=34, yshift=-26, font=dict(size=10, color=fg),
+                       xref="paper", yref="paper", x=1.05, y=0.1)
     fig.update_layout(
         title_text="Schéma de la poutre",
         height=420,
