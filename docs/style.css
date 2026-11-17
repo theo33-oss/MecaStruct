@@ -186,6 +186,9 @@ td.verdict.erreur { background: var(--err-fond); color: var(--err-texte); }
 .tableau { margin: 6px 0 14px; }
 .tableau > button { margin-top: 4px; }
 .formule { margin: 6px 0; padding: 4px 10px; background: var(--figure-fond); border-left: 3px solid var(--accent); overflow-x: auto; }
+/* image dans la saisie (section de la poutre) : sur toute la largeur de la grille des champs */
+.champ-large { grid-column: 1 / -1; }
+.figure.figure-petite { min-height: 220px; }
 /* hauteur réglable : tirer le coin en bas à droite de la figure */
 .figure { background: var(--figure-fond); border: 1px solid var(--bord); border-radius: 6px; min-height: 200px; overflow: hidden; resize: vertical; }
 .onglets { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }

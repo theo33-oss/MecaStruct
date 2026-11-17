@@ -88,6 +88,23 @@
       return el("label", { aide }, titre, input);
     }
     if (c.type === "tableau") return tableauEditable(c, saisie, changer);
+    if (c.type === "figure") {
+      const zone = el("div", { class: "figure-saisie" });
+      let attente = null;
+      const dessiner = () => {
+        const r = App.calculer(c.calcul, saisie);
+        if (!r.ok) zone.replaceChildren(App.message("info", "Dessin indisponible : " + r.erreur));
+        else if (r.sortie && r.sortie.vide) zone.replaceChildren(el("p", { class: "legende", texte: r.sortie.vide }));
+        else zone.replaceChildren(App.figure(r.sortie, "figure figure-petite"));
+      };
+      dessiner();
+      outils.surChangement((id) => {
+        if (!(c.depend || []).includes(id)) return;
+        clearTimeout(attente);
+        attente = setTimeout(dessiner, 300);
+      });
+      return el("div", { class: "champ-large" }, el("span", { class: "titre-champ", texte: c.libelle }), zone);
+    }
     if (c.type === "action") return action(c, saisie, outils);
     if (c.type === "transfert") { // recopie des champs d'une page dans une autre (section → Poutres, efforts → Sections…)
       return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.transfert(c) }));
@@ -244,8 +261,9 @@
     let minuterie = null;
     const enregistrer = () => App.memoire.ecrire("saisie." + ident, saisie);
     const tousChamps = f.groupes.flatMap((g) => g.champs);
-    const controleurs = new Set(tousChamps.flatMap((c) => [c.si && c.si.id, c.options_de && c.type === "liste" && c.options_de.depuis].filter(Boolean)));
-    const visible = (c) => !c.si || c.si.valeurs.includes(saisie[c.si.id]);
+    const conditions = (c) => [].concat(c.si || []); // une condition ou une liste de conditions, toutes requises
+    const controleurs = new Set(tousChamps.flatMap((c) => [...conditions(c).map((k) => k.id), c.options_de && c.type === "liste" && c.options_de.depuis].filter(Boolean)));
+    const visible = (c) => conditions(c).every((k) => k.valeurs.includes(saisie[k.id]));
 
     const changer = (id, v) => {
       if (typeof v === "number" && Number.isNaN(v)) invalides.add(id);
@@ -255,8 +273,12 @@
         enregistrer();
         const suite = (f.suites || {})[id];
         if (suite) {
-          const r = App.calculer(suite.calcul, { nom: v, champs: suite.champs });
-          if (r.ok) { for (const [k, x] of Object.entries(r.sortie)) if (x !== null) saisie[k] = x; enregistrer(); dessinerChamps(); }
+          const r = App.calculer(suite.calcul, { nom: v, champs: suite.champs, saisie });
+          if (r.ok) {
+            for (const [k, x] of Object.entries(r.sortie)) if (x !== null) saisie[k] = x;
+            enregistrer();
+            if (!suite.discret) dessinerChamps();
+          }
         }
         abonnes.forEach((a) => a(id));
         marquerExtras();

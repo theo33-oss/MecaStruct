@@ -222,3 +222,30 @@ def test_dossier_de_validation_des_pages_de_machines(ident):
     html = r["sortie"]["html"]
     assert "contrôles de calcul concordent" in html and "écart(s) à examiner" not in html
     assert "NON satisfaite" not in html and "non exécutée" not in html
+
+
+def test_schema_de_poutre_rapide_avec_une_longueur_minuscule():
+    """L = 0,043 m tapé dans l'exemple (appuis et charges à 6 m) : message immédiat, plus de gel du navigateur."""
+    import json
+    import time
+
+    from mecastruct.pont import noyau
+
+    noyau.charger("structures")
+    s = json.loads(json.dumps(noyau.tous_formulaires()["beam"]["defaut"]))
+    for L in (0.04, 0.043):
+        s["L"] = L
+        t = time.time()
+        r = json.loads(noyau.appeler("beam.apercu", json.dumps(s)))
+        assert time.time() - t < 2
+        assert not r["ok"] and "hors de la poutre" in r["erreur"]
+
+
+def test_schema_de_poutre_borne_le_nombre_de_fleches():
+    """Charge répartie bien plus longue que la poutre dessinée : au plus 30 flèches."""
+    from mecastruct.plots import beam_plots
+
+    modele = {"L": 0.05, "supports": [{"pos": 0.0, "type": "encastrement"}],
+              "distLoads": [{"a": 0.0, "b": 0.05, "dir": "y", "coeffs": [-1000.0], "name": "q"}]}
+    fig = beam_plots.beamSchematic(modele, None)
+    assert len(fig.layout.annotations) < 60
