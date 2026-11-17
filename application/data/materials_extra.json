@@ -614,5 +614,47 @@
   "Note": "Source : classeur matériaux de l'auteur (nuance « A S 10 G Y20 »), Re et Rm minimaux. α = 21e-6 /°C : tableur « Coefficients de dilatation thermique linéaire » (2026), AlSi7Mg 21,4 et AlSi12 20,5 (le classeur donnait 26). ρ : valeur usuelle. G calculé par G = E/(2(1+ν)). Valeurs typiques, à vérifier sur la fiche matière du fournisseur avant un usage professionnel.",
   "IsUser": false,
   "Author": "Base complémentaire"
- }
+ },
+  {
+    "Name": "C45 (1.0503, XC45) normalisé (C45N)",
+    "Category": "Acier de construction mécanique",
+    "E": 210000000000.0,
+    "G": 80769230769.23077,
+    "nu": 0.3,
+    "Re": 340000000.0,
+    "Rm": 620000000.0,
+    "alpha": 1.1e-05,
+    "rho": 7850,
+    "Note": "Source : EN 10083-2, état normalisé (+N), Re et Rm minimaux pour une épaisseur jusqu'à 16 mm. De 16 à 100 mm : Re = 305 MPa, Rm = 580 MPa. E = 210 GPa (Eurocode 3), ρ : valeur usuelle, G calculé par G = E/(2(1+ν)). Valeurs minimales de la norme à retrouver dans la norme EN 10083-2 ou sur la fiche matière du fournisseur avant un usage professionnel (recherche sur Internet le 17 novembre 2026, sources secondaires).",
+    "IsUser": false,
+    "Author": "Base complémentaire"
+  },
+  {
+    "Name": "C45 (1.0503, XC45) trempé-revenu (C45V)",
+    "Category": "Acier de construction mécanique",
+    "E": 210000000000.0,
+    "G": 80769230769.23077,
+    "nu": 0.3,
+    "Re": 490000000.0,
+    "Rm": 700000000.0,
+    "alpha": 1.1e-05,
+    "rho": 7850,
+    "Note": "Source : EN 10083-2, état trempé-revenu (+QT, « V » = vergütet), Re minimal et Rm minimal de la plage 700-850 MPa pour un diamètre jusqu'à 16 mm. De 16 à 40 mm : Re = 430 MPa, Rm = 650-800 MPa ; de 40 à 100 mm : Re = 370 MPa, Rm = 630-780 MPa. E = 210 GPa (Eurocode 3), ρ : valeur usuelle, G calculé par G = E/(2(1+ν)). Valeurs minimales de la norme à retrouver dans la norme EN 10083-2 ou sur la fiche matière du fournisseur avant un usage professionnel (recherche sur Internet le 17 novembre 2026, sources secondaires).",
+    "IsUser": false,
+    "Author": "Base complémentaire"
+  },
+  {
+    "Name": "C35 (1.0501, XC35) normalisé (C35N)",
+    "Category": "Acier de construction mécanique",
+    "E": 210000000000.0,
+    "G": 80769230769.23077,
+    "nu": 0.3,
+    "Re": 300000000.0,
+    "Rm": 550000000.0,
+    "alpha": 1.1e-05,
+    "rho": 7850,
+    "Note": "Source : EN 10083-2, état normalisé (+N), Re et Rm minimaux pour une épaisseur jusqu'à 16 mm. De 16 à 100 mm : Re = 270 MPa, Rm = 520 MPa (non retrouvé tel quel sur Internet ; la plage trouvée est Re 245-300 MPa, Rm 460-670 MPa). E = 210 GPa (Eurocode 3), ρ : valeur usuelle, G calculé par G = E/(2(1+ν)). Valeurs minimales de la norme à retrouver dans la norme EN 10083-2 ou sur la fiche matière du fournisseur avant un usage professionnel (recherche sur Internet le 17 novembre 2026, sources secondaires).",
+    "IsUser": false,
+    "Author": "Base complémentaire"
+  }
 ]
