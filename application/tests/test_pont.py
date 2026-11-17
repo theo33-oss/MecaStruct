@@ -310,6 +310,7 @@ def test_force_inclinee_dans_le_formulaire_et_le_schema():
     assert r["ok"]
     textes = json.dumps(r["sortie"]["data"], ensure_ascii=False) + json.dumps(r["sortie"].get("layout", {}), ensure_ascii=False)
     assert "F = 10 kN à -30" in textes.replace("−", "-")
+    assert "x : axe de la poutre" in textes  # repère du schéma
 
 
 def test_force_inclinee_de_l_ossature_3d_dans_n_importe_quel_plan():
