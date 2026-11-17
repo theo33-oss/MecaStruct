@@ -18,6 +18,7 @@ from mecastruct.core import beam_solver, buckling, frame3d, geometry
 from mecastruct.core.data_manager import sectionPresets
 from mecastruct.core.pp import asPP
 from mecastruct.core.units import fromSI
+from mecastruct.core.utils import load_json
 from mecastruct.plots import beam_plots, other_plots, section_plots, sollicitation_plots
 from mecastruct.pont import exports
 from mecastruct.pont.formulaire import case, col, groupe, liste, nb, tableau, texte
@@ -160,7 +161,7 @@ def poutre(s):
         ["Kt·σ max", f"{bd['sigmaMaxKt'] / 1e6:.4g} MPa (σadm {bd['sigmaAdm'] / 1e6:.4g})"],
     ]
     if sh is not None:
-        metriques.append(["VEd/Vpl,Rd", f"{sh['ratio']:.3g}"])
+        metriques.append(["τ max / τ adm" if sh.get("mode") == "jourawski" else "VEd/Vpl,Rd", f"{sh['ratio']:.3g}"])
     figures = [
         ("Schéma", _figure(lambda: beam_plots.beamSchematic(calc["model"], sol))),
         ("Diagrammes", _figure(lambda: beam_plots.internalForces(sol, comps))),
@@ -192,17 +193,37 @@ def poutreProfil(s):
 # --------------------------------------------------------------------- section de la poutre : forme ou tige filetée
 # Formes paramétrées proposées dans Poutres (celles de la page Sections, sans profilé ni section composée)
 FORMES_POUTRE = ["rectangle", "disque", "couronne", "rectangle_creux", "I", "T", "U", "L"]
-# Filetage métrique à pas gros (ISO 261) : diamètre nominal d (mm) → pas P (mm)
-PAS_ISO = {"M3": 0.5, "M4": 0.7, "M5": 0.8, "M6": 1.0, "M8": 1.25, "M10": 1.5, "M12": 1.75, "M14": 2.0, "M16": 2.0,
-           "M18": 2.5, "M20": 2.5, "M22": 2.5, "M24": 3.0, "M27": 3.0, "M30": 3.5, "M33": 3.5, "M36": 4.0}  # fmt: skip
+# Filetages métriques ISO (pas gros M3 à M72, pas fins) : diamètres d2 et d3 de H7g6.fr, « Dimensions des filetages ISO »
+# (d'après ISO 68-1 et ISO 724), data/filetages_iso.json. Nom : « M10 » (pas gros) ou « M10x1.25 » (pas fin).
+SOURCE_FILETAGES = "H7g6.fr, « Dimensions des filetages ISO » (ISO 68-1, ISO 724) : h7g6.fr/data/article/33/dimensions-des-filetages-iso"
+
+
+def _filetages() -> dict:
+    d = load_json("filetages_iso.json")
+    tab = {}
+    for fin, lignes in ((False, d["gros"]), (True, d["fin"])):
+        for dn, pas, d2, _d1, d3, As in lignes:
+            nom = f"M{dn:g}" + (f"x{pas:g}" if fin else "")
+            tab[nom] = {"d": dn, "P": pas, "d2": d2, "d3": d3, "As_table": As, "fin": fin}
+    return tab
+
+
+FILETAGES = _filetages()
+PAS_ISO = {n: v["P"] for n, v in FILETAGES.items() if not v["fin"]}  # pas gros, nom → pas (mm)
+
+
+def _etiquette_filetage(nom: str) -> str:
+    v = FILETAGES[nom]
+    pas = f"{v['P']:g}".replace(".", ",")
+    return f"M{v['d']:g} × {pas} (pas fin)" if v["fin"] else f"M{v['d']:g} (pas gros {pas})"
 
 
 def tige_filetee(nom: str, diametre: str) -> dict:
-    """Diamètres d'une tige filetée ISO : d, pas P, d2 = d − 0,6495·P, noyau d3 = d − 1,2269·P, ds = (d2 + d3)/2 et
-    section résistante As = π·ds²/4 (ISO 898-1), en mm et mm². `diametre` choisit le disque de calcul : « noyau » (d3,
-    prudent) ou « resistant » (ds, section As)."""
-    d, P = float(nom[1:]), PAS_ISO[nom]
-    d2, d3 = d - 0.649519 * P, d - 1.226869 * P
+    """Diamètres d'une tige filetée ISO, en mm et mm² : d, pas P, d2 et d3 du tableau ISO (H7g6.fr), ds = (d2 + d3)/2 et
+    section résistante As = π·ds²/4 (ISO 898-1). `diametre` choisit le disque de calcul : « noyau » (d3, prudent) ou
+    « resistant » (ds, section As)."""
+    v = FILETAGES[nom]
+    d, P, d2, d3 = v["d"], v["P"], v["d2"], v["d3"]
     ds = (d2 + d3) / 2
     return {"d": d, "P": P, "d2": d2, "d3": d3, "ds": ds, "As": math.pi * ds**2 / 4, "D": d3 if diametre == "noyau" else ds}
 
@@ -219,7 +240,7 @@ def _section_parametree(s: dict) -> tuple[dict, str] | None:
         sec = geometry.validateSection({"type": "disque", "D": t["D"] / 1e3})
         quoi = "noyau d3" if s.get("tigeD", "noyau") == "noyau" else "diamètre résistant ds"
         return sec, (f"Tige filetée {s.get('tigeM', 'M10')} × {t['P']:g} : calcul sur le {quoi} = {t['D']:.3f} mm "
-                     f"(d3 = {t['d3']:.3f} mm, As = {t['As']:.1f} mm²)")  # fmt: skip
+                     f"(d3 = {t['d3']:.3f} mm, As = {t['As']:.1f} mm²). Source : {SOURCE_FILETAGES}")  # fmt: skip
     return None
 
 
@@ -605,9 +626,10 @@ def _formulaires() -> dict:
                        si(liste("secForme", "Forme", FORMES_POUTRE, etiquettes=[t["label"] for t in geometry.sectionTypes() if t["type"] in FORMES_POUTRE]), "secSrc", "forme"),
                        *[{**nb("f_" + k, v, "mm", 0.0), "si": [{"id": "secSrc", "valeurs": ["forme"]}, {"id": "secForme", "valeurs": TYPES_PAR_DIMENSION[k]}]}
                          for k, v in DIMENSIONS.items()],
-                       si(liste("tigeM", "Tige filetée (ISO, pas gros)", list(PAS_ISO), aide="Diamètre nominal ; le pas normal ISO 261 est pris d'office."), "secSrc", "tige"),
+                       si(liste("tigeM", "Tige filetée (ISO, pas gros ou fin)", list(FILETAGES), etiquettes=[_etiquette_filetage(n) for n in FILETAGES],
+                                aide="Diamètre nominal et pas (M3 à M72, pas gros et pas fins). Source : " + SOURCE_FILETAGES + "."), "secSrc", "tige"),
                        si(liste("tigeD", "Diamètre de calcul", ["noyau", "resistant"], etiquettes=["Noyau d3 (prudent)", "Diamètre résistant ds (section As, ISO 898-1)"],
-                                aide="Le noyau d3 donne la plus petite section ; ds donne la section résistante As des normes de boulonnerie."), "secSrc", "tige"),
+                                aide="Le noyau d3 donne la plus petite section ; ds donne la section résistante As des normes de boulonnerie. Source des d2 et d3 : " + SOURCE_FILETAGES + "."), "secSrc", "tige"),
                        si(_transfert("section_poutre", {"sec": "sec", "beam": "self"}, {"beam": "self"}, calcul="transfert.section", libelle="← Reprendre la section de la page Sections",
                                      aide="S, inerties, ky, kz, fibres extrêmes et matériau de la section calculée dans la page Sections."), "secSrc", "sections"),
                        {"id": "secImage", "type": "figure", "calcul": "beam.section", "libelle": "Section",

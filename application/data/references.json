@@ -152,5 +152,13 @@
   "annee": "consulté en juin 2026",
   "role": "Base de matériaux : propriétés mécaniques des alliages d'aluminium.",
   "genre": "document"
+ },
+ {
+  "numero": "H7g6.fr, « Dimensions des filetages ISO »",
+  "titre": "Tableaux des filetages métriques à pas gros (M3 à M72) et à pas fins : pas, diamètres d2, D1 et d3, section résistante (d'après ISO 68-1 et ISO 724)",
+  "annee": "consulté en novembre 2026",
+  "role": "Diamètres d2 et d3 de la tige filetée de la page Poutres (choix de la section), schéma du filetage ; données dans data/filetages_iso.json. La section résistante As du tableau est retrouvée par As = π·ds²/4 avec ds = (d2 + d3)/2 (ISO 898-1).",
+  "genre": "document",
+  "lien": "https://www.h7g6.fr/data/article/33/dimensions-des-filetages-iso"
  }
 ]

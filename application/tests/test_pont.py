@@ -282,3 +282,15 @@ def test_poutre_poids_propre_coche_de_base_avec_son_schema():
         assert json.loads(noyau.appeler("beam.exemple", json.dumps({"nom": nom})))["sortie"]["selfw"] is True
     r = json.loads(noyau.appeler("beam.apercu", json.dumps(f["defaut"])))
     assert r["ok"] and r["sortie"]["data"]
+
+
+def test_filetages_iso_du_tableau_h7g6():
+    """Le tableau (M3 à M72, pas gros et fins) donne d2, d3 ; As = π·ds²/4 retrouve la section du tableau à 1 % près."""
+    from mecastruct.pont import structures
+
+    assert len(structures.FILETAGES) == 40 and "M72" in structures.FILETAGES and "M10x1.25" in structures.FILETAGES
+    for nom, v in structures.FILETAGES.items():
+        t = structures.tige_filetee(nom, "resistant")
+        assert t["d"] > t["d2"] > t["ds"] > t["d3"] > 0, nom
+        assert abs(t["As"] - v["As_table"]) <= 0.01 * v["As_table"], (nom, t["As"], v["As_table"])
+    assert abs(structures.tige_filetee("M10", "noyau")["D"] - 8.16) < 1e-9

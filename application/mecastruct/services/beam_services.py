@@ -363,12 +363,12 @@ def _shearCheck(saisie: dict, Ty: np.ndarray) -> dict | None:
     Erreur : MecaStruct:App:invalidInput si Re ou γM0 n'est pas > 0.
     """
     sec = saisie.get("section")
-    if sec is None:
-        return None
     try:
-        d = design_checks.ibeamDims(sec)
+        d = design_checks.ibeamDims(sec) if sec is not None else None
     except MecaStructError:
-        return None
+        d = None
+    if d is None:
+        return _shearGeneral(saisie, Ty, sec)
     fy = toSI(saisie["Re"], "MPa")
     gM0 = float(saisie.get("gM0", 1.0))
     if not (fy > 0 and gM0 > 0):
@@ -380,7 +380,38 @@ def _shearCheck(saisie: dict, Ty: np.ndarray) -> dict | None:
     Av = max(S - 2 * d["b"] * d["tf"] + (d["tw"] + 2 * d["r"]) * d["tf"], eta * hw * d["tw"])
     Vpl = Av * (fy / math.sqrt(3)) / gM0
     VEd = float(np.max(np.abs(Ty)))
-    return {"VEd": VEd, "Av": Av, "Vpl": Vpl, "ratio": VEd / Vpl, "ok": bool(VEd / Vpl <= 1)}
+    return {"VEd": VEd, "Av": Av, "Vpl": Vpl, "ratio": VEd / Vpl, "ok": bool(VEd / Vpl <= 1), "mode": "ec3"}
+
+
+def _shearGeneral(saisie: dict, Ty: np.ndarray, sec: dict | None) -> dict | None:
+    """Tranchant d'une section quelconque (rectangle, disque, tige filetée, tube, valeurs saisies) : Jourawski,
+    τmax = k·VEd/S ≤ τadm = Re/(2·s) (Tresca). k vient de la géométrie de la section (1,5 d'un rectangle, 4/3 d'un
+    disque…), ou vaut 1,5 si la section n'est connue que par ses valeurs saisies.
+
+    Même forme que le tranchant de l'Eurocode : Av = S/k (aire qui reprend le tranchant) et Vpl = Av·τadm, donc
+    VEd/Vpl = τmax/τadm. None si S, Re ou s ne sont pas exploitables."""
+    try:
+        S = toSI(saisie["S"], "mm^2")
+        fy = toSI(saisie["Re"], "MPa")
+        s = float(saisie.get("s", 1.0))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (S > 0 and fy > 0 and s > 0):
+        return None
+    k, src = 1.5, "k = 1,5 (section pleine supposée, section décrite par ses valeurs seules)"
+    if sec is not None:
+        try:
+            kn = float(geometry.shearFactors(sec)["kNum"])
+            if math.isfinite(kn) and kn >= 1:
+                k, src = kn, f"k = {kn:.4g} (Jourawski, géométrie de la section)"
+        except MecaStructError:
+            pass
+    Av = S / k
+    tauAdm = fy / 2 / s
+    Vpl = Av * tauAdm
+    VEd = float(np.max(np.abs(Ty)))
+    return {"VEd": VEd, "Av": Av, "Vpl": Vpl, "ratio": VEd / Vpl, "ok": bool(VEd / Vpl <= 1), "mode": "jourawski",
+            "k": k, "tauMax": k * VEd / S, "tauAdm": tauAdm, "src": src}  # fmt: skip
 
 
 def _shearText(chk: dict) -> str:
@@ -388,8 +419,13 @@ def _shearText(chk: dict) -> str:
     sh = chk["shear"]
     if sh is None:
         return (
-            "Tranchant : flexion seule, tranchant non vérifié (Vpl,Rd demande un profilé IPE, HEA, HEB, IPN ou une "
-            "section en I)."
+            "Tranchant : non vérifié (S, Re ou s manquants)."
+        )
+    if sh.get("mode") == "jourawski":
+        return (
+            f"Tranchant (Jourawski) : VEd = max|Ty| = {sh['VEd'] / 1e3:.5g} kN, {sh['src']}, "
+            f"τmax = k·VEd/S = {sh['tauMax'] / 1e6:.5g} MPa, τadm = Re/(2·s) = {sh['tauAdm'] / 1e6:.5g} MPa, "
+            f"τmax/τadm = {sh['ratio']:.3g} → {_okText(sh['ok'])}"
         )
     return (
         f"Tranchant [EN 1993-1-1 §6.2.6] : VEd = max|Ty| = {sh['VEd'] / 1e3:.5g} kN, Av = {sh['Av'] * 1e6:.5g} mm², "
@@ -498,7 +534,7 @@ def computeBeam(saisie: dict, dm: DataManager) -> dict:
     h = sol["h"]
     hTxt = "isostatique" if sol["isostatic"] else "hyperstatique"
     bd, sh = chk["bend"], chk["shear"]
-    shTxt = "flexion seule, tranchant non vérifié" if sh is None else f"VEd/Vpl,Rd = {sh['ratio']:.3g}"
+    shTxt = "tranchant non vérifié" if sh is None else (f"τ max/τ adm = {sh['ratio']:.3g}" if sh.get("mode") == "jourawski" else f"VEd/Vpl,Rd = {sh['ratio']:.3g}")
     status = (
         f"h = {h['total']} ({hTxt}) — f max = {d['integration']['fmax'] * 1e3:.4g} mm — "
         f"Kt·|σ|max = {bd['sigmaMaxKt'] / 1e6:.4g} MPa, {shTxt} ({_okText(chk['ok'])})"
@@ -534,12 +570,17 @@ def beamReport(res: dict) -> list[str]:
     shTxt = (
         " Flexion seule, tranchant non vérifié."
         if sh is None
-        else f" Tranchant : VEd/Vpl,Rd = {sh['ratio']:.3g} ({sh['VEd'] / 1e3:.1f} kN pour {sh['Vpl'] / 1e3:.1f} kN)."
+        else (
+            f" Tranchant (Jourawski) : τ max = {sh['tauMax'] / 1e6:.1f} MPa pour {sh['tauAdm'] / 1e6:.1f} MPa admissibles "
+            f"(taux {sh['ratio'] * 100:.0f} %)."
+            if sh.get("mode") == "jourawski"
+            else f" Tranchant : VEd/Vpl,Rd = {sh['ratio']:.3g} ({sh['VEd'] / 1e3:.1f} kN pour {sh['Vpl'] / 1e3:.1f} kN)."
+        )
     )
     if chk["ok"]:
         verdict = (
             f"Verdict : la poutre résiste. Contrainte {sig:.1f} MPa pour {adm:.1f} MPa admissibles, "
-            f"marge {marge:.0f} %.{shTxt}"
+            f"taux {100 - marge:.0f} %.{shTxt}"
         )
     elif bd["ok"]:
         verdict = (
@@ -549,7 +590,7 @@ def beamReport(res: dict) -> list[str]:
     else:
         verdict = (
             f"Verdict : la poutre NE résiste PAS. Contrainte {sig:.1f} MPa pour {adm:.1f} MPa admissibles "
-            f"(dépassement {-marge:.0f} %).{shTxt} Augmentez la section ou réduisez la charge."
+            f"(taux {100 - marge:.0f} %).{shTxt} Augmentez la section ou réduisez la charge."
         )
     lines = [
         verdict,

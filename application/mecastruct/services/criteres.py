@@ -103,7 +103,10 @@ def _beam(s, calc):
     b, sh = c["bend"], c.get("shear")
     lignes = [ligne("Flexion composée : Kt·σ max", b["sigmaMaxKt"] / 1e6, b["sigmaAdm"] / 1e6, "MPa", s["s"])]
     if sh:
-        lignes.append(ligne("Effort tranchant : VEd / Vpl,Rd", sh["VEd"] / 1e3, sh["Vpl"] / 1e3, "kN", ok=sh["ok"], genre="limite"))
+        if sh.get("mode") == "jourawski":  # section quelconque : τ max de Jourawski contre Re/(2·s), sécurité s comme la flexion
+            lignes.append(ligne("Cisaillement : τ max (Jourawski)", sh["tauMax"] / 1e6, sh["tauAdm"] / 1e6, "MPa", s["s"]))
+        else:
+            lignes.append(ligne("Effort tranchant : VEd / Vpl,Rd", sh["VEd"] / 1e3, sh["Vpl"] / 1e3, "kN", ok=sh["ok"], genre="limite"))
     return lignes
 
 

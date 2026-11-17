@@ -102,7 +102,8 @@ def test_profile_le_plus_leger_verifie_le_tranchant(dm):
     assert ligne["Résistance"] == "NON vérifié (tranchant : VEd/Vpl,Rd = 1.67)"
     assert best["S"] > dm.getProfile("IPE", "IPE 220")["S"]
     T, _ = findLightestProfile(_readme(dm), dm, "UPN", None)
-    assert T["Résistance"].str.contains("flexion seule, tranchant non vérifié").all()
+    # un UPN n'a pas de Vpl,Rd Eurocode : son tranchant est vérifié par Jourawski (τ max ≤ Re/2s), plus « flexion seule »
+    assert not T["Résistance"].str.contains("tranchant non vérifié").any()
 
 
 def test_eurocode_par_defaut_enveloppe_et_non_pondere_indicatif(dm):
