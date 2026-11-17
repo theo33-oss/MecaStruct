@@ -10,8 +10,8 @@ def _extra() -> list[dict]:
     return load_json("materials_extra.json")
 
 
-def test_materials_extra_contient_44_materiaux():
-    assert len(_extra()) == 44
+def test_materials_extra_contient_47_materiaux():
+    assert len(_extra()) == 47
 
 
 def test_aucun_nom_en_double_avec_materials_json():
@@ -37,10 +37,10 @@ def test_bornes_si_et_provenance():
         assert m["Author"] == "Base complémentaire", nom
 
 
-def test_listMaterials_ajoute_les_44_apres_les_51_de_base():
+def test_listMaterials_ajoute_les_47_apres_les_51_de_base():
     noms = DataManager().listMaterials()
     base = [m["Name"] for m in load_json("materials.json")]
-    assert len(noms) == 51 + 44
+    assert len(noms) == 51 + 47
     assert noms[:51] == base
 
 

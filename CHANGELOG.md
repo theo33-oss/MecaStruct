@@ -15,6 +15,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 - Pied de page : numéro de build à côté de la version, bouton « Actualiser le site » (efface les copies gardées et recharge), avertissement quand la page est plus ancienne que le site en ligne. Bouton « Calculer » aussi au-dessus du schéma.
 - Poutres : le tranchant est vérifié pour toute section (Jourawski, τ max ≤ Re/(2·s)), plus seulement pour les profilés IPE, HEA, HEB, IPN ; le « taux » remplace la « marge » dans la phrase de verdict.
 - Tige filetée : tableau ISO de H7g6.fr (M3 à M72, pas gros et pas fins), source citée dans la page Références, dans l'aide des champs et sur le schéma.
+- Matériaux : C45 normalisé (C45N), C45 trempé-revenu (C45V) et C35 normalisé (C35N), valeurs minimales de l'EN 10083-2 (à vérifier sur la norme).
 - Graphiques à hauteur réglable, liste d'exemples qui garde l'exemple chargé, cas personnalisé (tableaux vides).
 
 ## 1.6.0 (16 novembre 2026)
