@@ -35,7 +35,8 @@ def col(ident, libelle, genre="nombre", options=None, defaut=0.0, entier=False):
 def tableau(ident, libelle, colonnes, aide="", mini=0, polaire=None):
     """Tableau éditable : une ligne par élément (appui, charge, nœud…), lignes ajoutées ou retirées, collage Excel.
 
-    `polaire` : [norme, angle, x, y] (ids de colonnes) : la page remplit x = norme·cos(angle) et y = norme·sin(angle)."""
+    `polaire` : {"norme", "angle", "plan" (ids de colonnes), "plans" : liste} : la page remplit les composantes Fx, Fy, Fz
+    de la force inclinée (règle de services/forces.py, reprise par `majPolaire` de docs/js/machine.js)."""
     return {"id": ident, "type": "tableau", "libelle": libelle, "colonnes": colonnes, "aide": aide, "min": mini, "polaire": polaire}
 
 

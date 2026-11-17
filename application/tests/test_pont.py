@@ -303,10 +303,47 @@ def test_force_inclinee_dans_le_formulaire_et_le_schema():
     noyau.charger("structures")
     f = noyau.tous_formulaires()["beam"]
     pl = next(c for g in f["groupes"] for c in g["champs"] if c["id"] == "pl")
-    assert pl["polaire"] == ["F", "ang", "Fx", "Fy"] and {"F", "ang"} <= {k["id"] for k in pl["colonnes"]}
+    assert pl["polaire"]["plans"] == ["xy", "xz"] and {"F", "plan", "ang"} <= {k["id"] for k in pl["colonnes"]}
     s = json.loads(json.dumps(f["defaut"]))
     s["pl"] = [{"pos": 1.0, "Fx": 0.0, "Fy": 0.0, "Fz": 0.0, "F": 10.0, "ang": -30.0, "name": "C", "case": "G"}]
     r = json.loads(noyau.appeler("beam.apercu", json.dumps(s)))
     assert r["ok"]
     textes = json.dumps(r["sortie"]["data"], ensure_ascii=False) + json.dumps(r["sortie"].get("layout", {}), ensure_ascii=False)
     assert "F = 10 kN à -30" in textes.replace("−", "-")
+
+
+def test_force_inclinee_de_l_ossature_3d_dans_n_importe_quel_plan():
+    """Ossature 3D : F, plan et α remplissent Fx, Fy, Fz ; mêmes déplacements qu'avec les composantes saisies."""
+    import numpy as np
+
+    from mecastruct.core import frame3d
+    from mecastruct.pont import noyau, structures
+    from mecastruct.services import ossature3d
+
+    noyau.charger("structures")
+    f = noyau.tous_formulaires()["ossature"]
+    cn = next(c for g in f["groupes"] for c in g["champs"] if c["id"] == "charges_nodales")
+    assert cn["polaire"]["plans"] == ["xy", "xz", "yz"] and {"F", "plan", "ang"} <= {k["id"] for k in cn["colonnes"]}
+    base = json.loads(json.dumps(f["defaut"]))
+    noeud = base["noeuds"][-1]["id"]
+
+    def deplacements(ligne):
+        s = {**base, "charges_nodales": [ligne]}
+        data = ossature3d._donnees(structures._tables_3d(s), False, structures.dm())
+        u = frame3d.solveFrame3D(data)["deplacements"]
+        return np.array([u[k] for k in sorted(u)], dtype=float)
+
+    incline = {"noeud": noeud, "Fx": 7.0, "Fy": 7.0, "Fz": 7.0, "F": 1000.0, "plan": "yz", "ang": -90.0}
+    direct = {"noeud": noeud, "Fx": 0.0, "Fy": 0.0, "Fz": -1000.0}
+    assert np.allclose(deplacements(incline), deplacements(direct), rtol=1e-9, atol=1e-15)
+
+
+def test_ossature_3d_lignes_avec_et_sans_force_inclinee():
+    """Une ligne d'exemple sans colonnes F, plan, α à côté d'une ligne inclinée : pas de NaN dans les composantes."""
+    from mecastruct.pont import structures
+
+    s = {"charges_nodales": [{"noeud": 1, "Fx": 5.0},
+                             {"noeud": 2, "Fx": 0.0, "Fy": 0.0, "Fz": 0.0, "F": 100.0, "plan": "xz", "ang": 90.0}]}
+    c = structures._tables_3d(s)["charges_nodales"]
+    assert c.loc[0, "Fx"] == 5.0
+    assert c.loc[1, "Fx"] == 0.0 and c.loc[1, "Fz"] == 100.0
