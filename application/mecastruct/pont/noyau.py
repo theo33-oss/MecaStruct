@@ -60,6 +60,16 @@ def utiliser(base) -> None:
         _formulaires.clear()
 
 
+_CHARGE = False  # les familles ne se chargent qu'une fois, même si un module a déjà rempli le registre (import direct)
+
+
+def _assurer() -> None:
+    global _CHARGE
+    if not _CHARGE:
+        _CHARGE = True
+        _charger()
+
+
 def _charger() -> None:
     for nom in FAMILLES:
         importlib.import_module(f"mecastruct.pont.{nom}")
@@ -134,8 +144,7 @@ def versJson(o: Any) -> Any:
 
 def charger(famille: str) -> str:
     """Charge une famille lourde (ses bibliothèques doivent être là) ; les formulaires seront relus en entier."""
-    if not _REGISTRE:
-        _charger()
+    _assurer()
     importlib.import_module(f"mecastruct.pont.{famille}")
     _formulaires.clear()
     return "ok"
@@ -151,8 +160,7 @@ def _nombres_lisibles(message: str) -> str:
 
 def appeler(ident: str, saisie_json: str = "{}") -> str:
     """Lance le calcul `ident` sur la saisie (texte JSON) ; rend un texte JSON, sans jamais lever d'exception."""
-    if not _REGISTRE:
-        _charger()
+    _assurer()
     if ident not in _REGISTRE:  # Python ordinaire (tests, bureau) : les familles lourdes se chargent d'elles-mêmes
         for famille in FAMILLES_LOURDES:
             try:
@@ -175,13 +183,11 @@ def appeler(ident: str, saisie_json: str = "{}") -> str:
 
 def catalogue() -> str:
     """Liste des calculs disponibles (texte JSON), pour vérifier que la page et le pont sont d'accord."""
-    if not _REGISTRE:
-        _charger()
+    _assurer()
     return json.dumps(sorted(_REGISTRE), ensure_ascii=False)
 
 
 def tous_formulaires() -> dict:
     """Tous les formulaires chargés, par identifiant de calcul (décrits une seule fois)."""
-    if not _REGISTRE:
-        _charger()
+    _assurer()
     return json.loads(appeler("formulaires"))["sortie"]

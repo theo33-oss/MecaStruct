@@ -264,9 +264,11 @@ class TableauEditable(QTableWidget):
     """Tableau de saisie lié à la liste de dicts saisie[tab][champ] ; surChange() suit chaque case validée."""
 
     def __init__(self, tab: str, champ: str, colonnes: list[Colonne], surChange: Callable[[], None] | None = None,
-                 maxLignes: int = 200) -> None:  # fmt: skip
+                 maxLignes: int = 200, polaire: dict | None = None) -> None:  # fmt: skip
         super().__init__(0, len(colonnes))
         self.tab, self.champ, self.colonnes, self.surChange, self.maxLignes = tab, champ, colonnes, surChange, maxLignes
+        # force inclinée : {"norme", "angle", "plan", "composantes"} (noms de colonnes) ; Fx, Fy, Fz suivent F, α et le plan
+        self.polaire = polaire
         self.setHorizontalHeaderLabels([c.titre for c in colonnes])
         for j, c in enumerate(colonnes):
             self.horizontalHeaderItem(j).setToolTip(c.aide)
@@ -356,7 +358,26 @@ class TableauEditable(QTableWidget):
             valeur = item.text().strip()
         if ligne.get(c.cle) != valeur:
             ligne[c.cle] = valeur
+            if self.polaire:
+                self._suit_polaire(ligne, c.cle)
             self._suite()
+
+    def _suit_polaire(self, ligne: dict, cle: str) -> None:
+        """Même règle que le site (services/forces.py) : F, α ou plan → composantes ; une composante saisie → F = 0."""
+        from mecastruct.services import forces
+
+        p = self.polaire
+        if cle in p["composantes"]:
+            ligne[p["norme"]] = 0.0
+            ligne[p["angle"]] = 0.0
+        elif cle in (p["norme"], p["angle"], p["plan"]) and float(ligne.get(p["norme"]) or 0.0) != 0.0:
+            c = forces.composantes(float(ligne[p["norme"]]), float(ligne.get(p["angle"]) or 0.0),
+                                   str(ligne.get(p["plan"]) or "xy"))
+            for nom in p["composantes"]:
+                ligne[nom] = c[nom]
+        else:
+            return
+        self.charger()
 
 
 class ChampNombre(QLineEdit):
@@ -988,11 +1009,12 @@ class Zone:
     def text(self, tab: str, champ: str, label: str, help: str | None = None) -> str:
         return self.saisie(label, (tab, champ), aide=help)
 
-    def table(self, tab: str, champ: str, colonnes: list[Colonne], help: str | None = None) -> TableauEditable:
+    def table(self, tab: str, champ: str, colonnes: list[Colonne], help: str | None = None,
+              polaire: dict | None = None) -> TableauEditable:
         """Tableau éditable (lignes ajoutables et supprimables) sur saisie[tab][champ], liste de dicts."""
         if help:
             self.legende(help)
-        t = TableauEditable(tab, champ, colonnes, self.page.surSaisie)
+        t = TableauEditable(tab, champ, colonnes, self.page.surSaisie, polaire=polaire)
         self._ajouter(t)
         boutons = self.colonnes(3)
         boutons[0].bouton("Ajouter une ligne", t.ajouter)
