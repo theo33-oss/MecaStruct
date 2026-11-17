@@ -124,6 +124,8 @@ class PagePoutres(PageCalcul):
     def _section_manuelle(self) -> None:
         """Une valeur de section est saisie à la main : la forme associée n'est plus valable (markBeamManual)."""
         saisie = state.saisie("Beam")
+        if saisie.get("secSrc") in ("forme", "tige"):
+            saisie["secSrc"] = "saisie"
         if saisie.get("section") is not None or saisie.get("secTabulated"):
             saisie["section"] = None
             saisie["secTabulated"] = False
@@ -205,8 +207,51 @@ class PagePoutres(PageCalcul):
         z.num("Beam", "Re", "Re", "MPa",
               help="Limite élastique : contrainte au-delà de laquelle le matériau se déforme définitivement.")  # fmt: skip
 
+    def _applique_origine(self) -> None:
+        """Section de forme paramétrée ou de tige filetée : S, inerties et fibres sont recalculés (même règle que le site)."""
+        from mecastruct.pont.structures import _section_parametree
+
+        saisie = state.saisie("Beam")
+        if saisie.get("secSrc") not in ("forme", "tige"):
+            self.rafraichirSaisie()
+            return
+        sec, _ = _section_parametree(saisie)
+        out = beam_design.sectionToBeamInput(saisie, sec, geometry.analytical(sec), None)
+        cles = ("S", "Iz", "Iy", "Ix", "Iyz", "ky", "kz", "vy", "vz", "section", "secTabulated")
+        state.remplacer_saisie("Beam", {**saisie, **{k: out[k] for k in cles}})
+
+    def _saisie_origine(self, z: Zone) -> None:
+        """Origine de la section : catalogue, forme paramétrée, tige filetée ISO ou valeurs saisies à la main."""
+        from mecastruct.pont.structures import FILETAGES, FORMES_POUTRE, DIMENSIONS, TYPES_PAR_DIMENSION, _etiquette_filetage, tige_filetee
+
+        origines = {"catalogue": "Profilé du catalogue", "forme": "Forme paramétrée (mes dimensions)",
+                    "tige": "Tige filetée", "saisie": "Valeurs saisies à la main"}
+        saisie = state.saisie("Beam")
+        z.choice("Beam", "secSrc", "Origine de la section", list(origines), format_func=origines.get,
+                 help="D'où viennent S, les inerties et les fibres extrêmes : profilé, forme à vos dimensions, tige filetée ISO.",
+                 on_change=self._applique_origine)
+        if saisie.get("secSrc") == "forme":
+            formes = {t["type"]: t["label"] for t in geometry.sectionTypes() if t["type"] in FORMES_POUTRE}
+            z.choice("Beam", "secForme", "Forme", list(formes), format_func=formes.get, on_change=self._applique_origine)
+            for cle, libelle in DIMENSIONS.items():
+                if saisie.get("secForme", "rectangle") in TYPES_PAR_DIMENSION[cle]:
+                    z.num("Beam", "f_" + cle, libelle, "mm", min_value=0.0, on_change=self._applique_origine)
+        if saisie.get("secSrc") == "tige":
+            z.choice("Beam", "tigeM", "Tige filetée (ISO, pas gros ou fin)", list(FILETAGES),
+                     format_func=_etiquette_filetage, on_change=self._applique_origine,
+                     help="Diamètre nominal et pas (M3 à M72). Diamètres d2 et d3 : H7g6.fr, Dimensions des filetages ISO.")
+            z.choice("Beam", "tigeD", "Diamètre de calcul", ["noyau", "resistant"],
+                     format_func={"noyau": "Noyau d3 (prudent)", "resistant": "Diamètre résistant ds (section As)"}.get,
+                     on_change=self._applique_origine)
+            try:  # schéma du filetage : où se trouvent d, d2, ds et d3 (même figure que le site)
+                t = tige_filetee(saisie.get("tigeM", "M10"), saisie.get("tigeD", "noyau"))
+                z.plot(section_plots.filetage(saisie.get("tigeM", "M10"), t, saisie.get("tigeD", "noyau")))
+            except Exception as err:  # noqa: BLE001 : le schéma seul est omis
+                z.legende(f"Schéma du filetage indisponible : {getattr(err, 'message', err)}")
+
     def _saisie_section(self, z: Zone) -> None:
         saisie = state.saisie("Beam")
+        self._saisie_origine(z)
         sec = saisie.get("section")
         if sec is None:
             z.texte("**Section utilisée : valeurs saisies à la main (aucune forme associée).**")
@@ -247,9 +292,12 @@ class PagePoutres(PageCalcul):
             help="Appuis. appui_simple et pivot_glissant bloquent les déplacements transversaux y et z (la poutre glisse "
             "selon x) ; rotule et pivot bloquent x, y et z (rotations libres) ; encastrement bloque tout.",
         )  # fmt: skip
-        z.texte("**Forces ponctuelles** (composantes globales)")
+        z.texte("**Forces ponctuelles** (composantes globales ; force inclinée : F, plan et α remplissent Fx et Fy)")
         z.table("Beam", "pl", [nombre_col("pos", "Position (m)"), nombre_col("Fx", "Fx (kN)"), nombre_col("Fy", "Fy (kN)"),
-                               nombre_col("Fz", "Fz (kN)"), texte_col("name", "Nom"), _cas()])  # fmt: skip
+                               nombre_col("Fz", "Fz (kN)"), nombre_col("F", "F (kN), si inclinée"),
+                               liste_col("plan", "Plan", ["xy", "xz"], "xy"), nombre_col("ang", "α (°) dans le plan"),
+                               texte_col("name", "Nom"), _cas()],
+                polaire={"norme": "F", "angle": "ang", "plan": "plan", "composantes": ["Fx", "Fy", "Fz"]})  # fmt: skip
         z.texte("**Couples ponctuels**")
         z.table("Beam", "pm", [nombre_col("pos", "Position (m)"), nombre_col("Mx", "Mx (kN·m)"), nombre_col("My", "My (kN·m)"),
                                nombre_col("Mz", "Mz (kN·m)"), texte_col("name", "Nom"), _cas()])  # fmt: skip

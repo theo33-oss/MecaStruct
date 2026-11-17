@@ -23,6 +23,7 @@ def init() -> None:
         v["dm"] = DataManager()
     if "saisie" not in v:
         v["saisie"] = {tab: loadExample(tab) for tab in ONGLETS}
+        v["saisie"]["Beam"]["selfw"] = True  # poids propre coché de base, comme sur le site
     v.setdefault("res", {})
 
 

@@ -42,6 +42,7 @@ def test_cas_readme_en_champs(bureau):
     bureau.case("Tranchant dans Castigliano", False)
     s["sup"] = [{"pos": 0.0, "type": "pivot", "name": "A"}, {"pos": 4.0, "type": "appui_simple", "name": "B"}]
     s["pl"] = []
+    s["selfw"] = False  # le cas du README n'a pas de poids propre (coché de base sur la page)
     s["dl"] = [{"a": 0.0, "b": 4.0, "dir": "y", "type": "uniforme", "vals": "-10", "name": "q", "case": "G"}]
     bureau.page.rafraichirTout()
     bureau.clique("Calculer")
@@ -264,3 +265,32 @@ def test_volet_section_dessine_la_section_utilisee(bureau):
     bureau.saisit("S (mm²)", "5000")  # valeurs saisies à la main : plus de forme, donc plus de dessin
     assert not gauche.findChildren(VueFigure)
     _ = QWidget
+
+
+def test_section_tige_filetee_et_origine(bureau):
+    """Origine « Tige filetée » : S, Iz… viennent du diamètre d3 (M10 noyau) ; le schéma du filetage est présent."""
+    s = _poutres(bureau)
+    s["secSrc"] = "tige"
+    s["tigeM"], s["tigeD"] = "M10", "noyau"
+    bureau.page.rafraichirTout()
+    bureau.page._applique_origine()
+    s = state.saisie("Beam")
+    assert s["section"] is not None and s["secTabulated"] is False
+    # aire d'un disque de diamètre d3 = 8,16 mm : S = π·8,16²/4 ≈ 52,3 mm²
+    assert s["S"] == pytest.approx(3.14159265 * 8.16**2 / 4, rel=1e-3)
+
+
+def test_force_inclinee_remplit_fx_fy_dans_le_tableau(bureau):
+    """Ligne : F = 10 kN, α = −30°, plan xy → Fx = 8,660 et Fy = −5 kN, comme sur le site."""
+    s = _poutres(bureau)
+    s["pl"] = [{"pos": 2.0, "Fx": 0.0, "Fy": 0.0, "Fz": 0.0, "F": 0.0, "plan": "xy", "ang": 0.0, "name": "C", "case": "G"}]
+    from mecastruct.bureau.widgets import TableauEditable
+
+    tableau = next(t for t in bureau.page.findChildren(TableauEditable) if t.champ == "pl")
+    ligne = s["pl"][0]
+    ligne["F"], ligne["ang"] = 10.0, -30.0
+    tableau._suit_polaire(ligne, "ang")
+    assert ligne["Fx"] == pytest.approx(8.660254, rel=1e-6) and ligne["Fy"] == pytest.approx(-5.0, rel=1e-9)
+    ligne["Fy"] = 3.0
+    tableau._suit_polaire(ligne, "Fy")
+    assert ligne["F"] == 0.0 and ligne["ang"] == 0.0
