@@ -3,6 +3,13 @@
 Le numéro de version est celui de `application/mecastruct/__init__.py`. Le site suit toujours la dernière version ;
 l'installateur Windows de chaque version est dans les [Releases](https://github.com/theo33-oss/MecaStruct/releases).
 
+## 1.7.0 (17 novembre 2026)
+
+- Bureau : section de Poutres au choix (profil, forme paramétrée, tige filetée ISO avec son schéma d, d2, ds, d3) ; forces inclinées (F, plan, α) dans Poutres et l'ossature 3D ; poids propre coché de base.
+- Bureau et site : marge de sécurité en % (marge = s − 1) sur toutes les pages qui demandent s ; diagramme des modes en marge.
+- Calcul : cisaillement complet (Jourawski, clavette, goupille) dans le verdict ; tranchant de toute section ; s strictement positif ; flambage borné ; messages d'erreur plus clairs (treillis, fichier, mécanisme) ; matériaux C45N, C45V, C35N ; tableau des filetages ISO de H7g6.fr (source dans Références).
+- Site : numéro de build, bouton « Actualiser le site », avertissement de version ancienne, bouton Calculer au-dessus du schéma, repère x, y, z sur le schéma de la poutre, exposants lisibles (2,487·10⁷).
+
 ## Non publié (site)
 
 - Poutres : plus de gel quand on tape une petite longueur ; section au choix (catalogue, forme paramétrée, tige

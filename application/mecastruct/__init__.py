@@ -1,3 +1,3 @@
 """Paquet MecaStruct RdM Pro : calcul (core, services, plots), pont web (pont) et interface de bureau (bureau)."""
 
-__version__ = "1.6.0"  # seule source du numéro de version : bureau, installateur et site le relisent
+__version__ = "1.7.0"  # seule source du numéro de version : bureau, installateur et site le relisent
