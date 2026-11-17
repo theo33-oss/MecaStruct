@@ -187,7 +187,7 @@ td.verdict.erreur { background: var(--err-fond); color: var(--err-texte); }
 .tableau > button { margin-top: 4px; }
 .formule { margin: 6px 0; padding: 4px 10px; background: var(--figure-fond); border-left: 3px solid var(--accent); overflow-x: auto; }
 .titre-securite { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.titre-securite select { min-height: 26px; padding: 0 4px; font-size: .8rem; }
+.titre-securite select { min-height: 34px; padding: 0 8px; font-size: .9rem; }
 /* image dans la saisie (section de la poutre) : sur toute la largeur de la grille des champs */
 .champ-large { grid-column: 1 / -1; }
 .figure.figure-petite { min-height: 220px; }

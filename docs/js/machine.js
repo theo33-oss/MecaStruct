@@ -381,9 +381,11 @@
       fusionner: (valeurs, texte) => { Object.assign(saisie, valeurs); enregistrer(); dessinerChamps(); apercu(); signaler("succes", texte); },
       signaler: (n, t) => signaler(n, t),
     };
+    let minuterieMessage = null;
     function signaler(niveau, texte) {
       zoneMessage.replaceChildren(App.message(niveau, texte));
-      setTimeout(() => zoneMessage.replaceChildren(), 6000);
+      clearTimeout(minuterieMessage); // un second message ne doit pas être effacé par le minuteur du premier
+      minuterieMessage = setTimeout(() => zoneMessage.replaceChildren(), niveau === "erreur" ? 12000 : 6000);
     }
 
     const formulaire = el("form", { class: "saisie", onsubmit: (e) => { e.preventDefault(); relancer(true); } });
@@ -575,7 +577,7 @@
     }
 
     const phraseEtat = (t) => { const p = App.decimalesFr(String(t || "")); return /^[a-zà-ÿ]{2}/.test(p) ? p.charAt(0).toUpperCase() + p.slice(1) : p; };
-    const nf = (x, chiffres = 3) => (Number.isFinite(x) ? String(Number(x.toPrecision(chiffres))).replace(".", ",") : "∞");
+    const nf = (x, chiffres = 3) => (Number.isFinite(x) ? App.exposants(String(Number(x.toPrecision(chiffres))).replace(".", ",")) : "∞");
 
     // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient de sécurité (résistance)
     // ou marge (durée, rigidité, vitesse…). Les études d'une même page (cisaillement, matage, clavette) ont un sous-titre.
@@ -759,7 +761,10 @@
     if (lien && lien.calcul === ident && App.pret) {
       App.oublierLien();
       App.decompresser(lien.etude).then((texte) => appliquer(texte, "Lien de partage"))
-        .catch(() => signaler("erreur", "Lien de partage illisible ou incomplet."));
+        .catch(() => {
+          signaler("erreur", "Lien de partage illisible ou incomplet : la page montre ses valeurs de départ.");
+          if (auto) relancer(); else zoneResultat.replaceChildren(App.message("info", "Renseignez les données, puis cliquez sur « Calculer »."));
+        });
     } else if (App.pret) {
       if (auto) setTimeout(relancer, 0);
       else {

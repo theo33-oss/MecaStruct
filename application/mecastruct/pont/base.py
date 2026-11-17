@@ -112,7 +112,8 @@ def importer(s):
     try:
         d = json.loads(texte)
     except ValueError as err:
-        raise ValueError(f"Ce fichier n'est pas un fichier d'ajouts MecaStruct (JSON illisible : {err}).") from err
+        quoi = "il est vide" if not texte.strip() else "ce n'est pas un fichier .json valide"
+        raise ValueError(f"Ce fichier n'est pas un fichier d'ajouts MecaStruct ({quoi}).") from err
     donnees = d.get("utilisateur") if isinstance(d, dict) and d.get("app") == "MecaStruct RdM Pro" else d
     if not isinstance(donnees, dict) or not ({"materials", "profiles"} & set(donnees)):
         raise ValueError("Ce fichier n'est pas un fichier d'ajouts MecaStruct.")

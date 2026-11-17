@@ -46,7 +46,8 @@ def _lit(text: str, nature: str) -> dict:
     try:
         d = json.loads(text)
     except ValueError as err:
-        raise MecaStructError(_ID, f"Ce fichier n'est pas {nature} MecaStruct (JSON illisible : {err}).") from err
+        quoi = "il est vide" if not text.strip() else "ce n'est pas un fichier .json valide"
+        raise MecaStructError(_ID, f"Ce fichier n'est pas {nature} MecaStruct ({quoi}).") from err
     if not isinstance(d, dict) or d.get("app") != APP:
         raise MecaStructError(_ID, f"Ce fichier n'est pas {nature} enregistré par {APP}.")
     if not isinstance(d.get("version"), int) or d["version"] > FORMAT_VERSION:
@@ -89,7 +90,7 @@ def problemFromJson(text: str, tab: str | None = None) -> tuple[str, dict]:
     """
     d = _lit(text, "un problème")
     if d.get("onglet") not in PROJECT_KEYS or not isinstance(d.get("saisie"), dict):
-        raise MecaStructError(_ID, "Ce fichier n'est pas un problème enregistré depuis un onglet de calcul.")
+        raise MecaStructError(_ID, "Ce fichier n'est pas une étude de cette application (onglet de calcul absent ou inconnu).")
     if tab is not None and d["onglet"] != tab:
         raise MecaStructError(
             _ID,

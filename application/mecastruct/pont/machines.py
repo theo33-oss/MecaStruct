@@ -262,7 +262,8 @@ def machineOuvrir(s):
     try:
         d = json.loads(texte)
     except ValueError as err:
-        raise ValueError(f"Ce fichier n'est pas une étude MecaStruct (JSON illisible : {err}).") from err
+        quoi = "il est vide" if not texte.strip() else "ce n'est pas un fichier .json valide"
+        raise ValueError(f"Ce fichier n'est pas une étude MecaStruct ({quoi}).") from err
     if not isinstance(d, dict) or d.get("app") != "MecaStruct RdM Pro" or not isinstance(d.get("saisie"), dict):
         raise ValueError("Ce fichier n'est pas une étude MecaStruct.")
     if d.get("page") != ident:

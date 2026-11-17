@@ -1086,7 +1086,8 @@ def _solveSub(sp: dict, br, tol: float, D: int, Gq: dict, o: dict, L: float, xA:
             raise MecaStructError(
                 "MecaStruct:Beam:mechanism",
                 f"Mécanisme : sous-problème {sp['label']}, liaisons insuffisantes ou mal disposées pour le "
-                f"chargement appliqué ({nu} inconnue(s) de liaison, rang {rA} < {neq} équation(s)).",
+                f"chargement appliqué ({nu} inconnue(s) de liaison, rang {rA} < {neq} équation(s)). "
+                "Ajoutez ou déplacez un appui pour que la poutre soit tenue.",
             )
         h = nu - rA
         if h > 0:
