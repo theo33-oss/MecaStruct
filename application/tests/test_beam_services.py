@@ -220,13 +220,16 @@ def test_verdict_non_verifie_par_le_tranchant(dm):
     assert computeCombinations(s, dm)["Résistance"].iloc[0] == "NON vérifié"
 
 
-def test_section_saisie_a_la_main_flexion_seule(dm):
+def test_section_saisie_a_la_main_tranchant_jourawski(dm):
+    """Sans géométrie, S et Re suffisent : τ max = 1,5·VEd/S contre Re/(2·s) (section pleine supposée)."""
     s = _ipe200_readme(dm)
     s["section"] = None
     r = computeBeam(s, dm)
-    assert r["check"]["shear"] is None
-    assert r["check"]["ok"] == r["check"]["bend"]["ok"]
-    assert "flexion seule, tranchant non vérifié" in r["status"]
+    sh = r["check"]["shear"]
+    assert sh["mode"] == "jourawski" and sh["k"] == 1.5
+    assert abs(sh["tauMax"] - 1.5 * sh["VEd"] / (s["S"] * 1e-6)) < 1e-6 * sh["tauMax"]
+    assert r["check"]["ok"] == (r["check"]["bend"]["ok"] and sh["ok"])
+    assert "τ max/τ adm" in r["status"]
 
 
 def test_eurocode_par_defaut_sur_l_enveloppe():

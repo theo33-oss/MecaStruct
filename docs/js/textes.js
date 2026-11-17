@@ -28,7 +28,8 @@
       if (!liste.length) continue;
       contenu.append(el("h2", { texte: titre }), el("div", { class: "cartes" }, liste.map((n) => el("section", { class: "carte" },
         el("h3", { texte: n.numero }), el("p", { class: "legende", texte: n.annee }), el("p", { texte: n.titre }),
-        el("p", { class: "legende", texte: "Dans l'application : " + n.role })))));
+        el("p", { class: "legende", texte: "Dans l'application : " + n.role }),
+        n.lien ? el("p", {}, el("a", { href: n.lien, target: "_blank", rel: "noopener noreferrer", texte: "Ouvrir la source" })) : null))));
     }
   });
 
