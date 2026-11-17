@@ -6,7 +6,8 @@
 <title>MecaStruct RdM Pro</title>
 <meta name="description" content="Résistance des matériaux et éléments de machines dans le navigateur : ajustements ISO 286, frettage, paliers, roulements, engrenages, freins, poutres. Verdict, formules remplies et dossier de validation.">
 <meta name="theme-color" content="#5C4B99">
-<meta name="zip" content="82a217cf">
+<meta name="zip" content="f2485dd6">
+<meta name="build" content="596f21a6">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <meta property="og:type" content="website">
@@ -17,7 +18,7 @@
 // thème posé avant l'affichage (pas de flash) : choix gardé, sinon réglage du système
 try { var t = localStorage.getItem("mecastruct.theme"); if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; document.documentElement.dataset.theme = t; } catch (e) { document.documentElement.dataset.theme = "light"; }
 </script>
-<link rel="stylesheet" href="style.css?v=d1e587ad">
+<link rel="stylesheet" href="style.css?v=2a6606bd">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" crossorigin="anonymous">
 </head>
 <body>
@@ -38,7 +39,7 @@ try { var t = localStorage.getItem("mecastruct.theme"); if (t !== "light" && t !
 </main>
 
 <footer>
-  <p>MecaStruct RdM Pro · <span id="version"></span> · Théo Brun ·
+  <p>MecaStruct RdM Pro · <span id="version"></span> <button type="button" id="actualiser" class="lien-bouton" title="Efface les copies gardées par le navigateur et recharge toute la page">Actualiser le site</button> · Théo Brun ·
     <a href="https://github.com/theo33-oss/MecaStruct">code source</a> ·
     <a href="#/limites">limites connues</a> ·
     <a href="https://github.com/theo33-oss/MecaStruct/issues">signaler une erreur</a> ·
@@ -49,9 +50,9 @@ try { var t = localStorage.getItem("mecastruct.theme"); if (t !== "light" && t !
 <script src="https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@3.0.1/plotly.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js" crossorigin="anonymous"></script>
-<script src="app.js?v=0f2a93bb"></script>
+<script src="app.js?v=cfea76da"></script>
 <script src="js/accueil.js?v=35ac816f"></script>
-<script src="js/machine.js?v=d4b97aff"></script>
+<script src="js/machine.js?v=6478df7f"></script>
 <script src="js/convertisseur.js?v=083d8b21"></script>
 <script src="js/base.js?v=b9afdebd"></script>
 <script src="js/textes.js?v=8b736e38"></script>

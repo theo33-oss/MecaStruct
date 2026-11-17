@@ -12,6 +12,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
   des modes de ruine et le bloc-notes.
 - Cisaillement : Jourawski, clavette et goupille comptent dans le verdict (un mode non admissible rend le calcul
   « NON vérifié »).
+- Pied de page : numéro de build à côté de la version, bouton « Actualiser le site » (efface les copies gardées et recharge), avertissement quand la page est plus ancienne que le site en ligne. Bouton « Calculer » aussi au-dessus du schéma.
 - Graphiques à hauteur réglable, liste d'exemples qui garde l'exemple chargé, cas personnalisé (tableaux vides).
 
 ## 1.6.0 (16 novembre 2026)

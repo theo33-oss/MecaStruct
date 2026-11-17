@@ -78,6 +78,10 @@ nouveau_sw = re.sub(r'const VERSION = "[^"]*";', f'const VERSION = "mecastruct-{
 if nouveau_sw != texte_sw:
     sw.write_text(nouveau_sw, encoding="utf-8", newline="\n")
 
+# numéro de build : change dès qu'un fichier du site change (le site affiche le sien et le compare à celui en ligne)
+build = hashlib.sha1(b"".join((docs / f).read_bytes() for f in sorted(
+    ["mecastruct.zip", "app.js", "style.css", *[str(p.relative_to(docs)).replace("\\", "/") for p in (docs / "js").glob("*.js")]]))).hexdigest()[:8]
+
 index = docs / "index.html"
 page = index.read_text(encoding="utf-8")
 
@@ -90,6 +94,7 @@ motif = r'(src|href)="((?:app\.js|style\.css|mecastruct\.zip|js/[a-z0-9_]+\.js))
 nouvelle = re.sub(motif, versionner, page)
 # le zip est lu par app.js : son empreinte est posée dans une balise <meta> que le script relit
 nouvelle = re.sub(r'(<meta name="zip" content=")[^"]*(")', rf'\g<1>{empreinte("mecastruct.zip")}\g<2>', nouvelle)
+nouvelle = re.sub(r'(<meta name="build" content=")[^"]*(")', rf'\g<1>{build}\g<2>', nouvelle)
 if nouvelle != page:
     index.write_text(nouvelle, encoding="utf-8", newline="\n")
 print(f"index.html : {len(re.findall(r'[?]v=[0-9a-f]+', nouvelle))} adresses versionnées")

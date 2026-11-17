@@ -706,7 +706,9 @@
     dessinerChamps();
     const bloc = el("div", { class: "calcul" },
       el("div", { class: "colonne-saisie" }, formulaire),
-      el("div", { class: "colonne-resultat" }, f.apercu ? el("h2", { class: "titre-bloc", texte: "Schéma" }) : null, f.apercu ? zoneSchema : null,
+      el("div", { class: "colonne-resultat" },
+        auto ? null : el("div", { class: "actions-schema" }, el("button", { type: "button", class: "primaire", texte: "Calculer", aide: "Lance le calcul.", onclick: () => relancer(true) })),
+        f.apercu ? el("h2", { class: "titre-bloc", texte: "Schéma" }) : null, f.apercu ? zoneSchema : null,
         titreResultat, zoneResultat, zoneExtras));
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {
