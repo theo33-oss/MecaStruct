@@ -200,6 +200,21 @@
       const invalide = corps.querySelector(".invalide");
       changer(c.id, invalide ? NaN : copie(lignes));
     };
+    // Tableau « polaire » (force inclinée) : F et α remplissent Fx = F·cos α et Fy = F·sin α ; taper Fx ou Fy remet F à 0.
+    const champs = new Map(); // ligne → { id de colonne : champ de saisie }
+    function majPolaire(ligne, id) {
+      if (!c.polaire) return;
+      const [nF, nA, nX, nY] = c.polaire;
+      if (id === nX || id === nY) { ligne[nF] = 0; ligne[nA] = 0; }
+      else if ((id === nF || id === nA) && Number(ligne[nF]) !== 0) {
+        const f = Number(ligne[nF]), a = (Number(ligne[nA]) || 0) * Math.PI / 180;
+        const r = (v) => (Math.abs(v) < 1e-12 * Math.abs(f) ? 0 : Number(v.toPrecision(12)));
+        ligne[nX] = r(f * Math.cos(a));
+        ligne[nY] = r(f * Math.sin(a));
+      } else return;
+      for (const [cle, champ] of Object.entries(champs.get(ligne) || {}))
+        if (cle !== id && c.polaire.includes(cle)) { champ.value = affiche(ligne[cle]); champ.classList.remove("invalide"); champ.title = ""; }
+    }
     const cellule = (ligne, k) => {
       if (k.genre === "case") {
         const i = el("input", { type: "checkbox", "aria-label": k.libelle });
@@ -215,12 +230,14 @@
       }
       const i = el("input", { type: "text", "aria-label": k.libelle, inputmode: k.genre === "nombre" ? "decimal" : undefined });
       i.value = k.genre === "nombre" ? affiche(ligne[k.id]) : (ligne[k.id] ?? "");
+      if (!champs.has(ligne)) champs.set(ligne, {});
+      champs.get(ligne)[k.id] = i;
       i.addEventListener("input", () => {
         if (k.genre !== "nombre") { ligne[k.id] = i.value; return publier(); }
         const [v, texte] = verifierNombre({ entier: k.entier }, i.value);
         i.classList.toggle("invalide", !!texte);
         i.title = texte;
-        if (!texte) ligne[k.id] = v;
+        if (!texte) { ligne[k.id] = v; majPolaire(ligne, k.id); }
         publier();
       });
       i.addEventListener("paste", (e) => coller(e, lignes.indexOf(ligne), c.colonnes.indexOf(k)));
@@ -240,13 +257,20 @@
       texte.replace(/\r/g, "").split("\n").filter((l) => l.trim()).forEach((l, dn) => {
         const n = n0 + dn;
         if (!lignes[n]) lignes.push(nouvelleLigne());
+        const collees = [];
         l.split("\t").forEach((v, dk) => {
           const k = c.colonnes[k0 + dk];
           if (!k) return;
+          collees.push(k.id);
           if (k.genre === "nombre") { const x = App.nombre(v); if (typeof x === "number" && !Number.isNaN(x)) lignes[n][k.id] = x; }
           else if (k.genre === "case") lignes[n][k.id] = /^(1|vrai|oui|true|x)$/i.test(v.trim());
           else lignes[n][k.id] = v.trim();
         });
+        if (c.polaire) {
+          const [nF, nA, nX, nY] = c.polaire;
+          if (collees.includes(nF) || collees.includes(nA)) majPolaire(lignes[n], nF);
+          else if (collees.includes(nX) || collees.includes(nY)) majPolaire(lignes[n], nX);
+        }
       });
       dessiner();
       publier();

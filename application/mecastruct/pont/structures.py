@@ -650,8 +650,11 @@ def _formulaires() -> dict:
                        tableau("sup", "Appuis", [col("pos", "Position (m)"), col("type", "Type", "liste", TYPES_APPUI, "appui_simple"), col("name", "Nom", "texte", defaut="")],
                                aide="appui_simple et pivot_glissant bloquent y et z ; rotule et pivot bloquent x, y et z ; encastrement bloque tout."),
                        tableau("pl", "Forces ponctuelles", [col("pos", "Position (m)"), col("Fx", "Fx (kN)"), col("Fy", "Fy (kN)"), col("Fz", "Fz (kN)"),
+                                                            col("F", "F (kN), si inclinée"), col("ang", "α (°) depuis +x"),
                                                             col("name", "Nom", "texte", defaut=""), col("case", "Cas", "liste", CAS, "G")],
-                               aide="Fy < 0 : force vers le bas."),
+                               aide="Fy < 0 : force vers le bas. Force inclinée : F et α remplissent Fx = F·cos α et Fy = F·sin α "
+                                    "(plan x,y, α depuis +x en sens trigonométrique ; α = −30° : vers le bas, 30° sous l'axe x).",
+                               polaire=["F", "ang", "Fx", "Fy"]),
                        tableau("pm", "Couples ponctuels", [col("pos", "Position (m)"), col("Mx", "Mx (kN·m)"), col("My", "My (kN·m)"), col("Mz", "Mz (kN·m)"),
                                                            col("name", "Nom", "texte", defaut=""), col("case", "Cas", "liste", CAS, "G")]),
                        tableau("dl", "Charges réparties", [col("a", "a (m)"), col("b", "b (m)"), col("dir", "Dir.", "liste", ["x", "y", "z"], "y"),
