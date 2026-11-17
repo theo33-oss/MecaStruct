@@ -464,8 +464,32 @@ const App = (() => {
     return r;
   }
 
+  // Actualisation complète : efface le service worker et les copies du site, puis recharge la page.
+  async function actualiserSite() {
+    try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { /* pas de service worker */ }
+    try { for (const n of await caches.keys()) if (n !== "mecastruct-cdn") await caches.delete(n); } catch (e) { /* pas de cache */ }
+    location.replace(location.pathname + "?maj=" + Date.now() + location.hash);
+  }
+
+  // Compare le build de cette page à celui du site en ligne : une page ancienne le dit et propose de se mettre à jour.
+  async function verifierMiseAJour(build) {
+    if (!build || location.protocol !== "https:") return;
+    try {
+      const t = await (await fetch(location.pathname + "?verif=" + Date.now(), { cache: "no-store" })).text();
+      const m = t.match(/name="build" content="([0-9a-f]+)"/);
+      if (!m || m[1] === build) return;
+      const bouton = el("button", { type: "button", class: "primaire", texte: "Actualiser le site", onclick: actualiserSite });
+      const bandeau = message("avertissement", "Une version plus récente du site est disponible (cette page : " + build + ", en ligne : " + m[1] + "). ");
+      bandeau.append(bouton);
+      $("contenu").before(bandeau);
+    } catch (e) { /* hors ligne : rien à comparer */ }
+  }
+
   async function demarrer() {
-    $("version").textContent = "version " + VERSION;
+    const build = document.querySelector('meta[name="build"]')?.content || "";
+    $("version").textContent = "version " + VERSION + (build ? " · build " + build : "");
+    $("actualiser").addEventListener("click", actualiserSite);
+    verifierMiseAJour(build);
     menu();
     bulles();
     window.addEventListener("hashchange", afficher);

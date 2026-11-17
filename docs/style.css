@@ -220,6 +220,8 @@ td.verdict.erreur { background: var(--err-fond); color: var(--err-texte); }
 label[data-aide] { cursor: help; }
 #bulle { position: fixed; z-index: 50; max-width: min(340px, calc(100vw - 16px)); padding: 8px 12px; border-radius: 6px; pointer-events: none; background: var(--encre); color: var(--fond); font-size: .85rem; line-height: 1.4; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); }
 
+.lien-bouton { background: none; border: 0; padding: 0; font: inherit; color: var(--accent, inherit); text-decoration: underline; cursor: pointer; }
+.actions-schema { margin-bottom: 8px; }
 footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; font-size: .9rem; }
 
 @media (max-width: 640px) {
