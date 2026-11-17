@@ -221,6 +221,19 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
         cles.append(x)
         nm = p.get("name") or f"F{i}"
         Fx, Fy, Fz = (float(p.get(k) or 0.0) for k in ("Fx", "Fy", "Fz"))
+        if Fx != 0 and Fy != 0:  # force inclinée : une seule flèche, dans sa direction
+            n = math.hypot(Fx, Fy)
+            dx, dy = Fx / n, Fy / n
+            if Fy < 0:  # pointe sur la poutre, comme les forces vers le bas
+                arrow(fig, (x - Ha * dx, -Ha * dy), (x, 0.0), cLoad, 2)
+            else:
+                arrow(fig, (x, 0.0), (x + Ha * dx, Ha * dy), cLoad, 2)
+            F = float(p.get("F") or 0.0)
+            quoi = f"F = {num(abs(F) / 1e3)} kN à {num(float(p.get('ang') or 0.0))}°" if F else f"{num(n / 1e3)} kN"
+            _txt(fig, x - Ha * dx if Fy < 0 else x + Ha * dx, (Ha * abs(dy)) + 0.015 * L, f"{nm} : {quoi}", cLoad)
+            yTop = max(yTop, Ha * abs(dy) + 0.09 * L)
+            avecForces = True
+            Fx = Fy = 0.0
         if Fy != 0:
             if Fy < 0:
                 arrow(fig, (x, Ha), (x, 0.0), cLoad, 2)

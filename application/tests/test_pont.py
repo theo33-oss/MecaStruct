@@ -294,3 +294,19 @@ def test_filetages_iso_du_tableau_h7g6():
         assert t["d"] > t["d2"] > t["ds"] > t["d3"] > 0, nom
         assert abs(t["As"] - v["As_table"]) <= 0.01 * v["As_table"], (nom, t["As"], v["As_table"])
     assert abs(structures.tige_filetee("M10", "noyau")["D"] - 8.16) < 1e-9
+
+
+def test_force_inclinee_dans_le_formulaire_et_le_schema():
+    """Poutres : colonnes F et α du tableau des forces ; une force inclinée est dessinée par une seule flèche."""
+    from mecastruct.pont import noyau
+
+    noyau.charger("structures")
+    f = noyau.tous_formulaires()["beam"]
+    pl = next(c for g in f["groupes"] for c in g["champs"] if c["id"] == "pl")
+    assert pl["polaire"] == ["F", "ang", "Fx", "Fy"] and {"F", "ang"} <= {k["id"] for k in pl["colonnes"]}
+    s = json.loads(json.dumps(f["defaut"]))
+    s["pl"] = [{"pos": 1.0, "Fx": 0.0, "Fy": 0.0, "Fz": 0.0, "F": 10.0, "ang": -30.0, "name": "C", "case": "G"}]
+    r = json.loads(noyau.appeler("beam.apercu", json.dumps(s)))
+    assert r["ok"]
+    textes = json.dumps(r["sortie"]["data"], ensure_ascii=False) + json.dumps(r["sortie"].get("layout", {}), ensure_ascii=False)
+    assert "F = 10 kN à -30" in textes.replace("−", "-")

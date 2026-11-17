@@ -273,13 +273,20 @@ def buildBeamModel(saisie: dict, dm: DataManager, fac: dict | None = None) -> di
         k = caseFactor(fac, row)
         if k == 0:
             continue
+        Fx, Fy = _num(row["Fx"], "Fx"), _num(row["Fy"], "Fy")
+        F, ang = float(row.get("F") or 0.0), float(row.get("ang") or 0.0)
+        if F != 0:  # force inclinée : F et α, plan (x,y), depuis +x en sens trigonométrique
+            Fx, Fy = F * math.cos(math.radians(ang)), F * math.sin(math.radians(ang))
+            Fx, Fy = (0.0 if abs(v) < 1e-12 * abs(F) else v for v in (Fx, Fy))
         pl.append(
             {
                 "pos": _num(row["pos"], "Force : position"),
-                "Fx": k * toSI(_num(row["Fx"], "Fx"), "kN"),
-                "Fy": k * toSI(_num(row["Fy"], "Fy"), "kN"),
+                "Fx": k * toSI(Fx, "kN"),
+                "Fy": k * toSI(Fy, "kN"),
                 "Fz": k * toSI(_num(row["Fz"], "Fz"), "kN"),
                 "name": str(row["name"]),
+                "F": k * toSI(F, "kN"),
+                "ang": ang,
             }
         )
     model["pointLoads"] = pl

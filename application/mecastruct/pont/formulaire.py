@@ -32,9 +32,11 @@ def col(ident, libelle, genre="nombre", options=None, defaut=0.0, entier=False):
             "defaut": defaut, "entier": entier}  # fmt: skip
 
 
-def tableau(ident, libelle, colonnes, aide="", mini=0):
-    """Tableau éditable : une ligne par élément (appui, charge, nœud…), lignes ajoutées ou retirées, collage Excel."""
-    return {"id": ident, "type": "tableau", "libelle": libelle, "colonnes": colonnes, "aide": aide, "min": mini}
+def tableau(ident, libelle, colonnes, aide="", mini=0, polaire=None):
+    """Tableau éditable : une ligne par élément (appui, charge, nœud…), lignes ajoutées ou retirées, collage Excel.
+
+    `polaire` : [norme, angle, x, y] (ids de colonnes) : la page remplit x = norme·cos(angle) et y = norme·sin(angle)."""
+    return {"id": ident, "type": "tableau", "libelle": libelle, "colonnes": colonnes, "aide": aide, "min": mini, "polaire": polaire}
 
 
 def groupe(titre, *champs, ouvert=True, ligne=False, note=""):

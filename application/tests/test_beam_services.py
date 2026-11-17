@@ -407,3 +407,18 @@ def test_combinaison_en_erreur_numerique_n_arrete_pas_les_autres(dm, monkeypatch
     assert T["Résistance"].iloc[0] == "vérifié"
     assert T["f max (mm)"].iloc[3] == pytest.approx(T["f max (mm)"].iloc[[0, 2]].max())
     assert any("ELU" in r.getMessage() for r in caplog.records if r.exc_info)
+
+
+def test_force_inclinee_f_et_angle_donne_fx_fy(dm):
+    """F = 10 kN à −30° (plan x,y, depuis +x, trigonométrique) = Fx 8,660 kN et Fy −5 kN, même si Fx, Fy saisis sont faux."""
+    import math
+
+    ligne = {"pos": 3.0, "Fx": 123.0, "Fy": 456.0, "Fz": 0.0, "F": 10.0, "ang": -30.0, "name": "C", "case": "G"}
+    autre = {"pos": 3.0, "Fx": 10 * math.cos(math.radians(-30)), "Fy": -5.0, "Fz": 0.0, "name": "C", "case": "G"}
+    a, b = _ipe200_readme(dm), _ipe200_readme(dm)
+    a["pl"], b["pl"] = [ligne], [autre]
+    ra, rb = computeBeam(a, dm), computeBeam(b, dm)
+    pa = ra["sol"]["model"]["pointLoads"][0]
+    assert abs(pa["Fx"] - 10e3 * math.cos(math.radians(30))) < 1e-6 and abs(pa["Fy"] + 5e3) < 1e-6
+    assert abs(ra["defl"]["integration"]["fmax"] - rb["defl"]["integration"]["fmax"]) < 1e-12
+    assert abs(ra["check"]["bend"]["sigmaMaxKt"] - rb["check"]["bend"]["sigmaMaxKt"]) < 1e-3
