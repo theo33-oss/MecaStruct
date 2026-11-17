@@ -332,14 +332,26 @@ def _readTruss(T: dict) -> dict:
     if n < 2:
         raise MecaStructError(_ID, "Le treillis doit comporter au moins 2 nœuds.")
     names = [str(d["name"]).strip() or f"N{i + 1}" for i, d in enumerate(nd)]
+    def noeud(ligne, quoi: str, k: int) -> int:
+        j = int(ligne["node"]) - 1
+        if not 0 <= j < n:
+            raise MecaStructError(_ID, f"{quoi} n°{k} : le nœud {int(ligne['node'])} n'existe pas (nœuds 1 à {n}).")
+        return j
+
+    for k, b in enumerate(T["bars"], start=1):
+        for fin in ("i", "j"):
+            if not 1 <= int(b[fin]) <= n:
+                raise MecaStructError(_ID, f"Barre n°{k} : le nœud {int(b[fin])} n'existe pas (nœuds 1 à {n}).")
+        if int(b["i"]) == int(b["j"]):
+            raise MecaStructError(_ID, f"Barre n°{k} : ses deux extrémités sont le même nœud ({int(b['i'])}).")
     sup = np.zeros((n, 2), dtype=bool)
-    for s in T["sup"]:
-        j = int(s["node"]) - 1
+    for k, s in enumerate(T["sup"], start=1):
+        j = noeud(s, "Appui", k)
         sup[j, 0] |= bool(s["bx"])
         sup[j, 1] |= bool(s["by"])
     loads = np.zeros((n, 2))
-    for ld in T["loads"]:
-        j = int(ld["node"]) - 1
+    for k, ld in enumerate(T["loads"], start=1):
+        j = noeud(ld, "Charge", k)
         loads[j] += toSI([ld["Fx"], ld["Fy"]], "kN")
     return {
         "nodes": np.array([[d["x"], d["y"]] for d in nd], dtype=float),
@@ -944,7 +956,10 @@ def computeBuckling(saisie: dict, dm: DataManager) -> dict:
     if F["P"] != 0:
         p["P"] = toSI(F["P"], "kN")
     b = buckling.analyze(p)
-    c = buckling.stabilityCurve(p["E"], p["Re"], np.arange(0.0, max(300, math.ceil(1.2 * b["lambda"])) + 0.5, 0.5))
+    lmax = max(300, math.ceil(1.2 * b["lambda"])) if math.isfinite(b["lambda"]) else 300
+    # pas de 0,5 jusqu'à 3000 ; au-delà (section absurde) 6000 points seulement : la courbe ne doit pas geler le navigateur
+    lam = np.arange(0.0, lmax + 0.5, 0.5) if lmax <= 3000 else np.linspace(0.0, lmax, 6001)
+    c = buckling.stabilityCurve(p["E"], p["Re"], lam)
     rows = [
         ("Imin", b["Imin"] * 1e12, "mm⁴"),
         ("Axe de flambement", b["axis"], ""),

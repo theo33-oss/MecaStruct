@@ -31,7 +31,8 @@
     const v = App.nombre(texte);
     if (v === "" || Number.isNaN(v)) return [NaN, "Nombre attendu."];
     if (c.entier && !Number.isInteger(v)) return [NaN, "Nombre entier attendu."];
-    if (c.min !== null && c.min !== undefined && v < c.min) return [NaN, `Minimum ${App.fr(c.min)}.`];
+    if (c.min !== null && c.min !== undefined && (c.minExclu ? v <= c.min : v < c.min))
+      return [NaN, c.minExclu ? `Doit être supérieur à ${App.fr(c.min)}.` : `Minimum ${App.fr(c.min)}.`];
     if (c.max !== null && c.max !== undefined && v > c.max) return [NaN, `Maximum ${App.fr(c.max)}.`];
     return [v, ""];
   }
@@ -120,7 +121,7 @@
     input.value = affiche(enMarge && typeof valeur === "number" ? 100 * (valeur - 1) : valeur);
     const erreur = el("span", { class: "erreur-champ", hidden: true });
     input.addEventListener("input", () => {
-      let [v, texte] = verifierNombre(enMarge ? { ...c, min: 0, max: null } : c, input.value);
+      let [v, texte] = verifierNombre(enMarge ? { ...c, min: 0, max: null, minExclu: false } : c, input.value);
       if (enMarge && !texte) v = Number((1 + v / 100).toPrecision(12));
       input.classList.toggle("invalide", !!texte);
       input.setAttribute("aria-invalid", String(!!texte));
@@ -599,9 +600,9 @@
           el("span", { class: "repere", style: `left:${(100 / echelle).toFixed(1)}%` }));
         const marge = c.genre === "resistance"
           ? (securiteEnMarge()
-            ? [el("strong", { texte: `marge ${nf(100 * (c.s_obtenu - 1))} %`, aide: "Marge de sécurité obtenue : s − 1, avec s la limite du matériau divisée par la valeur calculée." }),
+            ? [el("strong", { texte: c.s_obtenu === null ? "marge illimitée" : `marge ${nf(100 * (c.s_obtenu - 1))} %`, aide: "Marge de sécurité obtenue : s − 1, avec s la limite du matériau divisée par la valeur calculée." }),
               el("span", { texte: `demandée ${nf(100 * (c.s_demande - 1))} %` })]
-            : [el("strong", { texte: `s = ${nf(c.s_obtenu)}`, aide: "Coefficient de sécurité obtenu : la limite du matériau divisée par la valeur calculée." }),
+            : [el("strong", { texte: `s = ${c.s_obtenu === null ? "∞" : nf(c.s_obtenu)}`, aide: "Coefficient de sécurité obtenu : la limite du matériau divisée par la valeur calculée." }),
               el("span", { texte: `demandé ${nf(c.s_demande)}` })])
           : [el("strong", { texte: c.taux <= 1 ? `marge ${nf(100 * (1 - c.taux))} %` : `dépassement ${nf(100 * (c.taux - 1))} %`,
             aide: "Part de l'admissible encore disponible, ou dépassement de la limite." })];

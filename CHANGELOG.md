@@ -19,6 +19,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 - Modes de ruine : quand la valeur calculée dépasse la limite du matériau (s < 1), la ligne ajoute « dépasse la limite du matériau de X % ».
 - Poutres et ossature 3D : force inclinée avec les colonnes F, plan et α (xy, xz ou yz ; Poutres : xy ou xz) qui remplissent Fx, Fy, Fz ; une seule flèche sur le schéma des poutres dans le plan xy.
 - Force inclinée : on peut revenir à Fx, Fy, Fz à la main (taper une composante ou vider F ; les autres composantes repartent de 0) ; repère x, y, z sur le schéma de la poutre.
+- Audit des saisies absurdes : le flambage ne gèle plus avec une section énorme ; s doit être strictement positif ; les nombres infinis (1e400) sont refusés ; Treillis nomme le nœud inexistant d'un appui, d'une charge ou d'une barre ; le train épicycloïdal refuse Ne = 0 ; une pièce non chargée affiche « marge illimitée ».
 - Graphiques à hauteur réglable, liste d'exemples qui garde l'exemple chargé, cas personnalisé (tableaux vides).
 
 ## 1.6.0 (16 novembre 2026)

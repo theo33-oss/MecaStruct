@@ -50,6 +50,14 @@ def _opt(p: dict, f: str, defaut: float) -> float:
     return _req(p, f) if p.get(f) is not None else defaut
 
 
+def _secu(p: dict) -> float:
+    """Coefficient de sécurité s (1 par défaut), strictement positif : s = 0 ou négatif n'a aucun sens."""
+    s = _opt(p, "s", 1.0)
+    if not s > 0:
+        raise MecaStructError(_ID + "invalidInput", "Le coefficient de sécurité s doit être strictement positif.")
+    return s
+
+
 def _fun(p: dict, f: str, constante: float):
     """Handle optionnel p[f](x) vectorisé ; à défaut la fonction constante `constante`."""
     if p.get(f) is None:
@@ -161,7 +169,7 @@ def traction(p: dict) -> dict:
     dT = _opt(p, "dT", 0.0)
     Kt = _opt(p, "Kt", 1.0)
     Re = _reqPos(p, "Re")
-    s = _opt(p, "s", 1.0)
+    s = _secu(p)
     dLmax = _opt(p, "dLmax", math.inf)
     Nfun = _fun(p, "Nfun", N)
     Sfun = _fun(p, "Sfun", S0)
@@ -263,7 +271,7 @@ def shear(p: dict) -> dict:
     T = _req(p, "T")
     S = _reqPos(p, "S")
     k = _opt(p, "k", 1.0)
-    s = _opt(p, "s", 1.0)
+    s = _secu(p)
     G = _opt(p, "G", math.nan)
     tauE, tauTxt = _tauE(p)
     tauMoy = T / S
@@ -384,7 +392,7 @@ def keyDesign(p: dict) -> dict:
     a = _reqPos(p, "a")
     b = _reqPos(p, "b")
     Padm = _reqPos(p, "Padm")
-    s = _opt(p, "s", 1.0)
+    s = _secu(p)
     tauE, tauTxt = _tauE(p)
     F = 2 * C / D
     tauAdm = tauE / s
@@ -432,7 +440,7 @@ def pinDesign(p: dict) -> dict:
     d = _reqPos(p, "d")
     e = _reqPos(p, "e")
     Padm = _reqPos(p, "Padm")
-    s = _opt(p, "s", 1.0)
+    s = _secu(p)
     ns = _opt(p, "nShear", 1.0)
     tauE, tauTxt = _tauE(p)
     P = 2 * F / (d * e)
@@ -486,7 +494,7 @@ def torsion(p: dict) -> dict:
     G = _reqPos(p, "G")
     L = _reqPos(p, "L")
     Kt = _opt(p, "Kt", 1.0)
-    s = _opt(p, "s", 1.0)
+    s = _secu(p)
     thetaAdm = _opt(p, "thetaAdm", math.inf)
     tauE, tauTxt = _tauE(p)
     methode = "numérique"
@@ -575,7 +583,7 @@ def bendingStress(p: dict) -> dict:
     Mfy = _opt(p, "Mfy", 0.0)
     Kt = _opt(p, "Kt", 1.0)
     Re = _reqPos(p, "Re")
-    s = _opt(p, "s", 1.0)
+    s = _secu(p)
     hasSec = p.get("sec") is not None
     if hasSec:
         # propriétés déjà calculées par l'appelant (évite de refaire l'intégration du cisaillement)

@@ -50,7 +50,9 @@ const App = (() => {
     if (typeof v === "number") return v;
     const t = String(v ?? "").trim().replace(/\s/g, "").replace(",", ".").replace("−", "-");
     if (t === "") return "";
-    return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t) ? Number(t) : NaN;
+    if (!/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) return NaN;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : NaN; // « 1e400 » dépasse ce qu'un nombre peut porter : refusé comme un texte
   }
   const fr = (v) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
   // Décimales d'un texte du calcul à la française : « p = 10.1 MPa » → « p = 10,1 MPa ».

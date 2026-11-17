@@ -348,3 +348,36 @@ def test_ossature_3d_lignes_avec_et_sans_force_inclinee():
     c = structures._tables_3d(s)["charges_nodales"]
     assert c.loc[0, "Fx"] == 5.0
     assert c.loc[1, "Fx"] == 0.0 and c.loc[1, "Fz"] == 100.0
+
+
+def test_audit_saisies_absurdes_donnent_un_message_lisible():
+    """Treillis : nœud inexistant ; s = 0 ; Ne = 0 ; flambage d'une section énorme sans gel."""
+    import time
+
+    from mecastruct.pont import noyau
+
+    noyau.charger("structures")
+    F = noyau.tous_formulaires()
+
+    def appeler(ident, **modif):
+        s = json.loads(json.dumps(F[ident]["defaut"]))
+        s.update(modif)
+        return json.loads(noyau.appeler(ident, json.dumps(s)))
+
+    r = appeler("truss", sup=[{"node": 9, "bx": True, "by": True}])
+    assert not r["ok"] and "Appui n°1 : le nœud 9 n'existe pas" in r["erreur"]
+    r = appeler("truss", loads=[{"node": 42, "Fx": 1.0, "Fy": 1.0}])
+    assert "Charge n°1 : le nœud 42 n'existe pas" in r["erreur"]
+    r = appeler("truss", bars=[*F["truss"]["defaut"]["bars"], {"i": 1, "j": 99}])
+    assert "Barre n°" in r["erreur"] and "99" in r["erreur"]
+    for ident in ("cis", "tor", "fle", "tra"):
+        r = appeler(ident, s=0)
+        assert not r["ok"] and "coefficient de sécurité s doit être strictement positif" in r["erreur"], ident
+    r = appeler("epi", Ne=0)
+    assert not r["ok"] and "Ne doit être différente de 0" in r["erreur"]
+    t = time.time()
+    r = appeler("fla", S=1e15)
+    assert time.time() - t < 10 and (r["ok"] or "MemoryError" not in r["erreur"])
+    for ident in ("beam", "truss", "tra", "cis", "tor", "fle", "fla", "ten"):
+        champ = next(c for g in F[ident]["groupes"] for c in g["champs"] if c["id"] == "s")
+        assert champ["min"] == 0.0 and champ["minExclu"] is True, ident
