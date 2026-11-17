@@ -56,7 +56,11 @@ const App = (() => {
   }
   const fr = (v) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
   // Décimales d'un texte du calcul à la française : « p = 10.1 MPa » → « p = 10,1 MPa ».
-  const decimalesFr = (t) => String(t).replace(/(\d)\.(\d)/g, "$1,$2");
+  // « 2,487e+07 » → « 2,487·10⁷ » (exposant en chiffres hauts, plus lisible que la notation informatique)
+  const HAUT = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻", "−": "⁻" };
+  const exposants = (t) => String(t).replace(/(\d)e([-+−]?)(\d{1,3})(?![\w])/g, (_m, d, signe, exp) =>
+    `${d}·10${signe === "+" ? "" : HAUT[signe] || ""}${String(Number(exp)).replace(/\d/g, (x) => HAUT[x])}`);
+  const decimalesFr = (t) => exposants(String(t).replace(/(\d)\.(\d)/g, "$1,$2"));
   const echapper = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
   function el(balise, attributs = {}, ...enfants) {
@@ -160,7 +164,7 @@ const App = (() => {
     const tab = el("table", {},
       el("thead", {}, el("tr", {}, t.entetes.map((e) => el("th", { scope: "col", texte: e })))),
       el("tbody", {}, t.lignes.map((ligne) => el("tr", {}, ligne.map((c, j) => {
-        const td = el("td", { texte: c });
+        const td = el("td", { texte: typeof c === "string" && /^[−\-+]?\d+(,\d+)?e[−\-+]?\d+$/.test(c.trim()) ? exposants(c) : c });
         if (j > 0 && /^[−\-+]?[\d\s]+(,\d+)?(e[−\-+]?\d+)?$/.test(String(c).trim())) td.className = "num";
         if (/^(OK|oui)$/.test(c)) td.className = "verdict succes";
         if (/^(NON|non)$/.test(c)) td.className = "verdict erreur";
@@ -536,5 +540,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();
