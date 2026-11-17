@@ -5,7 +5,7 @@
 
 const App = (() => {
   const $ = (id) => document.getElementById(id);
-  const VERSION = "1.6.0";
+  const VERSION = "1.7.0";
   const DEPOT = "https://github.com/theo33-oss/MecaStruct";
   let pont = null;
   const genres = {};
