@@ -157,6 +157,60 @@ const App = (() => {
     return ok;
   }
 
+  // ---------- copie d'un bloc en image (presse-papiers) ----------
+
+  let chargementImage = null;
+  function chargerHtmlToImage() {
+    if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
+    chargementImage = chargementImage || new Promise((ok, ko) => {
+      const s = el("script", { src: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js", crossorigin: "anonymous" });
+      s.onload = () => ok(window.htmlToImage);
+      s.onerror = () => { chargementImage = null; ko(new Error("html-to-image")); };
+      document.head.append(s);
+    });
+    return chargementImage;
+  }
+  // PNG du bloc : figure Plotly (rendu natif) ou élément HTML quelconque (html-to-image).
+  async function imageDuBloc(cible) {
+    const fond = getComputedStyle(document.documentElement).getPropertyValue("--carte").trim() || "#fff";
+    const graphe = cible.classList.contains("js-plotly-plot") ? cible : null;
+    if (graphe) {
+      const url = await Plotly.toImage(graphe, { format: "png", scale: 2 });
+      return (await fetch(url)).blob();
+    }
+    const h2i = await chargerHtmlToImage();
+    return h2i.toBlob(cible, { pixelRatio: 2, backgroundColor: fond, width: cible.scrollWidth, height: cible.scrollHeight,
+      filter: (n) => !(n.classList && n.classList.contains("barre-image")) });
+  }
+  // Rend "copie", "telechargee" ou "echec". L'écriture est lancée dans le clic (promesse du blob) : exigence des navigateurs.
+  async function copierImage(cible, nom = "mecastruct.png") {
+    const blob = imageDuBloc(cible);
+    try {
+      if (!window.ClipboardItem || !navigator.clipboard || !navigator.clipboard.write) throw new Error("presse-papiers");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      return "copie";
+    } catch (e) { /* copie refusée : l'image est téléchargée à la place */ }
+    try {
+      const b = await blob;
+      if (!b) return "echec";
+      telecharger(nom, b, "image/png");
+      return "telechargee";
+    } catch (e) { return "echec"; }
+  }
+  // Petite barre « Copier l'image » à placer juste au-dessus du bloc ; `cible` peut être un élément ou une fonction qui le donne.
+  function boutonImage(cible, nom = "mecastruct.png") {
+    const b = el("button", { type: "button", class: "secondaire petit copie-image", texte: "Copier l'image",
+      aide: "Met une image de ce bloc dans le presse-papiers : à coller dans Word, un mail, un compte rendu." });
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      const r = await copierImage(typeof cible === "function" ? cible() : cible, nom);
+      b.textContent = { copie: "Copié", telechargee: "Image téléchargée", echec: "Copie impossible" }[r];
+      b.disabled = false;
+      setTimeout(() => { b.textContent = "Copier l'image"; }, 1500);
+    });
+    return el("div", { class: "barre-image" }, b);
+  }
+
   // Tableau {entetes, lignes} du pont, avec un bouton qui le copie pour Excel (tabulations).
   function tableau(t, titre) {
     // un nombre resté avec un point (texte du calcul) passe à la virgule ; les références de clause (« 6.3.2 ») ne bougent pas
@@ -177,7 +231,7 @@ const App = (() => {
       b.textContent = (await copier([t.entetes, ...t.lignes.map((l) => l.map(brut))].map((l) => l.join("\t")).join("\n"))) ? "Copié" : "Copie impossible";
       setTimeout(() => { b.textContent = "Copier le tableau"; }, 1500);
     });
-    return el("div", { class: "tableau" }, titre ? el("h4", { texte: titre }) : null, el("div", { class: "defile" }, tab), b);
+    return el("div", { class: "tableau" }, titre ? el("h4", { texte: titre }) : null, boutonImage(tab, "tableau.png"), el("div", { class: "defile" }, tab), b);
   }
 
   // Formule LaTeX du calcul dessinée par KaTeX (texte brut si KaTeX n'est pas chargé).
@@ -234,7 +288,7 @@ const App = (() => {
   function figure(f, classe = "figure") {
     const d = el("div", { class: classe });
     requestAnimationFrame(() => tracer(d, f));
-    return d;
+    return el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png"), d);
   }
 
   // Onglets : liste = [{ id, titre, rendu(panneau) }] ; rendu à l'ouverture (Plotly a besoin d'un panneau visible).
@@ -540,5 +594,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, copierImage, boutonImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();

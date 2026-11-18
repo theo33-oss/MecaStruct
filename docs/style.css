@@ -190,6 +190,9 @@ td.verdict.erreur { background: var(--err-fond); color: var(--err-texte); }
 .titre-securite select { min-height: 34px; padding: 0 8px; font-size: .9rem; }
 /* image dans la saisie (section de la poutre) : sur toute la largeur de la grille des champs */
 .champ-large { grid-column: 1 / -1; }
+.barre-image { display: flex; justify-content: flex-end; margin: 4px 0 2px; }
+.barre-image button { opacity: .85; }
+.barre-image button:hover, .barre-image button:focus-visible { opacity: 1; }
 .figure.figure-petite { min-height: 220px; }
 /* hauteur réglable : tirer le coin en bas à droite de la figure */
 .figure { background: var(--figure-fond); border: 1px solid var(--bord); border-radius: 6px; min-height: 200px; overflow: hidden; resize: vertical; }
@@ -235,7 +238,7 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
   .confiance { flex-basis: 100%; }
 }
 @media print {
-  #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets, .exports { display: none !important; }
+  #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets, .exports, .barre-image { display: none !important; }
   body { background: #fff; }
 }
 
