@@ -79,6 +79,21 @@ def test_boutons_d_export_et_fichiers(bureau):
     assert classeur.sheetnames[:2] == ["Lisez-moi", "Données"] and "Calcul" in classeur.sheetnames
 
 
+def test_bouton_demander_a_une_ia(bureau, monkeypatch):
+    """« Demander à une IA » : l'étude (consigne + note) est dans le presse-papiers, puis un menu propose Claude et ChatGPT."""
+    from PySide6.QtWidgets import QApplication
+
+    menus = []
+    monkeypatch.setattr(exports, "montrer_menu", lambda menu, _pos: menus.append([x.text() for x in menu.actions()]))
+    bureau.ouvre("treillis")
+    assert bureau.boutons("Demander à une IA")
+    bureau.clique("Demander à une IA")
+    bureau.attend(300)
+    copie = QApplication.clipboard().text()
+    assert "attends mes questions" in copie and "--- ÉTUDE ---" in copie and "Flambage d'Euler" in copie
+    assert menus and "Ouvrir Claude" in menus[0] and "Ouvrir ChatGPT" in menus[0]
+
+
 def test_export_voit_les_materiaux_de_l_utilisateur(bureau):
     """Le pont reçoit la base de l'application : un matériau ajouté dans l'application est connu des exports."""
     from mecastruct.pont import noyau

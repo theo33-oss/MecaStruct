@@ -766,9 +766,40 @@
       return [telecharger, imprimer];
     }
 
+    // Bouton flottant en bas à gauche : copie l'étude (consigne + note de calcul) pour la coller dans une IA, qui présente
+    // le problème avant qu'on lui pose des questions. Rien n'est envoyé : c'est l'utilisateur qui colle. Il vit dans le
+    // bloc de la page : il disparaît avec elle.
+    function boutonIA() {
+      if (!f.exports) return null;
+      const lien = (texte, href) => el("a", { class: "bouton secondaire", href, target: "_blank", rel: "noopener noreferrer", texte });
+      const panneau = el("div", { class: "ia-panneau", role: "dialog", "aria-label": "Demander à une IA", hidden: true },
+        el("p", { texte: "Étude copiée : collez-la (Ctrl+V) dans l'IA. Elle présente d'abord le problème, puis posez-lui vos questions." }),
+        el("div", { class: "ligne" }, lien("Ouvrir Claude", "https://claude.ai/new"), lien("Ouvrir ChatGPT", "https://chatgpt.com/")));
+      const bouton = el("button", { type: "button", class: "ia-bouton", texte: "Demander à une IA", "aria-expanded": "false",
+        aide: "Copie l'étude (données, résultats, démarche) avec une consigne : l'IA présente le problème, puis vous lui posez vos questions. Rien n'est envoyé : vous collez le texte dans Claude ou ChatGPT." });
+      const conteneur = el("div", { class: "ia-flottant" }, panneau, bouton);
+      const fermer = () => { panneau.hidden = true; bouton.setAttribute("aria-expanded", "false"); };
+      bouton.addEventListener("click", async () => {
+        const r = App.calculer(ident + ".ia", { ...saisie, _securite: App.memoire.lire("securite", "coef") });
+        if (!r.ok) return signaler("erreur", r.erreur);
+        const ok = await App.copier(r.sortie.texte);
+        App.confirmer(null, ok, "Étude copiée", "Copie impossible", "Étude copiée : collez-la dans l'IA (Ctrl+V).");
+        panneau.hidden = !ok;
+        bouton.setAttribute("aria-expanded", String(ok));
+      });
+      // fermeture : Échap ou clic ailleurs ; les écouteurs se retirent d'eux-mêmes quand la page a disparu
+      const surDocument = (e) => {
+        if (!conteneur.isConnected) { document.removeEventListener("keydown", surDocument); document.removeEventListener("click", surDocument); return; }
+        if (e.type === "keydown" ? e.key === "Escape" : !conteneur.contains(e.target)) fermer();
+      };
+      document.addEventListener("keydown", surDocument);
+      document.addEventListener("click", surDocument);
+      return conteneur;
+    }
+
     const titreResultat = App.titreImage("Résultat", () => zoneResultat.querySelector(".bilan, .verdict"), "resultat.png", "titre-resultat");
     dessinerChamps();
-    const bloc = el("div", { class: "calcul" },
+    const bloc = el("div", { class: "calcul" }, boutonIA(),
       el("div", { class: "colonne-saisie" }, formulaire),
       el("div", { class: "colonne-resultat" },
         auto ? null : el("div", { class: "actions-schema" }, el("button", { type: "button", class: "primaire", texte: "Calculer", aide: "Lance le calcul.", onclick: () => relancer(true) })),

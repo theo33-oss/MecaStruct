@@ -54,6 +54,15 @@ def declarer(ident: str) -> None:
         return {"nom": _nom(f["titre"], "_note.txt"),
                 "texte": export_texte.texte(f["titre"], f, s, sortie, sortie.get("criteres") or [])}  # fmt: skip
 
+    @calcul(f"{ident}.ia")
+    def ia(s):
+        """Étude à coller dans une IA : consigne (présenter le problème, attendre les questions) + note de calcul."""
+        from mecastruct.services import export_texte
+
+        f, sortie, _ = _calcul(ident, s)
+        note = export_texte.texte(f["titre"], f, s, sortie, sortie.get("criteres") or [])
+        return {"texte": export_texte.invite_ia(f["titre"], note)}
+
     @calcul(f"{ident}.validation")
     def validation(s):
         """Classeur Excel où le calcul est refait par des formules (base64)."""

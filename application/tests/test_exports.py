@@ -209,6 +209,21 @@ def test_fichiers_ouverts_pour_de_vrai():
     assert "réserve" in appel("rlt.texte")["texte"] and "[Matage]" in appel("cis.texte")["texte"]
 
 
+def test_etude_pour_une_ia():
+    """« Demander à une IA » : consigne (présenter le problème, attendre les questions) puis la note de calcul."""
+    from mecastruct.pont import exports
+
+    for ident in sorted(exports.DECLARES):
+        t = appel(ident + ".ia")["texte"]
+        assert "présente" in t.lower() and "attends mes questions" in t, ident
+        assert FORMULAIRES[ident]["titre"] in t and "--- ÉTUDE ---" in t and "--- FIN DE L'ÉTUDE ---" in t, ident
+    note = appel("beam.texte")["texte"]
+    assert note in appel("beam.ia")["texte"]  # la même note que le bloc-notes, rien de plus
+    s = json.loads(json.dumps(FORMULAIRES["beam"]["defaut"]))
+    s["s"] = 1.3
+    assert "marge de sécurité 30 %" in appel("beam.ia", {**s, "_securite": "marge"})["texte"]
+
+
 def test_reserve_d_une_limite():
     """Une limite (norme, durée…) donne sa réserve 1 − taux, jamais « 100 % » si elle est un peu chargée."""
     from mecastruct.services.export_texte import chiffres
