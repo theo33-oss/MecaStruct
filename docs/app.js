@@ -526,6 +526,18 @@ const App = (() => {
     }));
   }
 
+  // Menu qui défile (téléphone) : un fondu sur le bord signale ce qui dépasse, et l'entrée courante se centre.
+  function indiceDefilement(barre) {
+    const maj = () => {
+      barre.classList.toggle("fondu-gauche", barre.scrollLeft > 4);
+      barre.classList.toggle("fondu-droite", barre.scrollLeft + barre.clientWidth < barre.scrollWidth - 4);
+    };
+    if (!barre._indice) { barre._indice = true; barre.addEventListener("scroll", maj, { passive: true }); window.addEventListener("resize", maj); }
+    const a = barre.querySelector('[aria-current]');
+    if (a && barre.scrollWidth > barre.clientWidth) barre.scrollLeft = Math.max(0, a.offsetLeft - (barre.clientWidth - a.offsetWidth) / 2);
+    maj();
+  }
+
   function afficher() {
     // une ancre qui n'est pas une adresse de page (« #page ») ne change pas de page : on ne retombe pas sur l'accueil
     if (courante && location.hash && !location.hash.startsWith("#/")) return;
@@ -533,6 +545,8 @@ const App = (() => {
     const p = page(id) || page("accueil");
     courante = p;
     majMenu(p);
+    indiceDefilement($("menu"));
+    indiceDefilement($("sous"));
     document.title = (p.id === "accueil" ? "" : p.titre + " · ") + "MecaStruct RdM";
     const contenu = $("contenu");
     contenu.replaceChildren();
@@ -579,6 +593,16 @@ const App = (() => {
     } catch (e) { /* hors ligne : rien à comparer */ }
   }
 
+  // Télécharge d'avance, en parallèle de Pyodide, la roue de plotly (9,7 Mo, l'étape la plus longue à froid) : micropip la
+  // retrouve ensuite dans le cache du navigateur. Sans effet (et sans erreur) si le réseau refuse.
+  async function prechargerPlotly() {
+    try {
+      const d = await (await fetch("https://pypi.org/pypi/plotly/7.1.0/json")).json();
+      const roue = d.urls.find((u) => u.packagetype === "bdist_wheel");
+      if (roue) await (await fetch(roue.url)).arrayBuffer();
+    } catch (e) { /* micropip la téléchargera lui-même */ }
+  }
+
   async function demarrer() {
     const build = document.querySelector('meta[name="build"]')?.content || "";
     $("version").textContent = "version " + VERSION + (build ? " · build " + build : "");
@@ -594,6 +618,10 @@ const App = (() => {
     window.addEventListener("hashchange", afficher);
     afficher(); // la page se lit pendant le chargement ; les calculs s'activent à la fin
     const debut = performance.now();
+    prechargerPlotly();
+    const empreinteZip = document.querySelector('meta[name="zip"]')?.content || Date.now();
+    const archiveZip = fetch("mecastruct.zip?v=" + empreinteZip).then((r) => r.arrayBuffer()); // lue plus tard : déjà là
+    archiveZip.catch(() => {}); // l'erreur est traitée à l'attente, plus bas
     try {
       const pyodide = await chronometre("python", () => loadPyodide());
       etat("Préparation 2/4 : bibliothèques de calcul (numpy, pandas)…", 2);
@@ -602,8 +630,7 @@ const App = (() => {
       await chronometre("plotly", () => pyodide.pyimport("micropip").install("plotly==7.1.0")); // même version que l'application de bureau (requirements.lock)
       etat("Préparation 4/4 : calculs MecaStruct, tables ISO 286, matériaux…", 4);
       await chronometre("mecastruct", async () => {
-        const empreinte = document.querySelector('meta[name="zip"]').content || Date.now();
-        const archive = await (await fetch("mecastruct.zip?v=" + empreinte)).arrayBuffer();
+        const archive = await archiveZip;
         pyodide.unpackArchive(archive, "zip", { extractDir: "/app" });
         pyodide.runPython("import sys; sys.path.insert(0, '/app')");
         pont = pyodide.pyimport("mecastruct.pont");
