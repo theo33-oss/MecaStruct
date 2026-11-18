@@ -86,7 +86,7 @@ def test_bloc_notes(ident):
     for mot in ("DONNÉES", "VERDICT ET MODES DE RUINE", "sans garantie"):
         assert mot in t
     if ident in AVEC_CRITERES:
-        assert "ADMISSIBLE" in t and "Coefficient ou marge" in t
+        assert "ADMISSIBLE" in t and "Sécurité ou réserve" in t
 
 
 def test_bloc_notes_de_la_traction():
@@ -206,7 +206,18 @@ def test_fichiers_ouverts_pour_de_vrai():
     t = appel("tra.texte")["texte"]
     assert "σmax = 159,2 MPa" in t and "159.2" not in t and "159,155" in t
     assert "\n" not in t.replace("\r\n", "")  # fins de ligne Windows partout
-    assert "marge" in appel("rlt.texte")["texte"] and "[Matage]" in appel("cis.texte")["texte"]
+    assert "réserve" in appel("rlt.texte")["texte"] and "[Matage]" in appel("cis.texte")["texte"]
+
+
+def test_reserve_d_une_limite():
+    """Une limite (norme, durée…) donne sa réserve 1 − taux, jamais « 100 % » si elle est un peu chargée."""
+    from mecastruct.services.export_texte import chiffres
+
+    c = {"unite": "kN", "limite": 348.4, "valeur": 0.0428, "sens": "max", "genre": "limite"}
+    assert chiffres({**c, "taux": 0.5})[2] == "réserve 50 %"
+    assert chiffres({**c, "taux": 0.000123})[2] == "réserve > 99,9 %"  # VEd/Vpl,Rd d'un IPE 300 presque pas chargé
+    assert chiffres({**c, "taux": 0.0})[2] == "réserve 100 %"
+    assert chiffres({**c, "taux": 1.2})[2] == "dépassement 20 %"
 
 
 def test_bloc_notes_en_marge_de_securite():

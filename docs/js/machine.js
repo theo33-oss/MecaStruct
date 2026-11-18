@@ -591,9 +591,11 @@
 
     const phraseEtat = (t) => { const p = App.decimalesFr(String(t || "")); return /^[a-zà-ÿ]{2}/.test(p) ? p.charAt(0).toUpperCase() + p.slice(1) : p; };
     const nf = (x, chiffres = 3) => (Number.isFinite(x) ? App.exposants(String(Number(x.toPrecision(chiffres))).replace(".", ",")) : "∞");
+    // réserve = 1 − taux en % ; un taux non nul arrondi à « 100 » s'écrit « > 99,9 » (100 % ferait croire à une charge nulle)
+    const reserve = (taux) => { const r = nf(100 * (1 - taux)); return taux > 0 && r === "100" ? "> 99,9" : r; };
 
-    // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient de sécurité (résistance)
-    // ou marge (durée, rigidité, vitesse…). Les études d'une même page (cisaillement, matage, clavette) ont un sous-titre.
+    // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient de sécurité ou marge s − 1
+    // (résistance), ou réserve 1 − taux (durée, rigidité, vitesse, norme…). Les études d'une même page ont un sous-titre.
     function bilan(s) {
       const crit = s.criteres || [];
       const ko = crit.filter((c) => !c.ok).length;
@@ -619,8 +621,8 @@
               el("span", { texte: `demandée ${nf(100 * (c.s_demande - 1))} %` })]
             : [el("strong", { texte: `s = ${c.s_obtenu === null ? "∞" : nf(c.s_obtenu)}`, aide: "Coefficient de sécurité obtenu : la limite du matériau divisée par la valeur calculée." }),
               el("span", { texte: `demandé ${nf(c.s_demande)}` })])
-          : [el("strong", { texte: c.taux <= 1 ? `marge ${nf(100 * (1 - c.taux))} %` : `dépassement ${nf(100 * (c.taux - 1))} %`,
-            aide: "Part de l'admissible encore disponible, ou dépassement de la limite." })];
+          : [el("strong", { texte: c.taux <= 1 ? `réserve ${reserve(c.taux)} %` : `dépassement ${nf(100 * (c.taux - 1))} %`,
+            aide: "Réserve : part de l'admissible encore libre (1 − taux), au plus 100 %. Ce n'est pas la marge de sécurité s − 1." })];
         // s < 1 : la valeur calculée dépasse déjà la limite du matériau (Re) ; le dire en clair (s − 1 ne passe jamais sous −100 %)
         if (c.genre === "resistance" && c.sens === "max" && c.s_obtenu > 0 && c.s_obtenu < 1)
           marge.push(el("span", { class: "depasse-limite", texte: `dépasse la limite du matériau de ${nf(100 * (1 / c.s_obtenu - 1))} %`,

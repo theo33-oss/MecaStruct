@@ -97,9 +97,10 @@ def _titre(t: str) -> list[str]:
 
 
 def chiffres(c: dict, en_marge: bool = False) -> tuple[str, str, str]:
-    """(« 159,2 MPa pour 156,7 MPa admissibles », « taux 102 % », « s = 1,48 · demandé 1,5 » ou « marge 17 % »).
+    """(« 159,2 MPa pour 156,7 MPa admissibles », « taux 102 % », « s = 1,48 · demandé 1,5 » ou « réserve 17 % »).
 
-    `en_marge` : une résistance s'écrit en marge de sécurité (s − 1, en %) : « marge 48 % · demandée 50 % »."""
+    `en_marge` : une résistance s'écrit en marge de sécurité (s − 1, en %) : « marge 48 % · demandée 50 % ».
+    Une limite (durée, rigidité, norme…) donne sa réserve, 1 − taux (au plus 100 %), à ne pas confondre avec la marge."""
     u = f" {c['unite']}" if c["unite"] else ""
     sans_unite = not c["unite"] and c["limite"] == 1  # rapport d'une norme (effort / résistance ≤ 1) : le taux suffit
     mot = "admissibles" if c["sens"] == "max" else "requis"
@@ -110,8 +111,12 @@ def chiffres(c: dict, en_marge: bool = False) -> tuple[str, str, str]:
             return (valeurs, taux, f"marge {nombre(100 * (c['s_obtenu'] - 1), 3)} % · demandée "
                                    f"{nombre(100 * (c['s_demande'] - 1), 3)} %")  # fmt: skip
         return valeurs, taux, f"s = {nombre(c['s_obtenu'], 3)} · demandé {nombre(c['s_demande'], 3)}"
-    marge_ = f"marge {nombre(100 * (1 - c['taux']), 3)} %" if c["taux"] <= 1 else f"dépassement {nombre(100 * (c['taux'] - 1), 3)} %"
-    return valeurs, taux, marge_
+    if c["taux"] > 1:
+        return valeurs, taux, f"dépassement {nombre(100 * (c['taux'] - 1), 3)} %"
+    reserve = nombre(100 * (1 - c["taux"]), 3)
+    if c["taux"] > 0 and reserve == "100":  # un taux non nul arrondi à 100 % ferait croire à une charge nulle
+        reserve = "> 99,9"
+    return valeurs, taux, f"réserve {reserve} %"
 
 
 def phrase_bilan(crit: list[dict]) -> str:
@@ -138,7 +143,7 @@ def lignes_criteres(crit: list[dict], en_marge: bool = False) -> list[str]:
         groupe = c.get("groupe") or None
         valeurs, taux, marge = chiffres(c, en_marge)
         lignes.append([c["mode"], valeurs, taux.removeprefix("taux "), marge, "ADMISSIBLE" if c["ok"] else "NON ADMISSIBLE"])
-    return _colonnes(["Mode de ruine", "Valeur et limite", "Taux", "Coefficient ou marge", "Verdict"], lignes)
+    return _colonnes(["Mode de ruine", "Valeur et limite", "Taux", "Sécurité ou réserve", "Verdict"], lignes)
 
 
 def texte(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[dict], quand: datetime | None = None) -> str:

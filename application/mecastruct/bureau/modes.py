@@ -1,7 +1,8 @@
 """Diagramme des modes de ruine de l'application de bureau (même contenu et mêmes mots que le site).
 
 Une ligne par critère (services/criteres.py) : nom du mode, pastille « Admissible » ou « Non admissible », barre du taux
-de travail avec un trait à 100 %, valeur pour limite admissible, taux, coefficient de sécurité (résistance) ou marge.
+de travail avec un trait à 100 %, valeur pour limite admissible, taux, coefficient ou marge de sécurité (résistance) ou
+réserve 1 − taux (limite).
 """
 
 from collections.abc import Sequence
