@@ -656,7 +656,7 @@
       const metriques = (s.metriques || []).length
         ? el("div", { class: "metriques" }, s.metriques.map(([n, v]) => el("div", { class: "metrique" }, el("span", { texte: n }), el("strong", { texte: App.decimalesFr(v) }))))
         : null;
-      return [verdict, controles(s), avecHeure ? heure : "", exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
+      return [App.boutonImage(verdict, "resultat.png"), verdict, controles(s), avecHeure ? heure : "", exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
     }
 
     // Un résultat complémentaire dont la saisie a changé depuis le calcul est signalé (jamais effacé en silence).
@@ -672,7 +672,9 @@
       }
     }
 
-    function explications(p, s) {
+    function explications(p0, s) {
+      const p = el("div", { class: "corps-explications" });
+      p0.append(App.boutonImage(p, "explications.png"), p);
       if ((s.explications || []).length) {
         p.append(el("h4", { texte: "Équations appliquées à vos données" }),
           el("p", { class: "legende", texte: "Chaque grandeur est refaite à la main, puis comparée au résultat du solveur." }));

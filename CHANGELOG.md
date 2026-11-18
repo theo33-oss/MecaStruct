@@ -12,6 +12,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 
 ## Non publié (site)
 
+- Bouton « Copier l'image » au-dessus des graphiques, du schéma, du verdict, des explications du calcul et des tableaux : une image PNG du bloc va dans le presse-papiers (à coller dans Word ou un mail), ou se télécharge si le navigateur refuse la copie.
 - Poutres : plus de gel quand on tape une petite longueur ; section au choix (catalogue, forme paramétrée, tige
   filetée ISO avec son schéma d, d2, ds, d3, page Sections ou valeurs à la main) avec son image ; poids propre coché
   de base et bloc Calcul ouvert ; le schéma de la poutre ne plante plus avec le poids propre.
