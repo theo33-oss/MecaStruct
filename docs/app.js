@@ -185,13 +185,19 @@ const App = (() => {
     const largeur = Math.max(cible.scrollWidth, cible.getBoundingClientRect().width);
     const copie = cible.cloneNode(true);
     copie.querySelectorAll(".barre-image").forEach((b) => b.remove());
+    // bloc avec son propre fond (verdict) : image serrée au ras du cadre, coins arrondis transparents ;
+    // bloc sans fond (tableau, explications) : petite marge sur le fond de la page, pour que le texte reste lisible
+    const fondPropre = !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(getComputedStyle(cible).backgroundColor);
+    const marge = fondPropre ? 0 : 8;
     const cadre = el("div", { class: "cadre-image" }, copie);
-    cadre.style.width = Math.ceil(largeur + 2 * 16) + "px";
+    cadre.style.padding = marge + "px";
+    if (fondPropre) cadre.style.background = "transparent";
+    cadre.style.width = Math.ceil(largeur + 2 * marge) + "px";
     const hors = el("div", { class: "capture-hors-ecran", "aria-hidden": "true" }, cadre); // le cadre lui-même reste à sa place
     document.body.append(hors);
     try {
       await document.fonts.ready;
-      return await h2i.toBlob(cadre, { pixelRatio: 2, backgroundColor: fond, width: cadre.offsetWidth, height: cadre.offsetHeight });
+      return await h2i.toBlob(cadre, { pixelRatio: 2, backgroundColor: fondPropre ? undefined : fond, width: cadre.offsetWidth, height: cadre.offsetHeight });
     } finally { hors.remove(); }
   }
   // Rend "copie", "telechargee" ou "echec". L'écriture est lancée dans le clic (promesse du blob) : exigence des navigateurs.
@@ -263,11 +269,15 @@ const App = (() => {
 
   // Couleurs des figures du calcul (plots/_common.py) → thème sombre.
   const COULEURS_SOMBRES = { "rgba(0,0,0,1)": "#EDE6F7", "black": "#EDE6F7", "#000000": "#EDE6F7", "white": "#1A1626", "#FFFFFF": "#1A1626", "#ffffff": "#1A1626", "rgba(255,255,255,1)": "#1A1626" };
-  const enSombre = (x) => JSON.parse(JSON.stringify(x).replace(/"(rgba\(0,0,0,1\)|black|white|#000000|#FFFFFF|#ffffff|rgba\(255,255,255,1\))"/g, (m, c) => `"${COULEURS_SOMBRES[c]}"`));
+  // espaces tolérés dans rgba( ) : c'est ainsi que Plotly réécrit les couleurs
+  const enSombre = (x) => JSON.parse(JSON.stringify(x).replace(/"(rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*1\s*\)|black|white|#000000|#FFFFFF|#ffffff|rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*1\s*\))"/g,
+    (m, c) => `"${COULEURS_SOMBRES[c.replace(/\s/g, "")]}"`));
 
   // Données et mise en page prêtes à tracer : thème sombre ou clair, virgule décimale.
+  // Toujours une copie : Plotly réécrit sur place les objets reçus (« rgba(0,0,0,1) » → « rgba(0, 0, 0, 1) » dans les
+  // formes), et la figure d'origine, gardée pour les changements de thème, ne doit pas bouger.
   function miseEnForme(f, foncee, encre, fond) {
-    let data = f.data, layout = { ...(f.layout || {}) };
+    let data = JSON.parse(JSON.stringify(f.data || [])), layout = JSON.parse(JSON.stringify(f.layout || {}));
     if (foncee) {
       data = enSombre(data);
       layout = enSombre(layout);
