@@ -1,4 +1,4 @@
-"""Application de bureau « MecaStruct RdM Pro » : même forme que le site (bandeau, menu en haut, une page par outil).
+"""Application de bureau « MecaStruct RdM » : même forme que le site (bandeau, menu en haut, une page par outil).
 
 Lancement : python main.py (ou 1_Ouvrir_application.bat sous Windows).
 """
@@ -70,7 +70,7 @@ class Fenetre(QMainWindow):
         super().__init__()
         from mecastruct import __version__
 
-        self.setWindowTitle(f"MecaStruct RdM Pro {__version__}")
+        self.setWindowTitle(f"MecaStruct RdM {__version__}")
         self.resize(1500, 900)
         self.familles: dict[str, list[tuple[str, str]]] = {}  # famille → [(page, libellé)]
         self.famille_de: dict[str, str] = {}
@@ -119,7 +119,7 @@ class Fenetre(QMainWindow):
         h.setSpacing(16)
         icone = QLabel()
         icone.setPixmap(QIcon(str(Path(__file__).resolve().parent / "data" / "icone.svg")).pixmap(36, 36))
-        marque = QLabel("MecaStruct <span style='font-weight:normal'>RdM Pro</span>")
+        marque = QLabel("MecaStruct <span style='font-weight:normal'>RdM</span>")
         marque.setObjectName("marque")
         confiance = QLabel("Tout est calculé sur votre ordinateur : rien n'est envoyé sur Internet. "
                            "Outil d'aide au pré-dimensionnement, résultats à vérifier.")  # fmt: skip

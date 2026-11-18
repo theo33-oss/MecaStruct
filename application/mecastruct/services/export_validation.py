@@ -267,7 +267,7 @@ def classeur(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: lis
     lm.column_dimensions["A"].width = 110
     ok = sortie.get("ok")
     notes = [
-        f"MecaStruct RdM Pro {__version__} - {titre}",
+        f"MecaStruct RdM {__version__} - {titre}",
         "Verdict de MecaStruct : " + ("vérifié" if ok is True else "NON vérifié" if ok is False else "sans verdict"),
         str(sortie.get("status", "")),
         "",

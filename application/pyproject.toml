@@ -1,7 +1,7 @@
 [project]
 name = "mecastruct-bureau"
 dynamic = ["version"]  # mecastruct/__init__.py : __version__
-description = "MecaStruct RdM Pro - application de bureau Windows (Python / PySide6) de l'application MATLAB de Theo Brun"
+description = "MecaStruct RdM - application de bureau Windows (Python / PySide6) de l'application MATLAB de Theo Brun"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]

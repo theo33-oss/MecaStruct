@@ -1,4 +1,4 @@
-# MecaStruct RdM Pro, application de bureau
+# MecaStruct RdM, application de bureau
 
 Application Windows (Python, PySide6), portage de l'application MATLAB de Théo Brun. Elle a la même forme que le
 [site](https://theo33-oss.github.io/MecaStruct/) : bandeau, menu en haut par familles, une page par outil. Tout est

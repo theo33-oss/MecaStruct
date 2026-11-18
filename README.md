@@ -1,4 +1,4 @@
-# MecaStruct RdM Pro
+# MecaStruct RdM
 
 **Cette pièce tient-elle, et avec quelle marge ?** MecaStruct calcule la résistance des matériaux et les éléments de
 machines (poutres, treillis, sections, flambage, ajustements, frettage, roulements, engrenages, freins, moteur) et

@@ -146,7 +146,7 @@ def texte(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[d
     quand = quand or datetime.now()
     ok = sortie.get("ok")
     verdict = "VÉRIFIÉ" if ok is True else "NON VÉRIFIÉ" if ok is False else "sans verdict (calcul d'information)"
-    L = [f"MecaStruct RdM Pro {__version__} - {titre}", f"Calcul du {quand:%d/%m/%Y à %H h %M}", "-" * LARGEUR]
+    L = [f"MecaStruct RdM {__version__} - {titre}", f"Calcul du {quand:%d/%m/%Y à %H h %M}", "-" * LARGEUR]
     en_marge = saisie.get("_securite") == "marge"  # réglage de la page : sécurité donnée en marge (%)
     L += _titre("Données")
     groupe = None

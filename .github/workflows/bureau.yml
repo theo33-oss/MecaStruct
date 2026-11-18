@@ -51,7 +51,7 @@ jobs:
             if (($suite -join "").Trim()) { $nouveautes = ($suite -join "`n").Trim() }
           }
           @"
-          ## MecaStruct RdM Pro $v pour Windows
+          ## MecaStruct RdM $v pour Windows
 
           ### Nouveautés
 
@@ -73,7 +73,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          name: MecaStruct RdM Pro ${{ env.VERSION }}
+          name: MecaStruct RdM ${{ env.VERSION }}
           body_path: notes.md
           files: dist/MecaStruct_Installation_${{ env.VERSION }}.exe
       - name: Installateur (essai sans étiquette)

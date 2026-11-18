@@ -46,7 +46,7 @@ mjx-container{overflow-x:auto;overflow-y:hidden;max-width:100%}
 <body><main>
 <div id="mjwarn" class="warnbox" style="display:none"><strong>Formules non affichées :</strong> le script MathJax (cdnjs.cloudflare.com) n'a pas pu être chargé, probablement faute de connexion Internet. Les équations apparaissent en LaTeX brut ; les valeurs chiffrées et les tableaux restent lisibles.</div>
 <h1>Dossier de validation : {{ titre }}</h1>
-<p class="meta">Généré le {{ date }} par MecaStruct RdM Pro, application de Théo Brun (version web, Python {{ python }}). Pour obtenir un PDF : Imprimer → Enregistrer en PDF dans le navigateur.</p>
+<p class="meta">Généré le {{ date }} par MecaStruct RdM, application de Théo Brun (version web, Python {{ python }}). Pour obtenir un PDF : Imprimer → Enregistrer en PDF dans le navigateur.</p>
 <div class="box"><strong>Objet.</strong> Ce document rassemble les données du problème, les hypothèses, les équations avec valeurs chiffrées, les résultats du solveur et les diagrammes. Il permet de vérifier trois points : (1) le solveur a bien calculé, (2) le modèle est applicable à ce cas, (3) les hypothèses sont justifiées. Chaque résultat important est recalculé à la main, indépendamment du solveur, au §3.</div>
 {% if statut %}<div class="status">{{ statut }}</div>{% endif %}
 <p><strong>Bilan automatique :</strong> {{ bilan|safe }}</p>

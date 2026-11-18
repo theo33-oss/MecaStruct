@@ -1,7 +1,7 @@
 @echo off
 rem Ouvre l'application dans sa fenetre. Tout reste sur ce poste : rien n'est envoye sur Internet.
 rem Premier lancement : prepare Python et telecharge les bibliotheques (Internet necessaire une seule fois).
-title MecaStruct RdM Pro
+title MecaStruct RdM
 cd /d "%~dp0application"
 if exist ".venv\installation_ok.txt" goto lancer
 

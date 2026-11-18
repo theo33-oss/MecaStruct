@@ -132,3 +132,16 @@ def test_export_autres_onglets(dm):
     feuilles = project_io.resultSheets("Tor", res)
     assert "Synthèse" in feuilles
     pd.read_excel(io.BytesIO(project_io.toXlsx(feuilles)), sheet_name="Synthèse")
+
+
+def test_ancien_nom_rdm_pro_toujours_accepte():
+    """Une étude enregistrée avant le renommage (« MecaStruct RdM Pro ») s'ouvre ; les nouvelles portent le nom court."""
+    texte = project_io.problemToJson("Sec", loadExample("Sec"))
+    assert json.loads(texte)["app"] == "MecaStruct RdM"
+    ancien = json.loads(texte)
+    ancien["app"] = "MecaStruct RdM Pro"
+    tab, saisie = project_io.problemFromJson(json.dumps(ancien), "Sec")[:2]
+    assert tab == "Sec" and saisie
+    projet = json.loads(project_io.projectToJson({k: loadExample(k) for k in project_io.PROJECT_KEYS}))
+    projet["app"] = "MecaStruct RdM Pro"
+    project_io.projectFromJson(json.dumps(projet))

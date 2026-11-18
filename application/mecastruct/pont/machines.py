@@ -6,6 +6,7 @@ avec formulaire(id) ; elle n'a aucun libellé en dur.
 
 import json
 
+from mecastruct import APP_NOM, APPS_ACCEPTES
 from mecastruct.core import bearings, fits, plain_bearing, planetary, shrink_fit
 from mecastruct.plots import machine_plots, machine_schemas
 from mecastruct.pont import exports, noyau
@@ -249,7 +250,7 @@ def machineEnregistrer(s):
     """Fichier d'étude d'une page d'éléments de machines : {app, version, page, saisie}."""
     ident = s["ident"]
     return {"nom": f"MecaStruct_{ident}.json",
-            "texte": json.dumps({"app": "MecaStruct RdM Pro", "version": FORMAT, "page": ident, "saisie": s["saisie"]},
+            "texte": json.dumps({"app": APP_NOM, "version": FORMAT, "page": ident, "saisie": s["saisie"]},
                                 ensure_ascii=False, indent=1)}  # fmt: skip
 
 
@@ -264,7 +265,7 @@ def machineOuvrir(s):
     except ValueError as err:
         quoi = "il est vide" if not texte.strip() else "ce n'est pas un fichier .json valide"
         raise ValueError(f"Ce fichier n'est pas une étude MecaStruct ({quoi}).") from err
-    if not isinstance(d, dict) or d.get("app") != "MecaStruct RdM Pro" or not isinstance(d.get("saisie"), dict):
+    if not isinstance(d, dict) or d.get("app") not in APPS_ACCEPTES or not isinstance(d.get("saisie"), dict):
         raise ValueError("Ce fichier n'est pas une étude MecaStruct.")
     if d.get("page") != ident:
         raise ValueError(f"Cette étude vient d'une autre page (« {d.get('page')} »).")

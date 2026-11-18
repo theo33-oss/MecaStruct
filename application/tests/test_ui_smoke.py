@@ -11,7 +11,7 @@ def test_la_fenetre_s_ouvre_sur_l_accueil(bureau):
     assert bureau.fenetre.isVisible()
     from mecastruct import __version__
 
-    assert bureau.fenetre.windowTitle() == f"MecaStruct RdM Pro {__version__}"
+    assert bureau.fenetre.windowTitle() == f"MecaStruct RdM {__version__}"
     assert bureau.fenetre.menu.currentRow() == bureau.fenetre.pages["accueil"][0]
     assert bureau.a_texte("Calculs de résistance des matériaux et d'éléments de machines")
 

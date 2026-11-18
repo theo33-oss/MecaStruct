@@ -34,7 +34,7 @@
 <body>
 <main>
 
-<h1>Note de calcul — MecaStruct RdM Pro</h1>
+<h1>Note de calcul — MecaStruct RdM</h1>
 <p>Cette note sert à <strong>valider le travail du logiciel</strong>. Pour chaque module, elle donne les hypothèses, les équations utilisées, les conditions aux limites, une démonstration rapide des formules et la fonction MATLAB qui les met en œuvre. Un relecteur peut ainsi vérifier trois choses : le modèle physique est adapté, les équations sont justes, et le code fait bien ce qui est écrit ici.</p>
 
 <div class="box toc"><strong>Sommaire</strong>
@@ -409,7 +409,7 @@ $$\sigma_{ij}=\lambda\,\mathrm{tr}(\varepsilon)\delta_{ij}+2\mu\,\varepsilon_{ij
 <p>Les moteurs de calcul n'ont aucune dépendance à l'interface graphique : chacun se lance depuis la fenêtre de commande de MATLAB, avec des données en SI, ce qui permet de contrôler un résultat indépendamment de l'interface. Exemple :</p>
 <p><code>r = SolicitationsEngine.torsion(struct('Mt',500,'D',0.04,'G',73.08e9,'L',1,'Re',235e6,'s',1.5));</code></p>
 <p class="ref">Le détail des entrées et des sorties de chaque fonction est dans <code>docs/ARCHITECTURE.md</code>. Le texte source de la demande est dans <code>docs/CAHIER_DES_CHARGES.md</code>.</p>
-<p class="ref">MecaStruct RdM Pro : application de Théo Brun, basée sur son cours de Résistance des Matériaux. Sources détaillées : <code>README.md</code>, section « Auteur et sources ».</p>
+<p class="ref">MecaStruct RdM : application de Théo Brun, basée sur son cours de Résistance des Matériaux. Sources détaillées : <code>README.md</code>, section « Auteur et sources ».</p>
 
 </main>
 </body>
