@@ -158,6 +158,35 @@ def _nombres_lisibles(message: str) -> str:
     return _EXPOSANT.sub(lambda m: nombreFr(float(m.group(0))), message)
 
 
+VALEUR_MAX = 1e18  # au-delà, aucune grandeur de ces calculs n'a de sens (et les puissances débordent)
+
+
+def _trop_grande(o) -> bool:
+    """Vrai si un nombre de la saisie (dans les dicts et listes imbriqués) dépasse VALEUR_MAX en valeur absolue."""
+    if isinstance(o, bool):
+        return False
+    if isinstance(o, (int, float)):
+        return abs(o) > VALEUR_MAX
+    if isinstance(o, dict):
+        return any(_trop_grande(v) for v in o.values())
+    if isinstance(o, (list, tuple)):
+        return any(_trop_grande(v) for v in o)
+    return False
+
+
+def _message_clair(err: Exception) -> str | None:
+    """Message en français pour les erreurs techniques de calcul (division par zéro, débordement…), sinon None."""
+    texte = str(err)
+    if isinstance(err, ZeroDivisionError):
+        return "Une valeur saisie égale à 0 empêche le calcul (division par zéro) : vérifiez les champs nuls ou les nombres de dents."
+    if isinstance(err, (OverflowError, FloatingPointError)) or (isinstance(err, OSError) and err.errno == 34) \
+            or "Numerical result out of range" in texte or "Cannot cast ufunc" in texte:
+        return "Une valeur saisie est démesurée : le calcul dépasse ce qu'un nombre peut représenter. Vérifiez les unités."
+    if isinstance(err, ValueError) and "math domain error" in texte:
+        return "Le calcul n'a pas de solution avec ces valeurs (racine ou logarithme d'un nombre négatif)."
+    return None
+
+
 def appeler(ident: str, saisie_json: str = "{}") -> str:
     """Lance le calcul `ident` sur la saisie (texte JSON) ; rend un texte JSON, sans jamais lever d'exception."""
     _assurer()
@@ -172,12 +201,15 @@ def appeler(ident: str, saisie_json: str = "{}") -> str:
     except KeyError:
         return json.dumps({"ok": False, "erreur": f"Calcul inconnu : {ident}"}, ensure_ascii=False)
     try:
-        sortie = f(json.loads(saisie_json or "{}"))
+        saisie = json.loads(saisie_json or "{}")
+        if not ident.startswith("conv") and _trop_grande(saisie):  # le convertisseur accepte toute grandeur
+            raise ValueError(f"Une valeur saisie est trop grande (au-delà de 10¹⁸) : vérifiez les unités.")
+        sortie = f(saisie)
         if isinstance(sortie, dict):
             sortie.pop("_brut", None)  # résultat complet du service : sert aux exports (pont/exports.py), pas à la page
         return json.dumps({"ok": True, "sortie": versJson(sortie)}, ensure_ascii=False, allow_nan=False)
     except Exception as err:  # noqa: BLE001 : toute erreur du calcul devient un message lisible sur la page
-        message = _nombres_lisibles(getattr(err, "message", None) or str(err) or type(err).__name__)
+        message = _message_clair(err) or _nombres_lisibles(getattr(err, "message", None) or str(err) or type(err).__name__)
         return json.dumps({"ok": False, "erreur": message}, ensure_ascii=False)
 
 

@@ -386,6 +386,9 @@ class ChampNombre(QLineEdit):
     def __init__(self, valeur: float | None, entier: bool, mini: float | None, maxi: float | None,
                  surValide: Callable[[Any], None]) -> None:  # fmt: skip
         super().__init__()
+        # plafond commun à toutes les saisies (même valeur que le site, pont/noyau.py : VALEUR_MAX)
+        mini = -1e18 if mini is None else max(mini, -1e18)
+        maxi = 1e18 if maxi is None else min(maxi, 1e18)
         self.entier, self.mini, self.maxi, self.surValide = entier, mini, maxi, surValide
         self.valeur = valeur
         self._ecrire()

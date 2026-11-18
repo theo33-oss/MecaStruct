@@ -381,3 +381,48 @@ def test_audit_saisies_absurdes_donnent_un_message_lisible():
     for ident in ("beam", "truss", "tra", "cis", "tor", "fle", "fla", "ten"):
         champ = next(c for g in F[ident]["groupes"] for c in g["champs"] if c["id"] == "s")
         assert champ["min"] == 0.0 and champ["minExclu"] is True, ident
+
+
+# --- messages d'erreur lisibles et plafond de saisie ---
+
+
+def _defaut(ident):
+    return dict(appel("formulaires")["sortie"][ident]["defaut"])
+
+
+def test_division_par_zero_en_francais():
+    s = _defaut("trn")
+    s["P"] = 0
+    r = appel("trn", s)
+    assert not r["ok"]
+    assert "division par zéro" in r["erreur"] and "float" not in r["erreur"]
+
+
+def test_valeur_demesuree_refusee_en_clair():
+    s = _defaut("tor")
+    s["Mt"] = 1e300
+    r = appel("tor", s)
+    assert not r["ok"] and "trop grande" in r["erreur"] and "10¹⁸" in r["erreur"]
+    s["Mt"] = 1e17  # sous le plafond : le calcul se fait
+    assert appel("tor", s)["ok"]
+
+
+def test_plafond_vaut_aussi_dans_les_tableaux_de_la_saisie():
+    s = _defaut("truss")
+    s["loads"][0]["Fy"] = -1e30
+    r = appel("truss", s)
+    assert not r["ok"] and "trop grande" in r["erreur"]
+
+
+def test_aucune_erreur_technique_sur_valeurs_extremes():
+    """Mêmes essais que l'audit : 0, négatif, minuscule, énorme sur chaque champ numérique, sans message technique."""
+    technique = ("division by zero", "out of range", "Cannot cast", "NoneType", "math domain", "(34,")
+    for ident, f in appel("formulaires")["sortie"].items():
+        for cle, v in f["defaut"].items():
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                continue
+            for x in (0, -1, 1e-9, 1e300):
+                s = dict(f["defaut"])
+                s[cle] = x
+                r = appel(ident, s)
+                assert r["ok"] or not any(t in r["erreur"] for t in technique), (ident, cle, x, r["erreur"])
