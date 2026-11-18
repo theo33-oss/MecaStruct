@@ -211,6 +211,13 @@ button.retour-ko { background: var(--err-fond) !important; color: var(--err-text
 .toast.erreur { background: var(--err-fond); color: var(--err-texte); border: 1px solid var(--jauge-ko); }
 .toast[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { button.retour-ok, button.retour-ko { animation: none; } .toast { transition: none; } }
+/* bouton « Demander à une IA » : fixe en bas à gauche, son panneau s'ouvre au-dessus */
+.ia-flottant { position: fixed; left: 16px; bottom: 16px; z-index: 80; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.ia-bouton { background: var(--accent); color: var(--sur-accent); border-color: var(--accent); font-weight: 600; padding: 8px 16px; border-radius: 999px; box-shadow: 0 4px 16px rgba(0, 0, 0, .3); }
+.ia-panneau { max-width: min(86vw, 340px); padding: 12px 14px; background: var(--carte); color: var(--encre); border: 1px solid var(--bord-fort); border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, .3); }
+.ia-panneau p { margin: 0 0 8px; font-size: .9rem; }
+.ia-panneau .ligne { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.ia-panneau[hidden] { display: none; }
 .barre-image { display: flex; justify-content: flex-end; margin: 4px 0 2px; }
 .barre-image button { opacity: .85; }
 .barre-image button:hover, .barre-image button:focus-visible { opacity: 1; }
@@ -250,6 +257,10 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
 
 @media (max-width: 640px) {
   h1, .vedette h1 { font-size: 1.45rem; }
+  /* bouton IA plus petit ; le message flottant passe au-dessus pour ne pas le recouvrir */
+  .ia-flottant { left: 10px; bottom: 10px; }
+  .ia-bouton { min-height: 34px; padding: 4px 12px; font-size: .85rem; }
+  .toast { bottom: 58px; }
   /* menu sur une ligne qui défile (le menu fixe ne mange pas le quart de l'écran) */
   #menu, #sous { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
   #menu a, #sous a { white-space: nowrap; flex: 0 0 auto; }
@@ -279,7 +290,7 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
   footer a { display: inline-block; padding: 6px 2px; }
 }
 @media print {
-  #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets, .exports, .barre-image, .toast { display: none !important; }
+  #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets, .exports, .barre-image, .toast, .ia-flottant { display: none !important; }
   body { background: #fff; }
 }
 

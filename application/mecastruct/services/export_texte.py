@@ -119,6 +119,21 @@ def chiffres(c: dict, en_marge: bool = False) -> tuple[str, str, str]:
     return valeurs, taux, f"réserve {reserve} %"
 
 
+CONSIGNE_IA = (
+    "J'utilise MecaStruct RdM (outil de pré-dimensionnement : les résultats sont à vérifier). Voici mon étude « {titre} ».\n"
+    "1) Présente-moi simplement le problème : ce qui est calculé, le modèle (appuis, charges avec leurs unités, section, "
+    "matériau), les hypothèses et le résultat principal.\n"
+    "2) Signale ce qui te paraît incohérent ou à vérifier dans les données (unités, ordres de grandeur, charge ponctuelle "
+    "ou répartie).\n"
+    "Ne refais pas tout le calcul : présente le problème, puis attends mes questions."
+)
+
+
+def invite_ia(titre: str, note: str) -> str:
+    """Texte à coller dans une IA : la consigne (présenter le problème, puis répondre aux questions) et la note de calcul."""
+    return f"{CONSIGNE_IA.format(titre=titre)}\n\n--- ÉTUDE ---\n{note}\n--- FIN DE L'ÉTUDE ---\n"
+
+
 def phrase_bilan(crit: list[dict]) -> str:
     """« Les 2 modes de ruine sont admissibles », « 1 mode de ruine non admissible sur 3 »."""
     ko = sum(1 for c in crit if not c["ok"])

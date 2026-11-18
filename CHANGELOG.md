@@ -12,6 +12,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 
 ## Non publié (site)
 
+- « Demander à une IA » : bouton fixe en bas à gauche du site (et bouton de la barre d'exports du bureau). Il copie l'étude (consigne + bloc-notes : données, modes de ruine, résultats, démarche) ; on la colle dans Claude ou ChatGPT (liens proposés), l'IA présente le problème, puis on lui pose ses questions. Rien n'est envoyé automatiquement.
 - Diagramme des modes de ruine : pour une limite (norme comme VEd/Vpl,Rd, durée, rigidité…), « marge » devient « réserve » (1 − taux, au plus 100 %), pour ne plus la confondre avec la marge de sécurité s − 1 ; une réserve presque pleine s'écrit « > 99,9 % » et non « 100 % ». Même mot dans le bureau et le bloc-notes.
 - `construire_web.py` garde le zip tel quel quand son contenu n'a pas changé : une autre version de zlib (Python 3.14+ sous Windows, nouvelle image Ubuntu de la CI) ne fait plus échouer le contrôle « docs/ est à jour ».
 - Sécurité : les scripts et styles tiers (Pyodide, Plotly, KaTeX, html-to-image) portent une empreinte `integrity` : le navigateur refuse un fichier modifié sur le CDN. `application/tools/verifier_sri.py` (lancé par la CI) vérifie que les empreintes sont toujours bonnes.
