@@ -12,6 +12,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 
 ## Non publié (site)
 
+- Erreurs lisibles : une division par zéro ou un dépassement de capacité affichent une phrase en français (plus de « float division by zero » ni de « (34, 'Numerical result out of range') »). Les champs refusent les valeurs au-delà de 10¹⁸ avec un message (site et bureau), et le calcul fait de même pour les valeurs venues d'un fichier ou d'un lien.
 - Retour visible des boutons qui copient ou enregistrent (Copier le lien de l'étude, Copier l'image, Copier le tableau, Copier la valeur, Enregistrer l'étude, Excel) : le bouton passe au vert avec une coche et un petit rebond pendant 2 s, et un message flottant en bas de l'écran confirme l'action (aussi après un téléchargement ou l'ouverture d'une étude). Rouge et secousse si la copie échoue ; sans animation si le système demande de réduire les mouvements.
 - Tests : la CI lance maintenant les tests de l'interface de bureau (Qt hors écran) et un contrôle du site : `docs/` doit être celui que `construire_web.py` fabrique, et les 24 calculs donnent les mêmes résultats dans le navigateur (Pyodide) et sur le bureau (`application/tools/parite_site.py`). Le compteur de références du test de la page Références suit `data/references.json`.
 - Téléphone : en-tête réduit de moitié (marque et thème sur une ligne, bouton « Télécharger pour Windows » masqué), fondu sur le bord des menus qui défilent et entrée courante centrée ; zones tactiles de 40 px (liens du pied de page, cases à cocher, petits boutons).

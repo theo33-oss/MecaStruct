@@ -34,6 +34,7 @@
     if (c.min !== null && c.min !== undefined && (c.minExclu ? v <= c.min : v < c.min))
       return [NaN, c.minExclu ? `Doit être supérieur à ${App.fr(c.min)}.` : `Minimum ${App.fr(c.min)}.`];
     if (c.max !== null && c.max !== undefined && v > c.max) return [NaN, `Maximum ${App.fr(c.max)}.`];
+    if (Math.abs(v) > 1e18) return [NaN, "Valeur démesurée (au plus 10¹⁸) : vérifiez l'unité."]; // même plafond que le calcul (pont/noyau.py)
     return [v, ""];
   }
 
