@@ -241,9 +241,29 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
   #menu, #sous { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
   #menu a, #sous a { white-space: nowrap; flex: 0 0 auto; }
   html { scroll-padding-top: 100px; }
-  .entete { gap: 4px 12px; }
-  .entete .confiance { font-size: .78rem; }
+  /* en-tête compact : le téléchargement Windows n'a pas de sens sur un téléphone (il est sur l'accueil) ;
+     la marque et le thème tiennent sur une ligne, la phrase de confiance dessous */
+  .entete { gap: 2px 12px; padding: 8px 0 4px; }
+  .entete .telecharger { display: none; }
+  .marque { font-size: 1.15rem; gap: 8px; }
+  .marque img { width: 32px; height: 32px; }
+  .entete .theme { margin-left: auto; min-height: 36px; padding: 2px 10px; font-size: .85rem; order: 1; }
+  .entete .confiance { order: 2; }
+  .entete .confiance { font-size: .78rem; line-height: 1.35; }
   .confiance { flex-basis: 100%; }
+  /* fondu sur le bord d'un menu qui défile */
+  #menu.fondu-droite, #sous.fondu-droite { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+  #menu.fondu-gauche, #sous.fondu-gauche { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+  #menu.fondu-gauche.fondu-droite, #sous.fondu-gauche.fondu-droite { -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+}
+/* au doigt : zones tactiles d'au moins 40 px */
+@media (pointer: coarse) {
+  button.petit, .lien-bouton { min-height: 40px; }
+  .lien-bouton { padding: 0 6px; }
+  #sous a { min-height: 40px; }
+  input[type="checkbox"], input[type="radio"], label.case input { width: 22px; height: 22px; }
+  label.case { min-height: 40px; }
+  footer a { display: inline-block; padding: 6px 2px; }
 }
 @media print {
   #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets, .exports, .barre-image { display: none !important; }

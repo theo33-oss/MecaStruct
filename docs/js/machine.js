@@ -119,6 +119,8 @@
     const enMarge = !!c.securite && securiteEnMarge();
     const input = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false" });
     input.value = affiche(enMarge && typeof valeur === "number" ? 100 * (valeur - 1) : valeur);
+    // l'étiquette englobe aussi la liste « Coefficient s / Marge » : c'est elle qui la reçoit, le champ garde son propre nom
+    if (c.securite) input.setAttribute("aria-label", enMarge ? "Marge de sécurité (%)" : titre);
     const erreur = el("span", { class: "erreur-champ", hidden: true });
     input.addEventListener("input", () => {
       let [v, texte] = verifierNombre(enMarge ? { ...c, min: 0, max: null, minExclu: false } : c, input.value);

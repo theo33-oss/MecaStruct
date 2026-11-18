@@ -12,6 +12,9 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 
 ## Non publié (site)
 
+- Téléphone : en-tête réduit de moitié (marque et thème sur une ligne, bouton « Télécharger pour Windows » masqué), fondu sur le bord des menus qui défilent et entrée courante centrée ; zones tactiles de 40 px (liens du pied de page, cases à cocher, petits boutons).
+- Accessibilité : le champ du coefficient de sécurité (ou de la marge) a son propre nom pour un lecteur d'écran.
+- Chargement : la roue de plotly et le zip du calcul se téléchargent en parallèle de Pyodide au lieu d'à la suite.
 - Nom : « MecaStruct RdM Pro » devient « MecaStruct RdM » (site, bureau, installateur, dossiers, aides). Les études enregistrées sous l'ancien nom s'ouvrent toujours ; l'installateur remplace l'installation existante.
 - Site : le lien « Aller au contenu » ne renvoie plus à l'accueil (le focus va au contenu, la page reste la même) ; « ?maj=… » disparaît de l'adresse après l'actualisation ; adresse canonique ; version dans le pied de page avant le chargement du script.
 - Bouton « Copier l'image » au-dessus des graphiques, du schéma, du verdict, des explications du calcul et des tableaux : une image PNG du bloc va dans le presse-papiers (à coller dans Word ou un mail), ou se télécharge si le navigateur refuse la copie. Le bloc est recopié dans un cadre à marge égale : bord droit entier, pas d'espace vide en haut, sans les soulignés des bulles d'aide. Pour « Schéma », « Résultat » et les blocs complémentaires, le bouton est sur la ligne du titre. Image serrée au ras du cadre du verdict.
