@@ -673,7 +673,7 @@ def beamTables(res: dict) -> dict[str, pd.DataFrame]:
             "Méthode": cmp_["Methode"],
             "f max (mm)": cmp_["fmax_m"] * 1e3,
             "s (m)": cmp_["s_m"],
-            "Écart (%)": cmp_["Ecart_pct"],
+            "Écart (%)": np.where(np.abs(cmp_["Ecart_pct"]) < 1e-9, 0.0, cmp_["Ecart_pct"]),  # bruit d'arrondi → 0
         }
     )
     energie = pd.DataFrame(

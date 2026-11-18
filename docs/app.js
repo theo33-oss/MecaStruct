@@ -199,7 +199,8 @@ const App = (() => {
   function chargerHtmlToImage() {
     if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
     chargementImage = chargementImage || new Promise((ok, ko) => {
-      const s = el("script", { src: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js", crossorigin: "anonymous" });
+      const s = el("script", { src: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js",
+        integrity: "sha384-UbfRVKN3/elS1r7JcK2FhmPP+KlJ4CvYwbyYD7tH+uTkbT9bNJr9eJeQ0FoFbAgz", crossorigin: "anonymous" });
       s.onload = () => ok(window.htmlToImage);
       s.onerror = () => { chargementImage = null; ko(new Error("html-to-image")); };
       document.head.append(s);
