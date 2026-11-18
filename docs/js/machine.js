@@ -366,12 +366,13 @@
       },
       extra: (c) => {
         if (invalides.size) return signaler("avertissement", "Corrigez d'abord les champs signalés en rouge.");
-        const bloc = el("section", { class: "extra" }, el("h2", { class: "titre-bloc", texte: c.titre || c.libelle }), App.message("info", "Calcul en cours…"));
+        const titreExtra = () => App.titreImage(c.titre || c.libelle, () => bloc.querySelector(".bilan, .verdict"), "resultat.png");
+        const bloc = el("section", { class: "extra" }, titreExtra(), App.message("info", "Calcul en cours…"));
         extras[c.calcul]?.bloc.remove();
         zoneExtras.prepend(bloc);
         setTimeout(() => {
           const r = App.calculer(c.calcul, saisie);
-          bloc.replaceChildren(el("h2", { class: "titre-bloc", texte: c.titre || c.libelle }));
+          bloc.replaceChildren(titreExtra());
           if (!r.ok) return bloc.append(App.message("erreur", r.erreur));
           bloc.append(...construireResultat(r.sortie, c.calcul, "", true));
           extras[c.calcul] = { empreinte: JSON.stringify(saisie), bloc };
@@ -508,7 +509,7 @@
     function apercu() {
       if (!f.apercu || invalides.size) return;
       const a = App.calculer(ident + ".apercu", saisie);
-      zoneSchema.replaceChildren(a.ok && a.sortie && a.sortie.data ? App.figure(a.sortie, "figure schema-figure")
+      zoneSchema.replaceChildren(a.ok && a.sortie && a.sortie.data ? App.figure(a.sortie, "figure schema-figure", false)
         : App.message("info", "Schéma indisponible pour cette saisie" + (a.erreur ? " : " + a.erreur : ".")));
       if (calculee !== null && calculee !== JSON.stringify(saisie)) perime();
     }
@@ -656,7 +657,7 @@
       const metriques = (s.metriques || []).length
         ? el("div", { class: "metriques" }, s.metriques.map(([n, v]) => el("div", { class: "metrique" }, el("span", { texte: n }), el("strong", { texte: App.decimalesFr(v) }))))
         : null;
-      return [App.boutonImage(verdict, "resultat.png"), verdict, controles(s), avecHeure ? heure : "", exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
+      return [verdict, controles(s), avecHeure ? heure : "", exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
     }
 
     // Un résultat complémentaire dont la saisie a changé depuis le calcul est signalé (jamais effacé en silence).
@@ -751,13 +752,13 @@
       return [telecharger, imprimer];
     }
 
-    const titreResultat = el("h2", { class: "titre-bloc titre-resultat", texte: "Résultat" });
+    const titreResultat = App.titreImage("Résultat", () => zoneResultat.querySelector(".bilan, .verdict"), "resultat.png", "titre-resultat");
     dessinerChamps();
     const bloc = el("div", { class: "calcul" },
       el("div", { class: "colonne-saisie" }, formulaire),
       el("div", { class: "colonne-resultat" },
         auto ? null : el("div", { class: "actions-schema" }, el("button", { type: "button", class: "primaire", texte: "Calculer", aide: "Lance le calcul.", onclick: () => relancer(true) })),
-        f.apercu ? el("h2", { class: "titre-bloc", texte: "Schéma" }) : null, f.apercu ? zoneSchema : null,
+        f.apercu ? App.titreImage("Schéma", () => zoneSchema.querySelector(".js-plotly-plot"), "schema.png") : null, f.apercu ? zoneSchema : null,
         titreResultat, zoneResultat, zoneExtras));
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {

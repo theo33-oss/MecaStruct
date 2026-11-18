@@ -190,6 +190,14 @@ td.verdict.erreur { background: var(--err-fond); color: var(--err-texte); }
 .titre-securite select { min-height: 34px; padding: 0 8px; font-size: .9rem; }
 /* image dans la saisie (section de la poutre) : sur toute la largeur de la grille des champs */
 .champ-large { grid-column: 1 / -1; }
+/* copie en image : bloc recopié hors écran, dans un cadre à marge égale */
+.capture-hors-ecran { position: fixed; left: -100000px; top: 0; pointer-events: none; }
+.cadre-image { padding: 16px; background: var(--carte); color: var(--encre); font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+.cadre-image > * { margin: 0 !important; box-shadow: none !important; }
+.cadre-image [data-aide] { text-decoration: none !important; }
+.cadre-image .defile { overflow: visible !important; }
+.titre-image { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.titre-image .barre-image { margin: 0; font-size: 1rem; font-weight: normal; }
 .barre-image { display: flex; justify-content: flex-end; margin: 4px 0 2px; }
 .barre-image button { opacity: .85; }
 .barre-image button:hover, .barre-image button:focus-visible { opacity: 1; }

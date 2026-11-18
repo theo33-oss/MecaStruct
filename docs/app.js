@@ -170,17 +170,29 @@ const App = (() => {
     });
     return chargementImage;
   }
-  // PNG du bloc : figure Plotly (rendu natif) ou élément HTML quelconque (html-to-image).
+  // PNG du bloc, dans le thème affiché : figure Plotly retracée à sa taille, autre bloc recopié hors écran dans un cadre
+  // à marge égale (sans la marge externe du bloc, qui décalait l'image et rognait son bord droit), dessiné par html-to-image.
   async function imageDuBloc(cible) {
-    const fond = getComputedStyle(document.documentElement).getPropertyValue("--carte").trim() || "#fff";
-    const graphe = cible.classList.contains("js-plotly-plot") ? cible : null;
-    if (graphe) {
-      const url = await Plotly.toImage(graphe, { format: "png", scale: 2 });
+    const racine = getComputedStyle(document.documentElement);
+    const encre = racine.getPropertyValue("--encre").trim(), fond = racine.getPropertyValue("--carte").trim() || "#FFFFFF";
+    if (cible.classList.contains("js-plotly-plot") && cible._figure) {
+      const { data, layout } = miseEnForme(cible._figure, sombre(), encre, racine.getPropertyValue("--figure-fond").trim() || fond);
+      const url = await Plotly.toImage({ data, layout: { ...layout, width: cible.clientWidth, height: cible.clientHeight } },
+        { format: "png", scale: 2 });
       return (await fetch(url)).blob();
     }
     const h2i = await chargerHtmlToImage();
-    return h2i.toBlob(cible, { pixelRatio: 2, backgroundColor: fond, width: cible.scrollWidth, height: cible.scrollHeight,
-      filter: (n) => !(n.classList && n.classList.contains("barre-image")) });
+    const largeur = Math.max(cible.scrollWidth, cible.getBoundingClientRect().width);
+    const copie = cible.cloneNode(true);
+    copie.querySelectorAll(".barre-image").forEach((b) => b.remove());
+    const cadre = el("div", { class: "cadre-image" }, copie);
+    cadre.style.width = Math.ceil(largeur + 2 * 16) + "px";
+    const hors = el("div", { class: "capture-hors-ecran", "aria-hidden": "true" }, cadre); // le cadre lui-même reste à sa place
+    document.body.append(hors);
+    try {
+      await document.fonts.ready;
+      return await h2i.toBlob(cadre, { pixelRatio: 2, backgroundColor: fond, width: cadre.offsetWidth, height: cadre.offsetHeight });
+    } finally { hors.remove(); }
   }
   // Rend "copie", "telechargee" ou "echec". L'écriture est lancée dans le clic (promesse du blob) : exigence des navigateurs.
   async function copierImage(cible, nom = "mecastruct.png") {
@@ -209,6 +221,10 @@ const App = (() => {
       setTimeout(() => { b.textContent = "Copier l'image"; }, 1500);
     });
     return el("div", { class: "barre-image" }, b);
+  }
+  // Gros titre de bloc (h2) avec « Copier l'image » sur la même ligne, à droite.
+  function titreImage(texte, cible, nom, classe = "") {
+    return el("h2", { class: ("titre-bloc titre-image " + classe).trim() }, el("span", { texte }), boutonImage(cible, nom));
   }
 
   // Tableau {entetes, lignes} du pont, avec un bouton qui le copie pour Excel (tabulations).
@@ -249,16 +265,13 @@ const App = (() => {
   const COULEURS_SOMBRES = { "rgba(0,0,0,1)": "#EDE6F7", "black": "#EDE6F7", "#000000": "#EDE6F7", "white": "#1A1626", "#FFFFFF": "#1A1626", "#ffffff": "#1A1626", "rgba(255,255,255,1)": "#1A1626" };
   const enSombre = (x) => JSON.parse(JSON.stringify(x).replace(/"(rgba\(0,0,0,1\)|black|white|#000000|#FFFFFF|#ffffff|rgba\(255,255,255,1\))"/g, (m, c) => `"${COULEURS_SOMBRES[c]}"`));
 
-  // Figure Plotly du pont : fond et textes suivent le thème, largeur suit la page.
-  function tracer(div, f) {
-    div._figure = f;
+  // Données et mise en page prêtes à tracer : thème sombre ou clair, virgule décimale.
+  function miseEnForme(f, foncee, encre, fond) {
     let data = f.data, layout = { ...(f.layout || {}) };
-    if (sombre()) {
+    if (foncee) {
       data = enSombre(data);
       layout = enSombre(layout);
     }
-    const encre = getComputedStyle(document.documentElement).getPropertyValue("--encre").trim();
-    const fond = getComputedStyle(document.documentElement).getPropertyValue("--figure-fond").trim();
     layout.paper_bgcolor = fond;
     layout.plot_bgcolor = fond;
     layout.font = { ...(layout.font || {}), color: encre };
@@ -271,6 +284,14 @@ const App = (() => {
       ...(typeof d.text === "string" ? { text: decimalesFr(d.text) } : Array.isArray(d.text) ? { text: d.text.map((x) => (typeof x === "string" ? decimalesFr(x) : x)) } : {}) }));
     delete layout.width;
     if (layout.title && layout.title.text) layout.title = { ...layout.title, x: 0.01, xanchor: "left" };
+    return { data, layout };
+  }
+  // Figure Plotly du pont : fond et textes suivent le thème, largeur suit la page.
+  function tracer(div, f) {
+    div._figure = f;
+    const encre = getComputedStyle(document.documentElement).getPropertyValue("--encre").trim();
+    const fond = getComputedStyle(document.documentElement).getPropertyValue("--figure-fond").trim();
+    const { data, layout } = miseEnForme(f, sombre(), encre, fond);
     if (div.style.height) layout.height = div.clientHeight; // hauteur choisie à la souris (coin bas droit)
     else if (!layout.height) layout.height = 420; // hauteur de départ d'une figure qui n'en fixe pas
     Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr" });
@@ -285,10 +306,11 @@ const App = (() => {
       div._suivi.observe(div);
     }
   }
-  function figure(f, classe = "figure") {
+  // avecBouton = false : le bouton « Copier l'image » est déjà dans le titre du bloc (schéma).
+  function figure(f, classe = "figure", avecBouton = true) {
     const d = el("div", { class: classe });
     requestAnimationFrame(() => tracer(d, f));
-    return el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png"), d);
+    return avecBouton ? el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png"), d) : d;
   }
 
   // Onglets : liste = [{ id, titre, rendu(panneau) }] ; rendu à l'ouverture (Plotly a besoin d'un panneau visible).
@@ -594,5 +616,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, copierImage, boutonImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();
