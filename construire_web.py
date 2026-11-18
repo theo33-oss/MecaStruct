@@ -95,6 +95,8 @@ nouvelle = re.sub(motif, versionner, page)
 # le zip est lu par app.js : son empreinte est posée dans une balise <meta> que le script relit
 nouvelle = re.sub(r'(<meta name="zip" content=")[^"]*(")', rf'\g<1>{empreinte("mecastruct.zip")}\g<2>', nouvelle)
 nouvelle = re.sub(r'(<meta name="build" content=")[^"]*(")', rf'\g<1>{build}\g<2>', nouvelle)
+# texte de départ du pied de page (app.js le complète avec le build) : pas de « · · » vide si le script ne charge pas
+nouvelle = re.sub(r'(<span id="version">)[^<]*(</span>)', rf'\g<1>version {version}\g<2>', nouvelle)
 if nouvelle != page:
     index.write_text(nouvelle, encoding="utf-8", newline="\n")
 print(f"index.html : {len(re.findall(r'[?]v=[0-9a-f]+', nouvelle))} adresses versionnées")

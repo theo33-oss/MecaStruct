@@ -527,6 +527,8 @@ const App = (() => {
   }
 
   function afficher() {
+    // une ancre qui n'est pas une adresse de page (« #page ») ne change pas de page : on ne retombe pas sur l'accueil
+    if (courante && location.hash && !location.hash.startsWith("#/")) return;
     const id = (location.hash.match(/^#\/([\w-]+)/) || [])[1] || "accueil";
     const p = page(id) || page("accueil");
     courante = p;
@@ -582,6 +584,11 @@ const App = (() => {
     $("version").textContent = "version " + VERSION + (build ? " · build " + build : "");
     $("actualiser").addEventListener("click", actualiserSite);
     verifierMiseAJour(build);
+    // « Actualiser le site » recharge avec ?maj=… (contourne le cache) : une fois chargée, l'adresse redevient propre
+    // (sinon elle se retrouve dans les liens copiés)
+    if (/[?&]maj=/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
+    // lien « Aller au contenu » : le focus va au contenu sans changer l'adresse (le routeur lit le hash)
+    document.querySelector(".evitement")?.addEventListener("click", (e) => { e.preventDefault(); $("page").focus(); });
     menu();
     bulles();
     window.addEventListener("hashchange", afficher);
