@@ -157,6 +157,42 @@ const App = (() => {
     return ok;
   }
 
+  // ---------- retour visible des boutons : le bouton change d'aspect un instant, un message flotte en bas d'écran ----------
+
+  // Message flottant (hors de portée du bouton cliqué : il faut le voir même si la page défile).
+  let minuterieToast = null;
+  function toast(texte, niveau = "succes") {
+    let t = document.getElementById("toast");
+    if (!t) { t = el("div", { id: "toast", role: "status", "aria-live": "polite" }); document.body.append(t); }
+    t.className = "toast " + niveau;
+    t.textContent = texte;
+    t.hidden = false;
+    void t.offsetWidth; // relance l'animation si un message précède
+    t.classList.add("visible");
+    clearTimeout(minuterieToast);
+    minuterieToast = setTimeout(() => { t.classList.remove("visible"); minuterieToast = setTimeout(() => { t.hidden = true; }, 300); }, niveau === "erreur" ? 3500 : 2200);
+  }
+  // Le bouton passe au vert (ou au rouge) avec une coche, un petit rebond, puis reprend son texte.
+  function retour(bouton, ok, texteOk, texteKo = "Impossible") {
+    if (bouton.dataset.libelle === undefined) { bouton.dataset.libelle = bouton.textContent; bouton.style.minWidth = bouton.offsetWidth + "px"; }
+    bouton.textContent = (ok ? "✓ " : "✗ ") + (ok ? texteOk : texteKo);
+    bouton.classList.remove("retour-ok", "retour-ko");
+    void bouton.offsetWidth;
+    bouton.classList.add(ok ? "retour-ok" : "retour-ko");
+    clearTimeout(bouton._retour);
+    bouton._retour = setTimeout(() => {
+      bouton.textContent = bouton.dataset.libelle;
+      bouton.classList.remove("retour-ok", "retour-ko");
+      delete bouton.dataset.libelle;
+      bouton.style.minWidth = "";
+    }, 2000);
+  }
+  // Retour complet d'une action : bouton + message flottant.
+  function confirmer(bouton, ok, texteOk, texteKo = "Copie impossible", message = texteOk) {
+    if (bouton) retour(bouton, ok, texteOk, texteKo);
+    toast(ok ? message : texteKo, ok ? "succes" : "erreur");
+  }
+
   // ---------- copie d'un bloc en image (presse-papiers) ----------
 
   let chargementImage = null;
@@ -222,9 +258,10 @@ const App = (() => {
     b.addEventListener("click", async () => {
       b.disabled = true;
       const r = await copierImage(typeof cible === "function" ? cible() : cible, nom);
-      b.textContent = { copie: "Copié", telechargee: "Image téléchargée", echec: "Copie impossible" }[r];
       b.disabled = false;
-      setTimeout(() => { b.textContent = "Copier l'image"; }, 1500);
+      if (r === "copie") confirmer(b, true, "Image copiée", "", "Image copiée dans le presse-papiers : à coller dans Word, un mail…");
+      else if (r === "telechargee") confirmer(b, true, "Image téléchargée", "", "Copie refusée par le navigateur : l'image a été téléchargée à la place.");
+      else confirmer(b, false, "", "Copie impossible");
     });
     return el("div", { class: "barre-image" }, b);
   }
@@ -250,8 +287,8 @@ const App = (() => {
     b.addEventListener("click", async () => {
       // les espaces des milliers sont retirés : collé dans Excel, « 1 000 000 » doit rester un nombre
       const brut = (c) => (/^[−\-+]?\d{1,3}([ \u202f\u00a0]\d{3})+(,\d+)?$/.test(String(c).trim()) ? String(c).replace(/[ \u202f\u00a0]/g, "") : c);
-      b.textContent = (await copier([t.entetes, ...t.lignes.map((l) => l.map(brut))].map((l) => l.join("\t")).join("\n"))) ? "Copié" : "Copie impossible";
-      setTimeout(() => { b.textContent = "Copier le tableau"; }, 1500);
+      const ok = await copier([t.entetes, ...t.lignes.map((l) => l.map(brut))].map((l) => l.join("\t")).join("\n"));
+      confirmer(b, ok, "Tableau copié", "Copie impossible", "Tableau copié : à coller dans Excel.");
     });
     return el("div", { class: "tableau" }, titre ? el("h4", { texte: titre }) : null, boutonImage(tab, "tableau.png"), el("div", { class: "defile" }, tab), b);
   }
@@ -484,6 +521,7 @@ const App = (() => {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast("Fichier téléchargé : " + nomFichier + " (dossier Téléchargements)");
   }
 
   // ---------- menu, adresses ----------
@@ -660,5 +698,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();
