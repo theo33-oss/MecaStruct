@@ -12,6 +12,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 
 ## Non publié (site)
 
+- Tests : la CI lance maintenant les tests de l'interface de bureau (Qt hors écran) et un contrôle du site : `docs/` doit être celui que `construire_web.py` fabrique, et les 24 calculs donnent les mêmes résultats dans le navigateur (Pyodide) et sur le bureau (`application/tools/parite_site.py`). Le compteur de références du test de la page Références suit `data/references.json`.
 - Téléphone : en-tête réduit de moitié (marque et thème sur une ligne, bouton « Télécharger pour Windows » masqué), fondu sur le bord des menus qui défilent et entrée courante centrée ; zones tactiles de 40 px (liens du pied de page, cases à cocher, petits boutons).
 - Accessibilité : le champ du coefficient de sécurité (ou de la marge) a son propre nom pour un lecteur d'écran.
 - Chargement : la roue de plotly et le zip du calcul se téléchargent en parallèle de Pyodide au lieu d'à la suite.
