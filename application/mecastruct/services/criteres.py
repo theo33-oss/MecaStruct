@@ -9,7 +9,7 @@ Une ligne = {"mode", "valeur", "limite", "unite", "s_demande", "s_obtenu", "taux
 - s_obtenu : coefficient de sécurité réel (Re/σ) ; le critère est admissible quand s_obtenu ≥ s_demande ;
 - taux : part de l'admissible utilisée (1 = à la limite) ;
 - genre : « resistance » (contrainte face à la limite du matériau : on parle de coefficient de sécurité) ou
-  « limite » (durée, rigidité, vitesse, pression admissible, couple : on parle de marge) ;
+  « limite » (durée, rigidité, vitesse, pression admissible, couple, norme : on parle de réserve, 1 − taux) ;
 - groupe : étude à laquelle la ligne appartient quand la page en réunit plusieurs (cisaillement, matage, clavette…).
 Pour ajouter un critère : une ligne de plus dans la fonction du calcul, rien d'autre à toucher.
 """

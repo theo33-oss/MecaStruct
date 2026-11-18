@@ -12,6 +12,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 
 ## Non publié (site)
 
+- Diagramme des modes de ruine : pour une limite (norme comme VEd/Vpl,Rd, durée, rigidité…), « marge » devient « réserve » (1 − taux, au plus 100 %), pour ne plus la confondre avec la marge de sécurité s − 1 ; une réserve presque pleine s'écrit « > 99,9 % » et non « 100 % ». Même mot dans le bureau et le bloc-notes.
 - Sécurité : les scripts et styles tiers (Pyodide, Plotly, KaTeX, html-to-image) portent une empreinte `integrity` : le navigateur refuse un fichier modifié sur le CDN. `application/tools/verifier_sri.py` (lancé par la CI) vérifie que les empreintes sont toujours bonnes.
 - Tableaux : les écarts de l'ordre de 10⁻¹³ % (bruit d'arrondi) s'affichent « 0 » (flèche des poutres, comparaison des sections).
 - Erreurs lisibles : une division par zéro ou un dépassement de capacité affichent une phrase en français (plus de « float division by zero » ni de « (34, 'Numerical result out of range') »). Les champs refusent les valeurs au-delà de 10¹⁸ avec un message (site et bureau), et le calcul fait de même pour les valeurs venues d'un fichier ou d'un lien.
