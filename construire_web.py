@@ -28,11 +28,24 @@ def fichiers():
                 yield f
 
 
-with zipfile.ZipFile(sortie, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-    for f in fichiers():
-        info = zipfile.ZipInfo(f.relative_to(appli).as_posix(), DATE_FIXE)
-        info.compress_type = zipfile.ZIP_DEFLATED
-        z.writestr(info, f.read_bytes().replace(b"\r\n", b"\n"))
+def contenu_actuel() -> list[tuple[str, bytes]] | None:
+    """(nom, octets décompressés) du zip déjà là, ou None s'il manque ou est abîmé."""
+    try:
+        with zipfile.ZipFile(sortie) as z:
+            return [(i.filename, z.read(i)) for i in z.infolist()]
+    except (OSError, zipfile.BadZipFile):
+        return None
+
+
+entrees = [(f.relative_to(appli).as_posix(), f.read_bytes().replace(b"\r\n", b"\n")) for f in fichiers()]
+# même contenu → on garde le zip tel quel : une autre version de zlib (Python 3.14+ sous Windows, autre image Linux
+# de la CI) compresse autrement et changerait les octets, donc les empreintes, sans que rien n'ait changé
+if contenu_actuel() != entrees:
+    with zipfile.ZipFile(sortie, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for nom, octets in entrees:
+            info = zipfile.ZipInfo(nom, DATE_FIXE)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            z.writestr(info, octets)
 print(f"{sortie.relative_to(racine)} : {sortie.stat().st_size / 1024:.0f} Ko")
 
 # une seule source : l'icône vient de application/data, les limites de LIMITES.md, les captures de application/captures
