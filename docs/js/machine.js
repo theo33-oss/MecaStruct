@@ -464,6 +464,7 @@
       dessinerChamps();
       relancer();
       signaler("succes", `${origine} : étude chargée.`);
+      App.toast(`${origine} : étude chargée.`);
     }
     function barreFichiers() {
       const entree = el("input", { type: "file", accept: ".json,application/json", hidden: true });
@@ -477,32 +478,40 @@
       const boutons = [
         el("button", { type: "button", class: "secondaire petit", texte: "Enregistrer l'étude", aide: structure
           ? "Télécharge l'étude (.json). Le fichier est celui de l'application de bureau : il s'ouvre dans les deux versions."
-          : "Télécharge l'étude (.json), à rouvrir plus tard sur cette page.", onclick: () => {
+          : "Télécharge l'étude (.json), à rouvrir plus tard sur cette page.", onclick: (e) => {
           const r = fichier();
-          if (r.ok) App.telecharger(r.sortie.nom, r.sortie.texte);
+          if (r.ok) { App.telecharger(r.sortie.nom, r.sortie.texte); App.retour(e.currentTarget, true, "Étude enregistrée"); }
           else signaler("erreur", r.erreur);
         } }),
         el("button", { type: "button", class: "secondaire petit", texte: "Ouvrir une étude", onclick: () => entree.click() }),
         el("button", { type: "button", class: "secondaire petit", texte: "Copier le lien de l'étude",
           aide: "Lien qui contient l'étude : la personne qui l'ouvre retrouve vos données. Rien n'est envoyé sur Internet, tout est dans l'adresse.",
-          onclick: async () => {
+          onclick: async (e) => {
+            const bouton = e.currentTarget; // perdu après un await
             const r = fichier();
             if (!r.ok) return signaler("erreur", r.erreur);
             const code = await App.compresser(r.sortie.texte);
             const lien = `${location.origin}${location.pathname}#/${App.pageCourante().id}?calcul=${ident}&etude=${code}`;
             if (lien.length > 8000) return signaler("avertissement", "Étude trop grande pour un lien : enregistrez plutôt le fichier.");
             const ok = await App.copier(lien);
-            signaler(ok ? "succes" : "erreur", ok ? "Lien copié : il contient toute l'étude." : "Copie impossible.");
+            App.confirmer(bouton, ok, "Lien copié", "Copie impossible", "Lien copié dans le presse-papiers : il contient toute l'étude.");
           } }),
       ];
       if (structure) {
         boutons.push(el("button", { type: "button", class: "secondaire petit", texte: "Exporter les résultats (Excel)",
-          aide: "Classeur avec un onglet par tableau de résultats.", onclick: async () => {
-            if (!await App.paquets(["openpyxl"])) return signaler("erreur", "L'export Excel n'a pas pu se charger.");
-            const r = App.calculer(ident + ".excel", saisie);
-            if (!r.ok) return signaler("erreur", r.erreur);
-            const octets = Uint8Array.from(atob(r.sortie.base64), (c) => c.charCodeAt(0));
-            App.telecharger(r.sortie.nom, octets, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+          aide: "Classeur avec un onglet par tableau de résultats.", onclick: async (e) => {
+            const bouton = e.currentTarget, libelle = bouton.textContent;
+            bouton.disabled = true;
+            bouton.textContent = "Préparation…";
+            try {
+              if (!await App.paquets(["openpyxl"])) return signaler("erreur", "L'export Excel n'a pas pu se charger.");
+              const r = App.calculer(ident + ".excel", saisie);
+              if (!r.ok) return signaler("erreur", r.erreur);
+              const octets = Uint8Array.from(atob(r.sortie.base64), (c) => c.charCodeAt(0));
+              App.telecharger(r.sortie.nom, octets, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+              bouton.textContent = libelle;
+              App.retour(bouton, true, "Excel téléchargé");
+            } finally { bouton.disabled = false; if (!bouton.dataset.libelle) bouton.textContent = libelle; }
           } }));
       }
       return el("div", { class: "fichiers" }, el("h4", { texte: "Fichiers" }), el("div", { class: "ligne" }, boutons), entree);

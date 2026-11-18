@@ -38,7 +38,7 @@
       const r = App.calculer("conv", s);
       if (!r.ok) return resultat.replaceChildren(App.message("erreur", r.erreur));
       const copie = el("button", { type: "button", class: "secondaire petit", texte: "Copier la valeur" });
-      copie.addEventListener("click", async () => { copie.textContent = (await App.copier(r.sortie.texte)) ? "Copié" : "Copie impossible"; });
+      copie.addEventListener("click", async () => App.confirmer(copie, await App.copier(r.sortie.texte), "Valeur copiée", "Copie impossible", "Valeur copiée dans le presse-papiers."));
       resultat.replaceChildren(
         el("p", { class: "message succes verdict" }, `${App.fr(v)} ${de.value} = ${r.sortie.affiche} ${vers.value} `, copie),
         App.tableau(r.sortie.tableau));
