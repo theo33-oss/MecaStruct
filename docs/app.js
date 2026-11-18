@@ -222,6 +222,10 @@ const App = (() => {
     });
     return el("div", { class: "barre-image" }, b);
   }
+  // Gros titre de bloc (h2) avec « Copier l'image » sur la même ligne, à droite.
+  function titreImage(texte, cible, nom, classe = "") {
+    return el("h2", { class: ("titre-bloc titre-image " + classe).trim() }, el("span", { texte }), boutonImage(cible, nom));
+  }
 
   // Tableau {entetes, lignes} du pont, avec un bouton qui le copie pour Excel (tabulations).
   function tableau(t, titre) {
@@ -302,10 +306,11 @@ const App = (() => {
       div._suivi.observe(div);
     }
   }
-  function figure(f, classe = "figure") {
+  // avecBouton = false : le bouton « Copier l'image » est déjà dans le titre du bloc (schéma).
+  function figure(f, classe = "figure", avecBouton = true) {
     const d = el("div", { class: classe });
     requestAnimationFrame(() => tracer(d, f));
-    return el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png"), d);
+    return avecBouton ? el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png"), d) : d;
   }
 
   // Onglets : liste = [{ id, titre, rendu(panneau) }] ; rendu à l'ouverture (Plotly a besoin d'un panneau visible).
@@ -611,5 +616,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, copierImage, boutonImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();
