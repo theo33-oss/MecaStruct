@@ -533,7 +533,7 @@ const App = (() => {
     const p = page(id) || page("accueil");
     courante = p;
     majMenu(p);
-    document.title = (p.id === "accueil" ? "" : p.titre + " · ") + "MecaStruct RdM Pro";
+    document.title = (p.id === "accueil" ? "" : p.titre + " · ") + "MecaStruct RdM";
     const contenu = $("contenu");
     contenu.replaceChildren();
     const rendu = genres[p.genre];

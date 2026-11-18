@@ -8,7 +8,7 @@ class PageAPropos(Page):
     def rendre(self, z: Zone) -> None:
         z.titre("À propos")
         z.texte(
-            f"**MecaStruct RdM Pro**, version {__version__}. Application de **Théo Brun**, portage de son application "
+            f"**MecaStruct RdM**, version {__version__}. Application de **Théo Brun**, portage de son application "
             "MATLAB de Résistance des Matériaux et d'éléments de machines, basée sur son cours."
         )
         z.texte(

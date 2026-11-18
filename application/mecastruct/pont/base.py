@@ -9,6 +9,7 @@ import math
 
 import pandas as pd
 
+from mecastruct import APP_NOM, APPS_ACCEPTES
 from mecastruct.pont import noyau
 from mecastruct.pont.noyau import calcul, dm
 
@@ -100,7 +101,7 @@ def ajouter_profil(s):
 def exporter(_s):
     """Ajouts de l'utilisateur au format de l'application de bureau (importUserData)."""
     return {"nom": "MecaStruct_ajouts_utilisateur.json",
-            "texte": json.dumps({"app": "MecaStruct RdM Pro", "utilisateur": _utilisateur()}, ensure_ascii=False, indent=1)}  # fmt: skip
+            "texte": json.dumps({"app": APP_NOM, "utilisateur": _utilisateur()}, ensure_ascii=False, indent=1)}  # fmt: skip
 
 
 @calcul("base.importer")
@@ -114,7 +115,7 @@ def importer(s):
     except ValueError as err:
         quoi = "il est vide" if not texte.strip() else "ce n'est pas un fichier .json valide"
         raise ValueError(f"Ce fichier n'est pas un fichier d'ajouts MecaStruct ({quoi}).") from err
-    donnees = d.get("utilisateur") if isinstance(d, dict) and d.get("app") == "MecaStruct RdM Pro" else d
+    donnees = d.get("utilisateur") if isinstance(d, dict) and d.get("app") in APPS_ACCEPTES else d
     if not isinstance(donnees, dict) or not ({"materials", "profiles"} & set(donnees)):
         raise ValueError("Ce fichier n'est pas un fichier d'ajouts MecaStruct.")
     n = dm().importUserData(donnees)

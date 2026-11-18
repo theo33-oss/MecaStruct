@@ -1,6 +1,6 @@
 # Limites connues
 
-MecaStruct RdM Pro est un outil pédagogique et d'aide au pré-dimensionnement. Les résultats doivent être vérifiés
+MecaStruct RdM est un outil pédagogique et d'aide au pré-dimensionnement. Les résultats doivent être vérifiés
 avant tout usage réel. Cette page dit ce qui a été vérifié, et contre quoi.
 
 ## État de vérification par page

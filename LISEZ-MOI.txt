@@ -13,7 +13,7 @@ B. Sur le bureau Windows (toutes les pages, hors ligne, dossiers PDF et Word)
    3. L'installation se fait pour vous seul (pas de droits d'administrateur)
       et crée une icône sur le Bureau. Rien d'autre à installer : Python
       et les bibliothèques sont inclus.
-   Désinstaller : Paramètres de Windows > Applications > MecaStruct RdM Pro.
+   Désinstaller : Paramètres de Windows > Applications > MecaStruct RdM.
 
 Pour les développeurs, depuis le code source : double-cliquer sur
 1_Ouvrir_application.bat (il installe Python et les bibliothèques au premier

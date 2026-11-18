@@ -13,12 +13,13 @@ import zipfile
 import numpy as np
 import pandas as pd
 
+from mecastruct import APP_NOM as APP
+from mecastruct import APPS_ACCEPTES
 from mecastruct.core.errors import MecaStructError
 from mecastruct.core.pp import ppEval
 from mecastruct.services.examples import loadExample
 from mecastruct.services.limits import checkLimits
 
-APP = "MecaStruct RdM Pro"
 FORMAT_VERSION = 1
 PROJECT_KEYS = ("Sec", "Beam", "Tr", "Tra", "Cis", "Tor", "Fle", "Fla", "Ten", "Hoo", "Jau")  # projectKeys
 
@@ -48,7 +49,7 @@ def _lit(text: str, nature: str) -> dict:
     except ValueError as err:
         quoi = "il est vide" if not text.strip() else "ce n'est pas un fichier .json valide"
         raise MecaStructError(_ID, f"Ce fichier n'est pas {nature} MecaStruct ({quoi}).") from err
-    if not isinstance(d, dict) or d.get("app") != APP:
+    if not isinstance(d, dict) or d.get("app") not in APPS_ACCEPTES:
         raise MecaStructError(_ID, f"Ce fichier n'est pas {nature} enregistré par {APP}.")
     if not isinstance(d.get("version"), int) or d["version"] > FORMAT_VERSION:
         raise MecaStructError(_ID, "Ce fichier date d'une autre version de l'application (format non reconnu).")
