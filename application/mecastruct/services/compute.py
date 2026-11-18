@@ -165,7 +165,7 @@ def _compareDisplay(C: pd.DataFrame, extra: dict | None) -> pd.DataFrame:
             "Analytique": C["Analytique"].to_numpy() * f,
             "Intégrale": C["Integrale"].to_numpy() * f,
             "Tabulée": C["Tabulee"].to_numpy() * f,
-            "Écart max (%)": C["EcartMax_pct"].to_numpy(),
+            "Écart max (%)": np.where(np.abs(C["EcartMax_pct"].to_numpy()) < 1e-9, 0.0, C["EcartMax_pct"].to_numpy()),  # bruit d'arrondi → 0
         }
     )
     if extra is not None:

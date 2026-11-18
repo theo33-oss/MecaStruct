@@ -65,3 +65,5 @@ jobs:
       - name: Mêmes résultats dans le navigateur et sur le bureau
         working-directory: application
         run: python tools/parite_site.py
+      - name: Empreintes (integrity) des scripts tiers
+        run: python application/tools/verifier_sri.py
