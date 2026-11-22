@@ -487,6 +487,7 @@
     const abonnes = [];
     let calculee = null; // empreinte de la saisie du dernier résultat affiché
     const zoneSchema = el("div", { class: "schema" });
+    let ctlSchema = null; // pages à schéma : bloc « Représentation » (voir blocSchema)
     const zoneMessage = el("div");
     const zoneResultat = el("div", { class: "resultat" });
     // Tête de résultat « Décision » : hors de zoneResultat, que les calculs en cours ou les erreurs vident ; elle garde donc
@@ -891,6 +892,7 @@
         if (matPerime) { matPerime = null; afficherPerime(); }
         if (!r.ok) { zoneDecision.replaceChildren(); majResume(null); zoneResultat.replaceChildren(App.message("erreur", r.erreur)); if (parClic) montrer(); return; }
         afficherResultat(r.sortie);
+        if (parClic) ctlSchema?.apresCalcul(); // clic sur « Calculer » : le schéma passe en bloc repliable au-dessus des résultats (pas pour le calcul de l'arrivée ni les recalculs automatiques)
         annoncer(phraseAnnonce(r.sortie), parClic);
         if (r.sortie.options) majOptions(r.sortie);
         if (!auto && f.apercu) apercu();
@@ -1345,68 +1347,72 @@
 
     const titreResultat = App.titreImage("Résultat", () => zoneResultat.querySelector(".bilan, .verdict"), "resultat.png", "titre-resultat");
     dessinerChamps();
-    // Pages à schéma : le schéma vit dans un panneau « Représentation » escamotable, à droite de la zone principale
-    // (grand écran) ou en section repliable avant les champs (petit écran). Replier ne retire rien du DOM : le formulaire,
-    // le schéma et leurs positions de défilement restent en place, seul le CSS (classe « replie ») change la largeur.
-    const grand = matchMedia("(min-width: 1500px)"); // trois colonnes (saisie, résultat, panneau à droite) : même seuil que style.css
-    function panneauSchema() {
-      const cleMemo = "panneau." + ident;
+    // Pages à schéma : AVANT le premier calcul, le schéma est affiché à droite des champs (au-dessus d'eux sous 1100 px).
+    // APRÈS un calcul réussi, la colonne de droite ne montre que les résultats : le schéma devient un bloc compact repliable
+    // au-dessus d'eux (replié, sauf choix mémorisé pour la page). Rien n'est retiré du DOM : replié, le schéma reste en place
+    // (le CSS le réduit à zéro hauteur et le sort du clavier) ; les figures Plotly sont remises à la taille de leur cadre à l'affichage.
+    function blocSchema(bloc, colSaisie, colResultat) {
+      const cleMemo = "schema." + ident;
       const gardee = App.memoire.lire(cleMemo, null);
-      // rien de mémorisé : replié tant que le panneau n'est qu'un bloc au-dessus des champs (moins de 1500 px), déplié à droite sinon
-      let replie = gardee && typeof gardee === "object" ? gardee.replie === true : !grand.matches;
-      const idPanneau = "panneau-schema-" + ident;
-      const poignee = el("button", { type: "button", class: "poignee", "aria-controls": idPanneau },
-        el("span", { class: "poignee-fleche", "aria-hidden": "true", texte: "›" }),
-        el("span", { class: "poignee-texte", texte: "Représentation" }));
+      let visible = !!gardee && typeof gardee === "object" && gardee.visible === true; // « schéma visible après calcul »
+      let apres = false; // un calcul a réussi : la page est en mode « résultats »
+      const idCorps = "schema-corps-" + ident;
+      const libelle = el("span");
+      const fleche = el("span", { class: "schema-fleche", "aria-hidden": "true" });
+      const bascule = el("button", { type: "button", class: "schema-bascule", "aria-controls": idCorps, aide: "Affiche ou masque le schéma de la saisie." }, libelle, fleche);
       const coche = el("input", { type: "checkbox" });
       coche.checked = !!gardee; // un choix mémorisé existe pour cette page
-      const contenu = el("aside", { id: idPanneau, class: "panneau-schema", "aria-label": "Représentation" },
-        App.titreImage("Schéma", () => zoneSchema.querySelector(".js-plotly-plot"), "schema.png"), zoneSchema,
-        el("label", { class: "panneau-memo", aide: "Si cochée, ce navigateur se souvient que le panneau est replié ou déplié sur cette page. Sinon il s'ouvre déplié à chaque visite." },
-          coche, "Mémoriser ce choix pour cette page"));
-      const cadre = el("div", { class: "panneau-cadre" }, poignee, contenu);
+      const memo = el("label", { class: "panneau-memo", aide: "Si cochée, ce navigateur se souvient, pour cette page, de garder le schéma visible après le calcul (ou de ne montrer que les résultats). Sinon le schéma se replie à chaque nouveau calcul." },
+        coche, "Mémoriser ce choix pour cette page");
+      const corps = el("div", { id: idCorps, class: "schema-corps" },
+        App.titreImage("Schéma", () => zoneSchema.querySelector(".js-plotly-plot"), "schema.png"), zoneSchema);
+      const cadre = el("section", { class: "bloc-schema", "aria-label": "Représentation" },
+        el("div", { class: "schema-tete" }, bascule, memo), corps);
+      // Plotly mesure son cadre : on lui « rappelle » la taille une fois le schéma (ré)affiché ou déplacé
+      const redimensionner = () => requestAnimationFrame(() => setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+        App.redimensionnerFigures(document);
+      }, 50));
       const appliquer = () => {
+        const replie = apres && !visible;
+        cadre.classList.toggle("apres", apres);
         cadre.classList.toggle("replie", replie);
-        const texte = replie ? "Déplier le panneau de représentation" : "Replier le panneau de représentation";
-        poignee.setAttribute("aria-expanded", String(!replie));
-        poignee.setAttribute("aria-label", texte);
-        poignee.dataset.aide = texte;
-        contenu.inert = replie; // contenu hors du clavier et des lecteurs d'écran, mais toujours dans le DOM
+        bascule.setAttribute("aria-expanded", String(!replie));
+        libelle.textContent = replie ? "Afficher le schéma" : "Masquer le schéma";
+        fleche.textContent = replie ? "▸" : "▾";
       };
-      // Plotly suit la largeur de la fenêtre : on la lui « rappelle » une fois la transition finie
-      // (après la transition : image suivante + 250 ms ; la hauteur propre de chaque figure est rétablie par App.redimensionnerFigures)
-      const redimensionner = () => {
-        const doux = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-        requestAnimationFrame(() => setTimeout(() => {
-          window.dispatchEvent(new Event("resize"));
-          App.redimensionnerFigures(document);
-        }, doux ? 250 : 0));
+      // avant le calcul : au-dessus des champs sous 1100 px ; sinon en tête de la colonne de résultat (juste après « Calculer »)
+      const placer = () => {
+        if (petitEcran.matches && !apres) { if (cadre.nextElementSibling !== colSaisie) bloc.insertBefore(cadre, colSaisie); }
+        else if (cadre.parentNode !== colResultat) colResultat.insertBefore(cadre, titreResultat);
       };
-      const retenir = () => { if (coche.checked) App.memoire.ecrire(cleMemo, { replie }); else App.memoire.oublier(cleMemo); };
-      poignee.addEventListener("click", () => { replie = !replie; appliquer(); retenir(); redimensionner(); });
+      const retenir = () => { if (coche.checked) App.memoire.ecrire(cleMemo, { visible }); else App.memoire.oublier(cleMemo); };
+      bascule.addEventListener("click", () => { visible = !visible; appliquer(); retenir(); if (visible) redimensionner(); });
       coche.addEventListener("change", retenir);
-      appliquer();
-      return { cadre, redimensionner };
-    }
-    const panneau = f.apercu ? panneauSchema() : null;
-    const colonnes = [
-      el("div", { class: "colonne-saisie" }, formulaire),
-      el("div", { class: "colonne-resultat" },
-        auto ? null : el("div", { class: "actions-schema" }, el("button", { type: "button", class: "primaire", texte: "Calculer", aide: "Lance le calcul.", onclick: () => relancer(true) })),
-        titreResultat, annonce, zoneDecision, zoneResultat, zoneExtras)];
-    const principale = panneau ? el("div", { class: "zone-principale" }, colonnes) : null; // sans schéma : colonnes directement dans .calcul
-    const bloc = el("div", { class: "calcul" + (panneau ? " avec-schema" : "") }, boutonIA(), barreResume,
-      panneau && !grand.matches ? panneau.cadre : null, // petit écran : avant les champs
-      principale || colonnes,
-      panneau && grand.matches ? panneau.cadre : null); // grand écran : à droite
-    if (panneau) {
-      const placer = () => { // le panneau change de place (sans être recréé) quand la fenêtre passe le seuil de 1500 px
-        if (!bloc.isConnected) { grand.removeEventListener("change", placer); return; }
-        if (grand.matches) bloc.append(panneau.cadre); else bloc.insertBefore(panneau.cadre, principale);
-        panneau.redimensionner();
+      const surFenetre = () => {
+        if (!bloc.isConnected) { petitEcran.removeEventListener("change", surFenetre); return; }
+        placer(); redimensionner();
       };
-      grand.addEventListener("change", placer);
+      petitEcran.addEventListener("change", surFenetre);
+      appliquer(); placer();
+      return {
+        cadre,
+        // Appelé après un calcul réussi demandé par un clic sur « Calculer » : à l'arrivée sur la page, le schéma reste à droite
+        // des champs. Sans choix mémorisé, il se replie à chaque clic ; avec la case cochée, le choix de l'utilisateur est gardé.
+        apresCalcul() {
+          if (!coche.checked) visible = false;
+          apres = true;
+          appliquer(); placer();
+          if (visible) redimensionner();
+        },
+      };
     }
+    const colSaisie = el("div", { class: "colonne-saisie" }, formulaire);
+    const colResultat = el("div", { class: "colonne-resultat" },
+      auto ? null : el("div", { class: "actions-schema" }, el("button", { type: "button", class: "primaire", texte: "Calculer", aide: "Lance le calcul.", onclick: () => relancer(true) })),
+      titreResultat, annonce, zoneDecision, zoneResultat, zoneExtras);
+    const bloc = el("div", { class: "calcul" + (f.apercu ? " avec-schema" : "") }, boutonIA(), barreResume, colSaisie, colResultat);
+    if (f.apercu) ctlSchema = blocSchema(bloc, colSaisie, colResultat);
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {
       App.oublierLien();
