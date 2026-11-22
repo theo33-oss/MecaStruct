@@ -28,10 +28,12 @@ def texte(ident, libelle, aide=""):
     return {"id": ident, "type": "texte", "libelle": libelle, "aide": aide}
 
 
-def col(ident, libelle, genre="nombre", options=None, defaut=0.0, entier=False):
-    """Colonne d'un tableau éditable : genre nombre, texte, liste ou case."""
+def col(ident, libelle, genre="nombre", options=None, defaut=0.0, entier=False, etiquettes=None):
+    """Colonne d'un tableau éditable : genre nombre, texte, liste ou case.
+
+    `etiquettes` : textes affichés à la place des valeurs d'une colonne liste (même ordre) ; les valeurs, elles, ne changent pas."""
     return {"id": ident, "libelle": libelle, "genre": genre, "options": list(options) if options else None,
-            "defaut": defaut, "entier": entier}  # fmt: skip
+            "defaut": defaut, "entier": entier, "etiquettes": list(etiquettes) if etiquettes else None}  # fmt: skip
 
 
 def tableau(ident, libelle, colonnes, aide="", mini=0, polaire=None):

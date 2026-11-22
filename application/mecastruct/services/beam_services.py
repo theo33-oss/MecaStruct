@@ -609,7 +609,7 @@ def beamReport(res: dict) -> list[str]:
     ]
     for r in sol["reactions"]:
         lines.append(
-            f"Réaction en {r['name']} ({r['type']}, s = {r['pos']:.4g} m) : Rx = {r['Rx'] / 1e3:.5g} kN, "
+            f"Réaction en {r['name']} ({str(r['type']).replace('_', ' ')}, s = {r['pos']:.4g} m) : Rx = {r['Rx'] / 1e3:.5g} kN, "
             f"Ry = {r['Ry'] / 1e3:.5g} kN, Rz = {r['Rz'] / 1e3:.5g} kN, Mz = {r['Mz'] / 1e3:.5g} kN·m, "
             f"My = {r['My'] / 1e3:.5g} kN·m"
         )

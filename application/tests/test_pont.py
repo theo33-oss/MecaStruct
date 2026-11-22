@@ -480,3 +480,32 @@ def test_convertisseur_refuse_sous_le_zero_absolu_et_les_valeurs_trop_grandes():
     assert appel("conv", {"grandeur": "Température absolue", "valeur": -459.67, "de": "°F", "vers": "K"})["ok"]
     r = appel("conv", {"grandeur": "Longueur", "valeur": 1e308, "de": "m", "vers": "mm"})
     assert not r["ok"] and "trop grande" in r["erreur"] and "inf" not in r["erreur"].split()
+
+
+def test_listes_de_tableaux_en_francais_sans_changer_les_valeurs():
+    """Appuis et liaisons : libellés lisibles à l'écran, mêmes identifiants internes (les fichiers de projet restent compatibles)."""
+
+    def colonne(page, tableau, ident):
+        champs = [c for g in FORMULAIRES[page]["groupes"] for c in g["champs"]]
+        t = next(c for c in champs if c["id"] == tableau)
+        return next(k for k in t["colonnes"] if k["id"] == ident)
+
+    appui = colonne("beam", "sup", "type")
+    assert appui["options"] == ["appui_simple", "rotule", "pivot", "pivot_glissant", "encastrement"]
+    assert appui["etiquettes"] == ["Appui simple", "Rotule", "Pivot", "Pivot glissant", "Encastrement"]
+    for page, tableau, ident in (("ossature", "noeuds", "appui"), ("ossature", "pieces", "section"),
+                                 ("ossature", "pieces", "liaison_debut"), ("ossature", "pieces", "liaison_fin")):
+        k = colonne(page, tableau, ident)
+        assert len(k["etiquettes"]) == len(k["options"]), ident
+        assert not any("_" in e for e in k["etiquettes"]), ident
+    assert colonne("beam", "dl", "dir")["etiquettes"] is None  # une colonne sans étiquettes n'en invente pas
+
+
+def test_liste_des_profilés_montre_le_profilé_de_la_section():
+    """Après « Charger l'exemple », la liste « Profilé du catalogue » doit pouvoir lire le profilé de la section (IPE 300)."""
+    champs = [c for g in FORMULAIRES["beam"]["groupes"] for c in g["champs"]]
+    profil = next(c for c in champs if c["id"] == "profil")
+    assert profil["courant"] == {"champ": "section", "nom": "name", "famille": "family"}
+    ex = appel("beam.exemple", {"nom": "isostatique"})["sortie"]
+    assert ex["section"]["name"] == "IPE 300" and ex["section"]["family"] == ex["pfam"] == "IPE"
+    assert ex["section"]["name"] in appel("profils", {"famille": ex["pfam"]})["sortie"]

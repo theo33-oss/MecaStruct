@@ -213,6 +213,6 @@
       { id: "mata", titre: "Pressions de matage", rendu: (p) => matage(p, c.sortie) },
       { id: "kt", titre: "Abaques Kt", rendu: abaques },
       { id: "fic", titre: "Mes ajouts", rendu: fichiers },
-    ], "page.base"));
+    ], "page.base", "Matériaux et profilés"));
   });
 })();

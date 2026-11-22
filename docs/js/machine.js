@@ -260,8 +260,16 @@
       // premier choix vide : la liste ne laisse pas croire que le premier profilé est celui de la saisie
       select.replaceChildren(el("option", { value: "", texte: "— choisir —" }), ...(r.ok ? r.sortie : []).map((x) => el("option", { value: x, texte: x })));
     };
+    // la liste montre le profilé réellement utilisé par la section (exemple chargé, profilé appliqué), pas « — choisir — »
+    const courant = () => {
+      const k = c.courant, sec = k && saisie[k.champ];
+      if (!sec || typeof sec !== "object" || !sec[k.nom]) return;
+      if (k.famille && c.options_de && String(sec[k.famille]) !== String(saisie[c.options_de.depuis])) return;
+      if ([...select.options].some((o) => o.value === sec[k.nom])) select.value = sec[k.nom];
+    };
     remplir();
-    outils.surChangement((id) => { if (c.options_de && id === c.options_de.depuis) remplir(); });
+    courant();
+    outils.surChangement((id) => { if (c.options_de && id === c.options_de.depuis) { remplir(); courant(); } });
     const bouton = el("button", { type: "button", class: "secondaire", "data-id": repere(c), texte: c.bouton, onclick: () => {
       if (!select.value) return outils.signaler("avertissement", `${c.libelle} : choisissez d'abord une ligne dans la liste.`);
       const r = App.calculer(c.calcul, { ...saisie, choix: select.value });
@@ -330,7 +338,7 @@
       return el("td", {}, input);
     }))));
     return el("div", { class: "tableau-saisie", "data-champ": c.id, aide: c.aide || undefined }, el("div", { class: "titre-tableau", texte: c.libelle }),
-      el("table", { class: "editable matrice" }, el("thead", {}, el("tr", {}, el("th"), c.noms.map((x) => el("th", { scope: "col", texte: x })))), corps), statut);
+      el("table", { class: "editable matrice", "aria-label": c.libelle }, el("thead", {}, el("tr", {}, el("th"), c.noms.map((x) => el("th", { scope: "col", texte: x })))), corps), statut);
   }
 
   // Tableau éditable : une ligne par élément, ajout et retrait de lignes, collage depuis Excel (tabulations).
@@ -383,7 +391,7 @@
         return i;
       }
       if (k.genre === "liste") {
-        const s = el("select", { "aria-label": k.libelle }, k.options.map((o) => el("option", { value: o, texte: o })));
+        const s = el("select", { "aria-label": k.libelle }, k.options.map((o, i) => el("option", { value: o, texte: k.etiquettes ? k.etiquettes[i] : o })));
         s.value = ligne[k.id] ?? k.defaut;
         s.addEventListener("change", () => { ligne[k.id] = s.value; majPolaire(ligne, k.id); publier(); });
         return s;
@@ -462,7 +470,7 @@
     if (corps.querySelector("[data-refuse]")) publier(); // valeur déjà refusée à l'ouverture (étude, mémoire) : le calcul est bloqué, la cellule en rouge
     return el("div", { class: "tableau-saisie", "data-champ": c.id },
       el("div", { class: "titre-tableau", aide: c.aide || undefined }, c.libelle),
-      el("div", { class: "defile" }, el("table", { class: "editable" },
+      el("div", { class: "defile" }, el("table", { class: "editable", "aria-label": c.libelle },
         el("thead", {}, el("tr", {}, c.colonnes.map((k) => el("th", { scope: "col", texte: k.libelle })), el("th", { scope: "col" }, el("span", { class: "cache", texte: "Retirer" })))),
         corps)),
       statut,
@@ -708,11 +716,11 @@
           signaler("succes", `Exemple « ${NOMS_EXEMPLES[choix.value] || choix.value} » chargé : la saisie d'avant est remplacée.`, retablir);
         } }));
       } else {
-        haut.append(el("button", { type: "button", class: "secondaire", "data-id": "|exemple-defaut", texte: "Valeurs de l'exemple", aide: "Remet les valeurs de l'exemple du cours ou du classeur.",
+        haut.append(el("button", { type: "button", class: "secondaire", "data-id": "|exemple-defaut", texte: "Charger l'exemple", aide: "Remet les valeurs de l'exemple du cours ou du classeur.",
           onclick: () => {
             const retablir = memoriser();
             saisie = copie(f.defaut); viderInvalides(); App.memoire.oublier("saisie." + ident); dessinerChamps(); relancer();
-            signaler("succes", "Valeurs de l'exemple rétablies : la saisie d'avant est remplacée.", retablir);
+            signaler("succes", "Exemple chargé : la saisie d'avant est remplacée.", retablir);
           } }));
       }
       if (f.norme) {
@@ -1067,6 +1075,7 @@
       const avert = (AVERTISSEMENTS[cle] || (() => null))(saisie); // limite du modèle que la saisie franchit
       const cause = r.niveau === "ko" && r.pireKo ? boutonCause(cle, r.pireKo, libelleMode(r.pireKo, r.crit)) : null;
       return el("section", { class: "decision " + r.niveau, role: "group", "aria-label": "Décision", tabindex: "-1" },
+        el("h3", { class: "cache", texte: "Décision" }),
         el("p", { class: "decision-verdict" }, el("span", { class: "decision-etat" }, el("span", { "aria-hidden": "true", texte: icone }), " " + mot)),
         faits.length ? el("dl", { class: "decision-faits" }, faits) : null,
         avert ? el("p", { class: "decision-avert", role: "note" }, el("span", { "aria-hidden": "true", texte: "⚠ " }), avert) : null,
@@ -1077,7 +1086,8 @@
     // Son texte (role="status") se met à jour 800 ms après le dernier calcul, comme la zone d'annonce du bilan.
     let resumeDispo = false, texteResume = "", minuterieResume = null;
     const vu = { bloc: false, titre: true, decision: false }; // zones de la page actuellement à l'écran
-    const barreResume = el("div", { class: "barre-resume neutre", role: "status", "aria-atomic": "true", hidden: true },
+    // pas de role="status" ici : la zone d'annonce du bilan (« annonce ») est la seule région vocale, le verdict n'est pas lu deux fois
+    const barreResume = el("div", { class: "barre-resume neutre", hidden: true },
       el("span", { class: "barre-resume-texte" }),
       el("button", { type: "button", class: "barre-resume-bouton", texte: "Voir le résultat",
         aide: "Fait défiler jusqu'à la tête du résultat.", onclick: () => montrer(true) }));
@@ -1170,7 +1180,7 @@
       for (const g of s.figures || []) liste.push({ id: "fig-" + g.titre, titre: g.titre, rendu: (p) => p.append(App.figure(g.figure)) });
       if (s.figure) liste.push({ id: "graphique", titre: "Graphique", rendu: (p) => p.append(App.figure(s.figure)) });
       const tables = Object.entries(s.tables || {});
-      if (tables.length) liste.push({ id: "synthese", titre: tables.length > 1 ? "Tableaux" : "Synthèse", rendu: (p) => tables.forEach(([nom, t]) => p.append(App.tableau(t, tables.length > 1 ? nom : null))) });
+      if (tables.length) liste.push({ id: "synthese", titre: tables.length > 1 ? "Tableaux" : "Synthèse", rendu: (p) => tables.forEach(([nom, t]) => p.append(App.tableau(t, tables.length > 1 ? nom : null, nom))) });
       if ((s.explications || []).length || (s.latex || []).length || (s.rapport || []).length) {
         liste.push({ id: "explications", titre: "Explications du calcul", rendu: (p) => explications(p, s) });
       }
@@ -1265,11 +1275,12 @@
       };
       const telecharger = el("button", { type: "button", class: "secondaire", texte: "Dossier de validation (HTML)", aide });
       telecharger.addEventListener("click", () => fabriquer(telecharger, "Dossier de validation (HTML)", (d) => App.telecharger(d.nom, d.html, "text/html")));
-      const imprimer = el("button", { type: "button", class: "secondaire", texte: "Dossier prêt à imprimer (PDF)",
-        aide: aide + " S'ouvre dans un nouvel onglet : Imprimer, puis Enregistrer en PDF. Les formules sont dessinées avec une connexion Internet." });
+      const NOM_IMPRIMER = "Dossier à imprimer (PDF via Imprimer)";
+      const imprimer = el("button", { type: "button", class: "secondaire", texte: NOM_IMPRIMER,
+        aide: aide + " Ouvre le dossier ; choisissez Imprimer puis Enregistrer au format PDF (aucun fichier PDF n'est créé directement). Les formules mathématiques ne s'affichent complètement qu'avec une connexion Internet (KaTeX)." });
       imprimer.addEventListener("click", () => {
         const fenetre = window.open("", "_blank"); // ouverte tout de suite : après un calcul, le navigateur la bloquerait
-        fabriquer(imprimer, "Dossier prêt à imprimer (PDF)", (d, w) => {
+        fabriquer(imprimer, NOM_IMPRIMER, (d, w) => {
           if (!w) return App.telecharger(d.nom, d.html, "text/html"); // fenêtre bloquée : téléchargement à la place
           w.location.href = URL.createObjectURL(new Blob([d.html], { type: "text/html" }));
         }, fenetre);

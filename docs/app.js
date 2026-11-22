@@ -248,7 +248,7 @@ const App = (() => {
     const racine = getComputedStyle(document.documentElement);
     const encre = racine.getPropertyValue("--encre").trim(), fond = racine.getPropertyValue("--carte").trim() || "#FFFFFF";
     if (cible.classList.contains("js-plotly-plot") && cible._figure) {
-      const { data, layout } = miseEnForme(cible._figure, sombre(), encre, racine.getPropertyValue("--figure-fond").trim() || fond);
+      const { data, layout } = miseEnForme(cible._figure, sombre(), encre, racine.getPropertyValue("--figure-fond").trim() || fond, cible._modeLegende);
       const url = await Plotly.toImage({ data, layout: { ...layout, width: cible.clientWidth, height: cible.clientHeight } },
         { format: "png", scale: 2 });
       return (await fetch(url)).blob();
@@ -307,10 +307,10 @@ const App = (() => {
   }
 
   // Tableau {entetes, lignes} du pont, avec un bouton qui le copie pour Excel (tabulations).
-  function tableau(t, titre) {
+  function tableau(t, titre, nom) {
     // un nombre resté avec un point (texte du calcul) passe à la virgule ; les références de clause (« 6.3.2 ») ne bougent pas
     t = { ...t, lignes: t.lignes.map((l) => l.map((c) => (/^[−\-+]?\d+\.\d+(e[−\-+]?\d+)?$/.test(String(c).trim()) ? decimalesFr(c) : c))) };
-    const tab = el("table", {},
+    const tab = el("table", { "aria-label": decimalesFr(titre || nom || t.titre || "Tableau de résultats") },
       el("thead", {}, el("tr", {}, t.entetes.map((e) => el("th", { scope: "col", texte: e })))),
       el("tbody", {}, t.lignes.map((ligne) => el("tr", {}, ligne.map((c, j) => {
         const td = el("td", { texte: typeof c === "string" && /^[−\-+]?\d+(,\d+)?e[−\-+]?\d+$/.test(c.trim()) ? exposants(c) : c });
@@ -346,10 +346,66 @@ const App = (() => {
   const enSombre = (x) => JSON.parse(JSON.stringify(x).replace(/"(rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*1\s*\)|black|white|#000000|#FFFFFF|#ffffff|rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*1\s*\))"/g,
     (m, c) => `"${COULEURS_SOMBRES[c.replace(/\s/g, "")]}"`));
 
+  // Adaptation d'une figure à son conteneur. Légende à droite (marge de 170 px) : sur un écran étroit elle mangeait le tracé, et sur
+  // un grand écran elle frôle les repères dessinés dans la marge ; une légende sous le tracé peut toucher le titre de l'axe. Elle
+  // passe alors tout en bas de la figure, en une ligne qui se replie. mode : "etroit" (conteneur de moins de 520 px : marges
+  // réduites, textes plus petits, repères hors tracé retirés) ou "replie" (légende seule déplacée, repères gardés).
+  const LARGEUR_ETROITE = 520;
+  function placeLegende(layout, data) { // "droite", "dessous" ou null (pas de légende, ou déjà dans le tracé)
+    if (layout.showlegend === false) return null;
+    const lg = layout.legend || {};
+    const noms = data.filter((d) => d.showlegend !== false && d.name).length;
+    if (!(layout.showlegend ? noms >= 1 : noms >= 2)) return null;
+    if (lg.orientation === "h") return lg.y !== undefined && lg.y < 0 && lg.yref !== "container" ? "dessous" : null;
+    return lg.x !== undefined && lg.x < 1 ? null : "droite";
+  }
+  function adapterFigure(layout, data, mode) {
+    if (!mode) return;
+    const place = placeLegende(layout, data);
+    const marge = { ...(layout.margin || {}) };
+    const droite = place === "droite";
+    if (mode === "etroit") {
+      // marges par défaut de Plotly (80, 80, 100) : sur 290 px elles ne laissaient que 130 px au tracé ; Plotly agrandit tout seul
+      // une marge où il faut des graduations ou un titre d'axe
+      marge.l = Math.min(marge.l === undefined ? 80 : marge.l, 24);
+      marge.r = Math.min(marge.r === undefined ? 80 : marge.r, 24);
+      marge.t = Math.min(marge.t === undefined ? 100 : marge.t, 70);
+      // textes du tracé plus petits : sur 290 px de large, ils se recouvraient
+      if (layout.annotations) layout.annotations = layout.annotations.map((a) => (a.text && !(a.xref === "paper" && a.x > 1) ? { ...a, font: { ...(a.font || {}), size: Math.min((a.font && a.font.size) || 12, 10) } } : a));
+      // titre trop long pour la largeur : coupé avant la parenthèse (« Courbe de flambage (E = 210 GPa… ») et en plus petit
+      if (layout.title && typeof layout.title.text === "string") {
+        const t = layout.title.text;
+        layout.title = { ...layout.title, text: t.replace(/<[^>]*>/g, "").length > 36 && !/<br/i.test(t) ? t.replace(/ \(/, "<br>(") : t, font: { ...(layout.title.font || {}), size: 14 } };
+      }
+      // repères posés dans la marge de droite (hors du tracé) : sans cette marge, ils sortiraient de la figure
+      if (droite && layout.annotations) layout.annotations = layout.annotations.filter((a) => !(a.xref === "paper" && a.x > 1));
+    } else if (droite && layout.annotations) { // légende repliée : les repères de la marge s'écartent un peu du tracé (l'étiquette Y_B les frôlait)
+      layout.annotations = layout.annotations.map((a) => (a.xref === "paper" && a.x > 1 ? { ...a, xshift: (a.xshift || 0) + 20 } : a));
+    }
+    if (place) {
+      layout.legend = { orientation: "h", yref: "container", y: 0, yanchor: "bottom", xref: "paper", x: 0.5, xanchor: "center" };
+      marge.b = Math.max(marge.b || 0, 80) + 40; // la légende occupe le bas de la marge, sous le titre de l'axe
+      if (layout.height) layout.height += 40;
+    }
+    layout.margin = marge;
+  }
+  // La légende (à droite) recouvre-t-elle un texte du tracé : annotation, titre, graduation ?
+  function legendeChevauche(div) {
+    const lg = div.querySelector("g.legend");
+    if (!lg) return false;
+    const L = lg.getBoundingClientRect();
+    if (!L.width) return false;
+    for (const e of div.querySelectorAll("g.annotation, .gtitle, .xtitle, .xtick text, .ytick text")) {
+      if (!e.textContent.trim() && !e.querySelector("path")) continue;
+      const b = e.getBoundingClientRect();
+      if (b.width && b.height && b.left < L.right && b.right > L.left && b.top < L.bottom && b.bottom > L.top) return true;
+    }
+    return false;
+  }
   // Données et mise en page prêtes à tracer : thème sombre ou clair, virgule décimale.
   // Toujours une copie : Plotly réécrit sur place les objets reçus (« rgba(0,0,0,1) » → « rgba(0, 0, 0, 1) » dans les
   // formes), et la figure d'origine, gardée pour les changements de thème, ne doit pas bouger.
-  function miseEnForme(f, foncee, encre, fond) {
+  function miseEnForme(f, foncee, encre, fond, mode) {
     let data = JSON.parse(JSON.stringify(f.data || [])), layout = JSON.parse(JSON.stringify(f.layout || {}));
     if (foncee) {
       data = enSombre(data);
@@ -367,6 +423,7 @@ const App = (() => {
       ...(typeof d.text === "string" ? { text: decimalesFr(d.text) } : Array.isArray(d.text) ? { text: d.text.map((x) => (typeof x === "string" ? decimalesFr(x) : x)) } : {}) }));
     delete layout.width;
     if (layout.title && layout.title.text) layout.title = { ...layout.title, x: 0.01, xanchor: "left" };
+    adapterFigure(layout, data, mode);
     return { data, layout };
   }
   // Barre d'outils des graphiques : on garde zoom, déplacement, zoom avant / arrière, réinitialisation et téléchargement.
@@ -396,7 +453,11 @@ const App = (() => {
     }
     const encre = getComputedStyle(document.documentElement).getPropertyValue("--encre").trim();
     const fond = getComputedStyle(document.documentElement).getPropertyValue("--figure-fond").trim();
-    const { data, layout } = miseEnForme(f, sombre(), encre, fond);
+    const largeur = div.clientWidth || (div.parentElement && div.parentElement.clientWidth) || 0;
+    const etroit = largeur > 0 && largeur < LARGEUR_ETROITE;
+    div._etroit = etroit;
+    div._modeLegende = etroit ? "etroit" : div._modeLegende === "replie" ? "replie" : null;
+    const { data, layout } = miseEnForme(f, sombre(), encre, fond, div._modeLegende);
     // Hauteur du cadre : jamais laissée au contenu. Avec « autosize », Plotly mesure son cadre à chaque redimensionnement
     // (fenêtre, dépliage du panneau « Représentation ») : un cadre sans hauteur propre se réduisait alors à son min-height et
     // coupait la figure. Le cadre prend donc la hauteur de la mise en page (420 px sinon), sauf si elle a été choisie à la souris
@@ -411,11 +472,19 @@ const App = (() => {
     const tactile = !!window.matchMedia && matchMedia("(pointer: coarse)").matches;
     if (tactile) layout.dragmode = false; // au doigt, le graphique ne capte pas le glissement : la page continue de défiler
     langueGraphiques();
-    Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr",
+    const fait = Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr",
       modeBarButtonsToRemove: tactile ? BOUTONS_INUTILES.concat(["zoom2d", "pan2d"]) : BOUTONS_INUTILES });
+    // légende à droite qui touche un texte du tracé ou un repère de la marge : elle passe sous le graphique
+    if (!div._modeLegende && fait && fait.then) fait.then(() => {
+      if (div._figure !== f || div._modeLegende || !legendeChevauche(div)) return;
+      div._modeLegende = "replie";
+      tracer(div, f);
+    }, () => {});
     if (!div._suivi && window.ResizeObserver) { // la figure suit la hauteur donnée à son cadre
       let vue = div.clientHeight;
       div._suivi = new ResizeObserver(() => {
+        const l = div.clientWidth;
+        if (l > 0 && div._figure && (l < LARGEUR_ETROITE) !== div._etroit) { div._modeLegende = null; tracer(div, div._figure); return; } // passage de la barre des 520 px
         const h = div.clientHeight;
         if (!div.style.height || Math.abs(h - vue) < 4) return;
         vue = h;
@@ -442,7 +511,7 @@ const App = (() => {
   // opts : { nom (étiquette lue), decritPar (id d'un texte qui décrit les données) }.
   function figure(f, classe = "figure", avecBouton = true, opts = {}) {
     const titre = texteSimple(f.layout && (typeof f.layout.title === "string" ? f.layout.title : f.layout.title && f.layout.title.text));
-    const d = el("div", { class: classe, role: "img", "aria-label": decimalesFr(opts.nom || titre || "Graphique du calcul") });
+    const d = el("div", { class: classe, role: "img", "aria-label": decimalesFr(opts.nom || titre || "Graphique du calcul") + " : graphique interactif, survolez pour les valeurs" });
     // hauteur donnée tout de suite : la page ne bouge plus quand Plotly finit de tracer (pas de saut de défilement ensuite)
     const hauteur = Number(f.layout && f.layout.height) || HAUTEUR_FIGURE;
     d.style.height = hauteur + "px"; d.dataset.hauteurAuto = "1"; d._hauteurAuto = hauteur;
@@ -455,10 +524,10 @@ const App = (() => {
   // Onglets de PAGE (clé « page.… » : Poutre 2D / Ossature 3D…) et onglets de RÉSULTAT (Graphique, Synthèse…) : même clavier,
   // mais le bandeau des onglets de page est plus marqué (classe niveau-page).
   let compteurOnglets = 0;
-  function onglets(liste, cle) {
+  function onglets(liste, cle, nom) {
     const base = "onglets-" + (++compteurOnglets);
     const niveauPage = !!cle && cle.startsWith("page.");
-    const barre = el("div", { class: "onglets", role: "tablist" });
+    const barre = el("div", { class: "onglets", role: "tablist", "aria-label": nom || (niveauPage ? "Calculs de la page" : "Résultats") });
     const panneau = el("div", { class: "panneau", role: "tabpanel", id: base + "-p", tabindex: "0" });
     const ouvrir = (id) => {
       for (const b of barre.children) {

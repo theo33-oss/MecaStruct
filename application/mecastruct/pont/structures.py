@@ -38,6 +38,16 @@ from mecastruct.services.examples import exampleNames, loadExample
 from mecastruct.services.sources import avec_sources
 
 TYPES_APPUI = ["appui_simple", "rotule", "pivot", "pivot_glissant", "encastrement"]
+# libellés lisibles (les valeurs internes, celles des fichiers de projet et de l'application de bureau, ne changent pas)
+ETIQUETTES_APPUI = ["Appui simple", "Rotule", "Pivot", "Pivot glissant", "Encastrement"]
+ETIQUETTES_APPUI_3D = {"libre": "Libre", "encastrement": "Encastrement", "rotule": "Rotule", "appui_z": "Appui vertical (z)", "perso": "Personnalisé (DDL)"}
+ETIQUETTES_LIAISON = {"rigide": "Rigide", "articulee": "Articulée"}
+ETIQUETTES_SECTION_3D = {"catalogue": "Profilé du catalogue", "rond": "Rond", "tube": "Tube", "rectangle": "Rectangle", "perso": "Personnalisée"}
+
+
+def _etiq(valeurs, table):
+    """Libellés des `valeurs` (une valeur inconnue garde son texte)."""
+    return [table.get(v, v) for v in valeurs]
 CAS = ["G", "Q", "W", "S"]
 COMPOSANTES = ["N", "Ty", "Tz", "Mt", "Mfy", "Mfz"]
 FAMILLES_PROFILES = ["IPE", "HEA", "HEB", "IPN", "UPN", "UAP"]
@@ -641,7 +651,9 @@ def _formulaires() -> dict:
                              aide="D'où viennent S, les inerties et les fibres extrêmes de la poutre."),
                        si(liste("pfam", "Famille de profilés", FAMILLES_PROFILES), "secSrc", "catalogue"),
                        si({"id": "profil", "type": "action", "libelle": "Profilé du catalogue", "options_de": {"calcul": "profils", "cle": "famille", "depuis": "pfam"},
-                           "bouton": "Utiliser ce profilé", "calcul": "beam.profil", "aide": "Remplit S, inerties et fibres extrêmes avec les valeurs du catalogue."}, "secSrc", "catalogue"),
+                           "bouton": "Utiliser ce profilé", "calcul": "beam.profil",
+                           "courant": {"champ": "section", "nom": "name", "famille": "family"},  # la liste montre le profilé de la section
+                           "aide": "Remplit S, inerties et fibres extrêmes avec les valeurs du catalogue."}, "secSrc", "catalogue"),
                        si(liste("secForme", "Forme", FORMES_POUTRE, etiquettes=[t["label"] for t in geometry.sectionTypes() if t["type"] in FORMES_POUTRE]), "secSrc", "forme"),
                        *[{**nb("f_" + k, v, "mm", 0.0), "si": [{"id": "secSrc", "valeurs": ["forme"]}, {"id": "secForme", "valeurs": TYPES_PAR_DIMENSION[k]}]}
                          for k, v in DIMENSIONS.items()],
@@ -666,8 +678,8 @@ def _formulaires() -> dict:
                            nb("kz", "kz, section réduite (Tz)", ""),
                            nb("vy", "Fibre extrême |y|max", "mm"), nb("vz", "Fibre extrême |z|max", "mm"))]),
                 groupe("Appuis et charges",
-                       tableau("sup", "Appuis", [col("pos", "Position (m)"), col("type", "Type", "liste", TYPES_APPUI, "appui_simple"), col("name", "Nom", "texte", defaut="")],
-                               aide="appui_simple et pivot_glissant bloquent y et z ; rotule et pivot bloquent x, y et z ; encastrement bloque tout."),
+                       tableau("sup", "Appuis", [col("pos", "Position (m)"), col("type", "Type", "liste", TYPES_APPUI, "appui_simple", etiquettes=ETIQUETTES_APPUI), col("name", "Nom", "texte", defaut="")],
+                               aide="Appui simple et pivot glissant bloquent y et z ; rotule et pivot bloquent x, y et z ; encastrement bloque tout."),
                        tableau("pl", "Forces ponctuelles", [col("pos", "Position (m)"), col("Fx", "Fx (kN)"), col("Fy", "Fy (kN)"), col("Fz", "Fz (kN)"),
                                                             col("F", "F (kN), si inclinée"), col("plan", "Plan", "liste", ["xy", "xz"], "xy"), col("ang", "α (°) dans le plan"),
                                                             col("name", "Nom", "texte", defaut=""), col("case", "Cas", "liste", CAS, "G")],
@@ -744,12 +756,12 @@ def _formulaires() -> dict:
             "groupes": [
                 groupe("Nœuds et pièces",
                        tableau("noeuds", "Nœuds (mm)", [col("id", "id", defaut=1, entier=True), col("x", "x (mm)"), col("y", "y (mm)"), col("z", "z (mm)"),
-                                                          col("appui", "Appui", "liste", ossature3d.APPUIS, "libre"), col("ddl", "DDL perso", "texte", defaut="")],
-                               aide="Appui « perso » : 6 chiffres 0/1 pour ux uy uz θx θy θz (1 = bloqué)."),
+                                                          col("appui", "Appui", "liste", ossature3d.APPUIS, "libre", etiquettes=_etiq(ossature3d.APPUIS, ETIQUETTES_APPUI_3D)), col("ddl", "DDL perso", "texte", defaut="")],
+                               aide="Appui « Personnalisé (DDL) » : 6 chiffres 0/1 pour ux uy uz θx θy θz (1 = bloqué)."),
                        tableau("pieces", "Pièces", [col("id", "id", defaut=1, entier=True), col("debut", "Nœud début", defaut=1, entier=True), col("fin", "Nœud fin", defaut=2, entier=True),
-                                                    col("materiau", "Matériau", "liste", noms, "S235"), col("section", "Section", "liste", ossature3d.SECTIONS, "rond"),
+                                                    col("materiau", "Matériau", "liste", noms, "S235"), col("section", "Section", "liste", ossature3d.SECTIONS, "rond", etiquettes=_etiq(ossature3d.SECTIONS, ETIQUETTES_SECTION_3D)),
                                                     col("dimensions", "Dimensions (mm)", "texte", defaut="d=40"), col("beta", "β (°)"),
-                                                    col("liaison_debut", "Liaison début", "liste", ossature3d.LIAISONS, "rigide"), col("liaison_fin", "Liaison fin", "liste", ossature3d.LIAISONS, "rigide")],
+                                                    col("liaison_debut", "Liaison début", "liste", ossature3d.LIAISONS, "rigide", etiquettes=_etiq(ossature3d.LIAISONS, ETIQUETTES_LIAISON)), col("liaison_fin", "Liaison fin", "liste", ossature3d.LIAISONS, "rigide", etiquettes=_etiq(ossature3d.LIAISONS, ETIQUETTES_LIAISON))],
                                aide="Dimensions : " + " ; ".join(f"{k} : « {v} »" for k, v in ossature3d.EXEMPLES_DIM.items()))),
                 groupe("Charges (repère global)",
                        tableau("charges_nodales", "Charges nodales", [col("noeud", "Nœud", defaut=1, entier=True), *[col(c, f"{c} (N)") for c in ("Fx", "Fy", "Fz")], *[col(c, f"{c} (N·m)") for c in ("Mx", "My", "Mz")],
@@ -846,7 +858,8 @@ def _formulaires_rdm() -> dict:
                 groupe("Barre et chargement", nb("N", "N (> 0 traction)", "kN"), nb("S0", "S0", "mm²", 0.0), nb("L0", "L0", "m", 0.0),
                        liste("mat", "Matériau", noms), nb("E", "E", "GPa"), nb("nu", "ν", ""), nb("alpha", "α", "10⁻⁶/°C"), nb("Re", "Re", "MPa"),
                        nb("dT", "ΔT", "°C"), nb("Kt", "Kt", "", 1.0), nb("s", "Coefficient de sécurité s", ""),
-                       nb("dLmax", "ΔL max (0 = sans limite)", "mm", 0.0)),
+                       nb("dLmax", "ΔL max (0 = sans limite)", "mm", 0.0),
+                       note="Exemple proche de la limite : il montre un cas non conforme (s = 1,48 pour 1,5 demandé). Réduisez N ou agrandissez S0 pour passer à un cas conforme."),
                 groupe("Section variable", case("varS", "Utiliser S(x)"), texte("Sexpr", "S(x) (mm², x en m)"), ouvert=False),
             ],
         },

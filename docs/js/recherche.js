@@ -18,7 +18,7 @@
     ["poutres", "beam", "Eurocode 3", "Vérification d'une poutre acier selon l'Eurocode 3 (EN 1993-1-1)",
       "eurocode 3|eurocode|ec3|en 1993|en 1993-1-1|nf en 1993|acier de construction|classe de section|profilé|profilé IPE|profilé HEA|ipe|hea|heb|upn"],
     ["poutres", "beam", "Fatigue", "Vérification en fatigue d'une poutre (Kf, catégories de détail)",
-      "fatigue|endurance|wöhler|kf|concentration de contrainte|kt|entaille|catégorie de détail|en 1993-1-9"],
+      "fatigue|goodman|diagramme de goodman|haigh|endurance|limite d'endurance|contrainte alternée|contrainte moyenne|wöhler|courbe de wöhler|kf|concentration de contrainte|kt|entaille|catégorie de détail|en 1993-1-9"],
     ["poutres", "beam", "Tige filetée", "Vis ou tige filetée : section résistante d'un filetage ISO (ISO 898-1, ISO 68-1)",
       "vis|tige filetée|boulon|filetage|filetage métrique|iso 898-1|iso 898|iso 68-1|iso 68|iso 724|section résistante|pas gros|pas fin|m8|m10|m12|m16"],
     ["poutres", "beam", "Combinaisons", "Combinaisons de charges, enveloppe et charge mobile",
@@ -41,7 +41,7 @@
     ["sollicitations", "fle", "Flexion", "Flexion simple : moment fléchissant, contrainte, flèche",
       "flexion|moment fléchissant|moment|contrainte de flexion|flèche|module de flexion|inertie"],
     ["tenseurs", "", "", "Contraintes principales, cercle de Mohr, Von Mises et Tresca",
-      "tenseur|tenseurs|contrainte principale|contraintes principales|cercle de mohr|mohr|von mises|tresca|critère|critère de plasticité|contrainte équivalente|état de contrainte|contrainte plane|cisaillement maximal"],
+      "tenseur|tenseurs|contrainte principale|contraintes principales|cercle de mohr|mohr|von mises|tresca|rankine|critère de rankine|contrainte normale maximale|critère|critère de plasticité|contrainte équivalente|état de contrainte|contrainte plane|cisaillement maximal"],
     ["hooke", "hoo", "Hooke", "Loi de Hooke généralisée : contraintes et déformations",
       "hooke|loi de hooke|déformation|module d'young|module de young|coefficient de poisson|poisson|élasticité|contrainte"],
     ["hooke", "jau", "Jauges", "Rosettes de jauges de déformation",
@@ -115,6 +115,19 @@
     if (p.id === "accueil" || entrees.some((e) => e.page === p.id)) continue;
     const termes = [p.titre, p.texte].map(norme).map((t) => ({ t, mots: t.split(" "), compact: t.replace(/ /g, "") }));
     entrees.push({ page: p.id, calc: "", etiquette: "", raison: p.texte, termes, ordre: 1000 + entrees.length, titre: p.titre });
+  }
+
+  // Calculs que l'application n'a pas : la recherche le dit (au lieu de ne rien répondre) et propose les pages les plus proches.
+  // [mots (séparés par « | »), message, [[page, onglet], …]]
+  const ABSENTS = [
+    ["ressort|ressorts|raideur de ressort|spire|spires", "Pas de calcul de ressort pour l'instant.", [["hooke", "hoo"], ["poutres", "beam"]]],
+    ["soudure|soudures|cordon de soudure|soudage|souder", "Pas de calcul de soudure pour l'instant.", [["poutres", "beam"], ["sollicitations", "cis"]]],
+  ].map(([mots, message, proches]) => ({ mots: mots.split("|").map(norme), message, proches }));
+
+  function absent(texte) {
+    const q = norme(texte);
+    if (q.length < 4) return null;
+    return ABSENTS.find((a) => a.mots.some((m) => q === m || q.split(" ").some((j) => j.length >= 4 && (j === m || m.startsWith(j) && j.length >= 5)) || q.includes(m))) || null;
   }
 
   // Note d'un mot cherché contre un mot connu : 6 identique, 4 début de mot, 3 pluriel (« roulements » → « roulement »), 2 morceau (4 lettres au moins : « ipe » ne doit pas trouver « dissipée »).
@@ -234,15 +247,23 @@
   function majResultats() {
     const texte = champ.value;
     resultats = chercher(texte);
+    const manque = absent(texte);
+    if (manque) { // les pages proches d'abord, puis ce que la table a trouvé d'autre
+      const proches = manque.proches.map(([page, calc]) => entrees.find((e) => e.page === page && e.calc === calc)).filter(Boolean);
+      resultats = [...proches, ...resultats.filter((e) => !proches.includes(e))].slice(0, 8);
+    }
     liste.replaceChildren(...resultats.map((r, i) => el("li", { id: "recherche-opt-" + i, role: "option", "aria-selected": "false", "data-i": String(i), class: "recherche-option" },
       el("span", { class: "r-titre", texte: r.titre + (r.etiquette ? " › " + r.etiquette : "") }),
       el("span", { class: "r-raison", texte: r.raison }))));
     const a = resultats.length > 0;
     liste.hidden = !a;
     champ.setAttribute("aria-expanded", String(a));
-    if (a) { texteAide(); activer(0, false); }
+    if (manque) aide.textContent = manque.message + (a ? " Pages les plus proches ci-dessous." : "");
+    else if (a) texteAide();
+    if (a) activer(0, false);
     else champ.removeAttribute("aria-activedescendant");
     if (!norme(texte)) { texteAide(); etat.textContent = ""; }
+    else if (manque) etat.textContent = manque.message + (a ? " " + resultats.length + (resultats.length > 1 ? " pages proches." : " page proche.") : "");
     else if (!a) { aide.textContent = "Aucun résultat pour « " + texte.trim() + " ». Essayez un seul mot : flèche, H7, roulement, module, Eurocode 3…"; etat.textContent = "Aucun résultat"; }
     else etat.textContent = resultats.length + (resultats.length > 1 ? " résultats" : " résultat");
   }
