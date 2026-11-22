@@ -12,6 +12,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 
 ## Non publié (site)
 
+- Site, iPhone : bouton « Partager » dans le pied de page (feuille de partage du téléphone avec les liens du site et du projet GitHub ; copie des liens sur ordinateur), icône d'écran d'accueil (`apple-touch-icon`) et icônes PNG du manifeste.
 - Site, accueil : toutes les cartes de familles sont repliées par défaut et s'ouvrent au survol avec une animation douce (clic, clavier et Échap restent possibles ; sans animation si le mouvement réduit est demandé).
 - Site, pages à schéma : le schéma est à droite des champs à l'arrivée ; un clic sur « Calculer » ne laisse que les résultats, le schéma passe dans un bloc repliable (« Afficher le schéma »), avec « Mémoriser ce choix pour cette page ». Le panneau latéral à poignée est retiré.
 - Site, finitions : « Charger l'exemple » partout, profilé du catalogue affiché après l'exemple, types d'appui et de liaison en français (valeurs internes inchangées), note sur l'exemple de Traction (cas non conforme voulu), noms accessibles pour tableaux, onglets, figures et bloc Décision (un seul verdict annoncé), recherche élargie (Goodman, Wöhler, Rankine, ressort, soudure…), bouton « Dossier à imprimer (PDF via Imprimer) », graphiques lisibles à 375 px (légende sous le graphique, marges réduites).

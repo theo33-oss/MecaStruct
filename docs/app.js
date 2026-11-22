@@ -949,6 +949,17 @@ const App = (() => {
   }
 
   // Actualisation complète : efface le service worker et les copies du site, puis recharge la page.
+  // Partager le site et le projet : feuille de partage du téléphone (Messages, WhatsApp, Mail, AirDrop…) ; sur ordinateur les liens sont copiés.
+  async function partagerSite() {
+    const texte = "MecaStruct RdM : calculs de résistance des matériaux et d'éléments de machines, dans le navigateur.\nSite : https://theo33-oss.github.io/MecaStruct/\nProjet : " + DEPOT;
+    if (navigator.share) {
+      try { await navigator.share({ title: "MecaStruct RdM", text: texte }); } catch (e) { if (e && e.name !== "AbortError") toast("Partage impossible : " + e.message); }
+      return;
+    }
+    const ok = await copier(texte);
+    toast(ok ? "Liens du site et du projet copiés : collez-les dans votre message." : "Copie impossible : le navigateur refuse l'accès au presse-papiers.");
+  }
+
   async function actualiserSite() {
     try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { /* pas de service worker */ }
     try { for (const n of await caches.keys()) if (n !== "mecastruct-cdn") await caches.delete(n); } catch (e) { /* pas de cache */ }
@@ -983,6 +994,7 @@ const App = (() => {
     const build = document.querySelector('meta[name="build"]')?.content || "";
     $("version").textContent = "version " + VERSION + (build ? " · build " + build : "");
     $("actualiser").addEventListener("click", actualiserSite);
+    $("partager").addEventListener("click", partagerSite);
     verifierMiseAJour(build);
     // « Actualiser le site » recharge avec ?maj=… (contourne le cache) : une fois chargée, l'adresse redevient propre
     // (sinon elle se retrouve dans les liens copiés)
