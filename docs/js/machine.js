@@ -1164,7 +1164,7 @@
   App.genre("machine", async (contenu, page, { pret, perime = () => false }) => {
     contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: page.texte }));
     if (!pret) {
-      contenu.append(App.attente("Le calcul se charge : les champs apparaîtront dans quelques secondes."));
+      contenu.append(App.attente("Le calcul se charge : les champs apparaîtront dans quelques secondes.", page));
       return;
     }
     if (page.pont) {

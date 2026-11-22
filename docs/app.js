@@ -158,6 +158,23 @@ const App = (() => {
     document.dispatchEvent(new Event("themechange"));
   }
 
+  // Bibliothèques des CDN (Pyodide, Plotly, KaTeX) : balises async dans index.html, donc le menu et l'accueil s'affichent sans
+  // les attendre. Promesse qui se résout quand la bibliothèque est là (test()), et échoue si son script n'a pas pu se charger.
+  const biblios = new Map();
+  function bibliotheque(id, test) {
+    if (!biblios.has(id)) {
+      biblios.set(id, new Promise((ok, ko) => {
+        const s = document.getElementById("script-" + id);
+        const echec = () => ko(new Error("chargement de « " + id + " » impossible"));
+        if (test()) return ok();
+        if (!s || s.dataset.echec) return echec();
+        s.addEventListener("load", () => (test() ? ok() : echec()));
+        s.addEventListener("error", echec);
+      }));
+    }
+    return biblios.get(id);
+  }
+
   // ---------- éléments d'affichage ----------
 
   function message(niveau, texte) {
@@ -369,6 +386,13 @@ const App = (() => {
   // Figure Plotly du pont : fond et textes suivent le thème, largeur suit la page.
   function tracer(div, f) {
     div._figure = f;
+    if (!window.Plotly) { // plotly.min.js (async) n'est pas encore là : le graphique se trace dès son arrivée
+      div.replaceChildren(el("p", { class: "legende", texte: "Graphique en préparation…" }));
+      bibliotheque("plotly", () => !!window.Plotly).then(
+        () => { if (div._figure === f) { div.replaceChildren(); tracer(div, f); } },
+        () => div.replaceChildren(el("p", { class: "legende", texte: "Graphique indisponible : la bibliothèque de tracé n'a pas pu se charger. Vérifiez la connexion Internet, puis rechargez la page." })));
+      return;
+    }
     const encre = getComputedStyle(document.documentElement).getPropertyValue("--encre").trim();
     const fond = getComputedStyle(document.documentElement).getPropertyValue("--figure-fond").trim();
     const { data, layout } = miseEnForme(f, sombre(), encre, fond);
@@ -630,19 +654,77 @@ const App = (() => {
     m.append(el("button", { type: "button", class: "secondaire petit", texte: "Réessayer", onclick: () => location.reload() }));
     return m;
   }
-  function attente(texte) {
+  // Exemples déjà calculés (images de l'application de bureau, dossier captures/) : rien n'est calculé ici, ce sont des images.
+  const EXEMPLES = {
+    poutres: ["poutres", "Exemple : poutre isostatique de 6 m en IPE 300 (acier S235), verdict « Vérifié », flèche maximale 14 mm, Kt·σ max 120,7 MPa (image de l'application de bureau, non interactive).", "Page Poutres : formulaire et résultat d'une poutre de 6 m en IPE 300 déjà calculée, verdict « Vérifié »."],
+    treillis: ["treillis", "Exemple : page Treillis avec un calcul déjà fait (image de l'application de bureau, non interactive).", "Page Treillis avec un calcul déjà fait."],
+    flambage: ["flambage", "Exemple : page Flambage avec un calcul déjà fait (image de l'application de bureau, non interactive).", "Page Flambage avec un calcul déjà fait."],
+    "sections-page": ["sections", "Exemple : page Sections avec un calcul déjà fait (image de l'application de bureau, non interactive).", "Page Sections avec un calcul déjà fait."],
+    sollicitations: ["sollicitations_0", "Exemple : page Sollicitations avec un calcul déjà fait (image de l'application de bureau, non interactive).", "Page Sollicitations avec un calcul déjà fait."],
+    tenseurs: ["tenseurs", "Exemple : page Tenseurs et critères avec un calcul déjà fait (image de l'application de bureau, non interactive).", "Page Tenseurs et critères avec un calcul déjà fait."],
+    hooke: ["hooke_jauges_0", "Exemple : page Hooke et jauges avec un calcul déjà fait (image de l'application de bureau, non interactive).", "Page Hooke et jauges avec un calcul déjà fait."],
+    base: ["base_de_donnees", "Exemple : page Matériaux et profilés (image de l'application de bureau, non interactive).", "Page Matériaux et profilés."],
+    references: ["references", "Exemple : page Références (image de l'application de bureau, non interactive).", "Page Références."],
+  };
+  let numeroExemple = 0;
+  // Bouton « Voir un exemple sans attendre » : montre une image déjà calculée pendant le chargement de Pyodide. Pour l'accueil,
+  // l'exemple est celui des poutres. Rend null s'il n'y a rien à montrer (calcul prêt, échec, page sans capture).
+  // opts.lien = false : pas de lien « Ouvrir la vraie page » (page de calcul déjà ouverte : elle remplace l'exemple à la fin).
+  function exemple(p, opts = {}) {
+    if (pont || echec !== null) return null;
+    const cible = p.id === "accueil" ? page("poutres") : p;
+    const ex = EXEMPLES[cible.id];
+    if (!ex) return null;
+    const id = "exemple-" + ++numeroExemple;
+    const bouton = el("button", { type: "button", class: "secondaire", "aria-expanded": "false", "aria-controls": id, texte: "Voir un exemple sans attendre" });
+    const img = el("img", { src: "captures/" + ex[0] + ".jpg", alt: ex[2], width: "1400", height: "854", loading: "lazy" });
+    const bas = el("span", { class: "legende" });
+    const zone = el("figure", { id, class: "capture", hidden: true }, img, el("figcaption", { class: "legende", texte: ex[1] }));
+    let lien = null;
+    if (opts.lien !== false) {
+      lien = el("a", { class: "bouton primaire", href: "#/" + cible.id, "aria-disabled": "true", texte: "Ouvrir la vraie page" });
+      lien.addEventListener("click", (e) => { if (lien.getAttribute("aria-disabled") === "true") e.preventDefault(); });
+      zone.append(el("p", { class: "ligne" }, lien, bas));
+    } else zone.append(el("p", {}, bas));
+    const dire = (pret) => {
+      if (lien) lien.setAttribute("aria-disabled", pret ? "false" : "true");
+      bas.textContent = pret ? "Le calcul est prêt : vous pouvez ouvrir la vraie page." : opts.lien === false ? "La vraie page remplacera cet exemple dès que le calcul est prêt." : "Le lien s'active dès que le calcul est prêt.";
+    };
+    dire(false);
+    document.addEventListener("mecastruct:pret", () => dire(true), { once: true });
+    bouton.addEventListener("click", () => {
+      zone.hidden = !zone.hidden;
+      bouton.setAttribute("aria-expanded", String(!zone.hidden));
+      bouton.textContent = zone.hidden ? "Voir un exemple sans attendre" : "Masquer l'exemple";
+    });
+    return el("div", { class: "exemple" }, bouton, zone);
+  }
+
+  // Message de chargement ; avec une page (p), il est suivi de son exemple déjà calculé s'il y en a un.
+  function attente(texte, p) {
     if (echec !== null) return messageEchec();
     const m = message("info", texte);
-    m.dataset.attenteCalcul = "";
-    return m;
+    const ex = p ? exemple(p, { lien: false }) : null;
+    if (!ex) {
+      m.dataset.attenteCalcul = "";
+      return m;
+    }
+    const boite = el("div", {}, m, ex);
+    boite.dataset.attenteCalcul = "";
+    return boite;
+  }
+
+  // Page ouverte par un clic sur une famille du menu : la dernière visitée dans cette famille (« derniere.<famille> »), sinon la première.
+  function pageDeFamille(famille) {
+    const id = memoire.lire("derniere." + famille, "");
+    return PAGES.find((p) => p.id === id && p.famille === famille && p.genre !== "bureau") || PAGES.find((p) => p.famille === famille);
   }
 
   function menu() {
     const nav = $("menu");
     const boutons = [el("a", { href: "#/accueil", class: "famille", "data-famille": "accueil", texte: "Accueil" })];
     for (const f of FAMILLES) {
-      const premiere = PAGES.find((p) => p.famille === f.id);
-      boutons.push(el("a", { href: "#/" + premiere.id, class: "famille", "data-famille": f.id, texte: f.titre, aide: f.texte }));
+      boutons.push(el("a", { href: "#/" + pageDeFamille(f.id).id, class: "famille", "data-famille": f.id, texte: f.titre, aide: f.texte }));
     }
     const theme = el("button", { type: "button", class: "theme secondaire" });
     const majTheme = () => {
@@ -677,6 +759,7 @@ const App = (() => {
     for (const a of document.querySelectorAll("#menu .famille")) {
       if (a.dataset.famille === famille) a.setAttribute("aria-current", "true");
       else a.removeAttribute("aria-current");
+      if (a.dataset.famille !== "accueil") a.setAttribute("href", "#/" + pageDeFamille(a.dataset.famille).id);
     }
     const sous = $("sous");
     const soeurs = PAGES.filter((x) => x.famille && x.famille === p.famille);
@@ -717,6 +800,7 @@ const App = (() => {
     const changement = !!courante && courante.id !== p.id; // vrai changement de page (pas le premier affichage, ni le rappel de fin de chargement)
     courante = p;
     const numero = ++numeroRendu;
+    if (p.famille && p.genre !== "bureau") memoire.ecrire("derniere." + p.famille, p.id); // le menu rouvre la dernière page de la famille
     majMenu(p);
     indiceDefilement($("menu"));
     indiceDefilement($("sous"));
@@ -725,6 +809,8 @@ const App = (() => {
     contenu.replaceChildren();
     const rendu = genres[p.genre];
     if (rendu) rendu(contenu, p, { pret: !!pont, perime: () => numero !== numeroRendu });
+    // page posée (le titre est là, même pour un rendu qui attend le calcul) : pages récentes, favori, section « Mes études » (js/etudes.js)
+    document.dispatchEvent(new CustomEvent("mecastruct:page", { detail: { page: p, contenu, changement } }));
     window.scrollTo(0, 0);
     if (changement) { // le focus suit la page (lecteur d'écran, clavier) : il va sur son titre
       const titre = contenu.querySelector("h1") || $("page");
@@ -735,12 +821,27 @@ const App = (() => {
 
   // ---------- démarrage ----------
 
+  // Barre de chargement : étape en cours, secondes écoulées (hors lecteur d'écran : il annoncerait chaque seconde) et ce qui se lit déjà.
+  let minuteur = 0;
+  function majDuree(debut) {
+    $("etat-duree").textContent = " · " + Math.round((performance.now() - debut) / 1000) + " s écoulées";
+  }
+  function arreterMinuteur() {
+    clearInterval(minuteur);
+    minuteur = 0;
+  }
+  function detailChargement() {
+    const lisibles = PAGES.filter((p) => ["accueil", "texte", "bureau"].includes(p.genre)).map((p) => p.titre);
+    const nbCalcul = PAGES.filter((p) => p.genre === "machine").length;
+    return "Déjà lisibles : " + lisibles.join(", ") + ". En préparation : les " + nbCalcul + " pages de calcul, le convertisseur, les matériaux et les références : elles s'activent toutes à la fin de l'étape 4/4.";
+  }
   function etat(texte, pas) {
     $("etat").className = "message info";
     $("etat-texte").textContent = texte;
     $("etat").hidden = !texte;
     $("avance").hidden = !pas;
     if (pas) $("avance").value = pas;
+    if (!texte) arreterMinuteur();
   }
 
   async function chronometre(nom, travail) {
@@ -796,13 +897,18 @@ const App = (() => {
     window.addEventListener("hashchange", afficher);
     mesurerBarre();
     afficher(); // la page se lit pendant le chargement ; les calculs s'activent à la fin
+    mesures.menu = Math.round(performance.now()); // depuis l'ouverture de la page : menu et accueil visibles
     const debut = performance.now();
+    $("etat-detail").textContent = detailChargement();
+    $("etat-duree").hidden = false;
+    majDuree(debut);
+    minuteur = setInterval(() => majDuree(debut), 1000);
     prechargerPlotly();
     const empreinteZip = document.querySelector('meta[name="zip"]')?.content || Date.now();
     const archiveZip = fetch("mecastruct.zip?v=" + empreinteZip).then((r) => r.arrayBuffer()); // lue plus tard : déjà là
     archiveZip.catch(() => {}); // l'erreur est traitée à l'attente, plus bas
     try {
-      const pyodide = await chronometre("python", () => loadPyodide());
+      const pyodide = await chronometre("python", async () => { await bibliotheque("pyodide", () => typeof window.loadPyodide === "function"); return window.loadPyodide(); });
       etat("Préparation 2/4 : bibliothèques de calcul (numpy, pandas)…", 2);
       await chronometre("numpy_pandas", () => pyodide.loadPackage(["numpy", "pandas", "micropip"]));
       etat("Préparation 3/4 : graphiques (plotly)…", 3);
@@ -823,6 +929,10 @@ const App = (() => {
       pont = null;
       echec = String(e);
       console.error(e);
+      arreterMinuteur();
+      $("etat-duree").hidden = true;
+      $("etat-detail").hidden = true;
+      for (const x of document.querySelectorAll(".exemple")) x.remove(); // le lien « Ouvrir la vraie page » ne s'activerait jamais
       $("etat").className = "message erreur";
       $("etat").setAttribute("role", "alert");
       $("etat-texte").textContent = "Le calcul n'a pas pu se charger (la connexion Internet est nécessaire la première fois). Vérifiez la connexion Internet, puis réessayez. Détail : " + echec;
@@ -832,11 +942,14 @@ const App = (() => {
       return;
     }
     mesures.total = Math.round(performance.now() - debut);
+    mesures.pret = Math.round(performance.now()); // depuis l'ouverture de la page
+    await bibliotheque("katex", () => !!window.katex).catch(() => {}); // formules : sans KaTeX elles s'affichent en texte brut
     if ("serviceWorker" in navigator && location.protocol === "https:") {
       navigator.serviceWorker.register("sw.js").catch((e) => console.warn("Hors ligne indisponible :", e));
     }
     console.info("MecaStruct prêt", mesures);
     etat("");
+    document.dispatchEvent(new Event("mecastruct:pret"));
     // fin du chargement : seules les pages qui dépendent du calcul se redessinent (l'accueil et les textes gardent leur défilement et leurs replis)
     if (courante && ["machine", "convertisseur", "base", "references"].includes(courante.genre)) afficher();
     prechargerPages();
@@ -846,5 +959,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, exemple, bibliotheque, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();

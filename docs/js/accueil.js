@@ -46,6 +46,7 @@
               el("dd", {}, "Démarrage immédiat, hors ligne, dossiers de validation PDF et Word. ",
                 el("a", { href: App.DEPOT + "/releases/latest", texte: "Télécharger l'installateur" }), ".")))),
       ),
+      App.exemple(App.page("accueil")) || "",
       el("div", { class: "cartes" }, familles),
     );
   });

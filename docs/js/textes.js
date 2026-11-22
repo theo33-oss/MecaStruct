@@ -23,7 +23,7 @@
 
   App.genre("references", (contenu, page, { pret }) => {
     contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: "Normes et cours sur lesquels l'application s'appuie ou qu'elle cite. Seuls le numéro, le titre et l'année sont donnés : les textes des normes sont protégés (AFNOR) et se consultent chez l'éditeur, les cours appartiennent à leurs auteurs. Les mentions sont celles imprimées sur les documents (« non indiqué » sinon). Avant tout usage professionnel, vérifiez les valeurs et les clauses dans le texte officiel et dans l'annexe nationale du pays." }));
-    if (!pret) return contenu.append(App.attente("Le calcul se charge : les références apparaîtront dans quelques secondes."));
+    if (!pret) return contenu.append(App.attente("Le calcul se charge : les références apparaîtront dans quelques secondes.", page));
     const r = App.calculer("references");
     if (!r.ok) return contenu.append(App.message("erreur", r.erreur));
     const GENRES = [["norme", "Normes"], ["cours", "Cours (Université de Bordeaux)"], ["document", "Documents techniques et données de matériaux"]];

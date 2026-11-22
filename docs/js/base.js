@@ -204,7 +204,7 @@
 
   App.genre("base", (contenu, page, { pret }) => {
     contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: page.texte }));
-    if (!pret) return contenu.append(App.attente("Le calcul se charge : la base apparaîtra dans quelques secondes."));
+    if (!pret) return contenu.append(App.attente("Le calcul se charge : la base apparaîtra dans quelques secondes.", page));
     const c = App.calculer("base.catalogue");
     if (!c.ok) return contenu.append(App.message("erreur", c.erreur));
     contenu.append(App.onglets([
