@@ -79,20 +79,26 @@ if nouveau_app != texte_app:
     app_js.write_text(nouveau_app, encoding="utf-8", newline="\n")
 print(f"version {version}")
 
+def octets(chemin) -> bytes:
+    """Contenu d'un fichier du site, fins de ligne LF : même empreinte sous Windows (CRLF) et dans la CI (LF)."""
+    b = (docs / chemin).read_bytes()
+    return b if str(chemin).endswith(".zip") else b.replace(b"\r\n", b"\n")
+
+
 def empreinte(chemin: str) -> str:
-    return hashlib.sha1((docs / chemin).read_bytes()).hexdigest()[:8]
+    return hashlib.sha1(octets(chemin)).hexdigest()[:8]
 
 
 # service worker : un nom de cache par version du site, les anciennes copies sont effacées
 sw = docs / "sw.js"
 texte_sw = sw.read_text(encoding="utf-8")
-cle = hashlib.sha1(b"".join((docs / f).read_bytes() for f in ("mecastruct.zip", "app.js", "style.css"))).hexdigest()[:8]
+cle = hashlib.sha1(b"".join(octets(f) for f in ("mecastruct.zip", "app.js", "style.css"))).hexdigest()[:8]
 nouveau_sw = re.sub(r'const VERSION = "[^"]*";', f'const VERSION = "mecastruct-{version}-{cle}";', texte_sw)
 if nouveau_sw != texte_sw:
     sw.write_text(nouveau_sw, encoding="utf-8", newline="\n")
 
 # numéro de build : change dès qu'un fichier du site change (le site affiche le sien et le compare à celui en ligne)
-build = hashlib.sha1(b"".join((docs / f).read_bytes() for f in sorted(
+build = hashlib.sha1(b"".join(octets(f) for f in sorted(
     ["mecastruct.zip", "app.js", "style.css", *[str(p.relative_to(docs)).replace("\\", "/") for p in (docs / "js").glob("*.js")]]))).hexdigest()[:8]
 
 index = docs / "index.html"
