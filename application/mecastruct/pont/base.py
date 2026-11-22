@@ -48,10 +48,11 @@ def catalogue(_s):
 @calcul("base.materiaux")
 def materiaux(s):
     T = dm().Materials
-    categories = s.get("categories")
-    vue = T if not categories else T[T["Category"].isin(categories)]
-    if s.get("recherche"):
-        vue = vue[vue["Name"].str.contains(str(s["recherche"]), case=False, regex=False)]
+    categories = s.get("categories")  # absent = toutes ; liste vide = aucune catégorie cochée = aucun résultat
+    vue = T if categories is None else T[T["Category"].isin(categories)]
+    recherche = str(s.get("recherche") or "").strip()  # « acier  » (espace en fin de saisie) trouve « acier »
+    if recherche:
+        vue = vue[vue["Name"].str.contains(recherche, case=False, regex=False)]
     return pd.DataFrame({
         "Nom": vue["Name"], "Catégorie": vue["Category"], "E (GPa)": vue["E"] / 1e9, "G (GPa)": vue["G"] / 1e9,
         "ν (-)": vue["nu"], "Re (MPa)": vue["Re"] / 1e6, "Rm (MPa)": vue["Rm"] / 1e6, "α (1e-6/°C)": vue["alpha"] * 1e6,

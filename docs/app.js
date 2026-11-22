@@ -119,8 +119,16 @@ const App = (() => {
   // ---------- mémoire du navigateur (jamais indispensable : tout marche sans) ----------
 
   const memoire = {
+    // Valeur gardée, ou « defaut » si rien n'est gardé, si le JSON est illisible ou si son type n'est pas celui du défaut
+    // (stockage abîmé ou modifié à la main : « null » à la place d'un objet…). Sans défaut précis (undefined, null), pas de contrôle de type.
     lire(cle, defaut) {
-      try { const v = localStorage.getItem("mecastruct." + cle); return v === null ? defaut : JSON.parse(v); } catch (e) { return defaut; }
+      try {
+        const v = localStorage.getItem("mecastruct." + cle);
+        if (v === null) return defaut;
+        const x = JSON.parse(v);
+        const genre = (y) => (y === null ? "null" : Array.isArray(y) ? "tableau" : typeof y);
+        return defaut !== undefined && defaut !== null && genre(x) !== genre(defaut) ? defaut : x;
+      } catch (e) { return defaut; }
     },
     ecrire(cle, valeur) {
       try { localStorage.setItem("mecastruct." + cle, JSON.stringify(valeur)); } catch (e) { /* stockage bloqué : sans mémoire */ }
@@ -433,7 +441,8 @@ const App = (() => {
   function lireSaisie(ident) {
     const r = calculer("formulaires");
     const defaut = r.ok && r.sortie[ident] ? r.sortie[ident].defaut : {};
-    const gardee = memoire.lire("saisie." + ident, {});
+    const lue = memoire.lire("saisie." + ident, {});
+    const gardee = lue && typeof lue === "object" && !Array.isArray(lue) ? lue : {}; // jamais « null » ni un tableau
     const s = JSON.parse(JSON.stringify(defaut));
     for (const k of Object.keys(s)) if (k in gardee) s[k] = gardee[k];
     return s;
@@ -524,17 +533,14 @@ const App = (() => {
     if (texte.length > 200000) throw new Error("étude trop grande");
     return texte;
   }
-  let lienLu = null;
+  // Lu dans l'adresse à chaque appel : un lien collé dans la même fenêtre (hashchange) est pris en compte ; il disparaît
+  // de l'adresse dès que l'étude est chargée (oublierLien).
   function lienEtude() {
-    if (lienLu === null) {
-      const m = location.hash.match(/\?(.*)$/);
-      const p = new URLSearchParams(m ? m[1] : "");
-      lienLu = p.get("calcul") && p.get("etude") ? { calcul: p.get("calcul"), etude: p.get("etude") } : false;
-    }
-    return lienLu || null;
+    const m = location.hash.match(/\?(.*)$/);
+    const p = new URLSearchParams(m ? m[1] : "");
+    return p.get("calcul") && p.get("etude") ? { calcul: p.get("calcul"), etude: p.get("etude") } : null;
   }
   function oublierLien() { // l'étude est chargée : l'adresse redevient celle de la page (pas de rechargement en boucle)
-    lienLu = false;
     history.replaceState(null, "", location.pathname + location.hash.replace(/\?.*$/, ""));
   }
 
@@ -551,6 +557,21 @@ const App = (() => {
   // ---------- menu, adresses ----------
 
   let courante = null;
+  let numeroRendu = 0; // change à chaque affichage de page : un rendu lent (await) vérifie qu'il est toujours le dernier
+  let echec = null; // texte de l'erreur si le calcul n'a pas pu se charger
+
+  // Message de chargement du calcul dans une page ; si le chargement a déjà échoué, le message d'erreur à la place.
+  function messageEchec(texte) {
+    const m = message("erreur", (texte || "Le calcul n'a pas pu se charger. Vérifiez la connexion Internet, puis réessayez.") + " ");
+    m.append(el("button", { type: "button", class: "secondaire petit", texte: "Réessayer", onclick: () => location.reload() }));
+    return m;
+  }
+  function attente(texte) {
+    if (echec !== null) return messageEchec();
+    const m = message("info", texte);
+    m.dataset.attenteCalcul = "";
+    return m;
+  }
 
   function menu() {
     const nav = $("menu");
@@ -580,6 +601,14 @@ const App = (() => {
     const sous = $("sous");
     const soeurs = PAGES.filter((x) => x.famille && x.famille === p.famille);
     sous.hidden = soeurs.length === 0;
+    if (sous.dataset.famille === (p.famille || "")) { // même famille : seul le lien courant change, le lien focalisé reste en place
+      for (const a of sous.querySelectorAll("a")) {
+        if (a.getAttribute("href") === "#/" + p.id) a.setAttribute("aria-current", "page");
+        else a.removeAttribute("aria-current");
+      }
+      return;
+    }
+    sous.dataset.famille = p.famille || "";
     sous.replaceChildren(...soeurs.map((x) => {
       const a = el("a", { href: "#/" + x.id, texte: x.titre });
       if (x.genre === "bureau") a.append(el("span", { class: "pastille", texte: "bureau", aide: "Disponible dans l'application de bureau ; arrive bientôt dans le navigateur." }));
@@ -605,7 +634,9 @@ const App = (() => {
     if (courante && location.hash && !location.hash.startsWith("#/")) return;
     const id = (location.hash.match(/^#\/([\w-]+)/) || [])[1] || "accueil";
     const p = page(id) || page("accueil");
+    const changement = !!courante && courante.id !== p.id; // vrai changement de page (pas le premier affichage, ni le rappel de fin de chargement)
     courante = p;
+    const numero = ++numeroRendu;
     majMenu(p);
     indiceDefilement($("menu"));
     indiceDefilement($("sous"));
@@ -613,8 +644,13 @@ const App = (() => {
     const contenu = $("contenu");
     contenu.replaceChildren();
     const rendu = genres[p.genre];
-    if (rendu) rendu(contenu, p, { pret: !!pont });
+    if (rendu) rendu(contenu, p, { pret: !!pont, perime: () => numero !== numeroRendu });
     window.scrollTo(0, 0);
+    if (changement) { // le focus suit la page (lecteur d'écran, clavier) : il va sur son titre
+      const titre = contenu.querySelector("h1") || $("page");
+      if (!titre.hasAttribute("tabindex")) titre.setAttribute("tabindex", "-1");
+      titre.focus({ preventScroll: true });
+    }
   }
 
   // ---------- démarrage ----------
@@ -698,15 +734,20 @@ const App = (() => {
         pont = pyodide.pyimport("mecastruct.pont");
         // ajouts de l'utilisateur (matériaux, profilés) gardés dans ce navigateur : rejoués avant tout calcul
         const u = memoire.lire("utilisateur", null);
-        if (u) pont.appeler("base.restaurer", JSON.stringify({ utilisateur: u }));
+        if (u && typeof u === "object" && !Array.isArray(u)) pont.appeler("base.restaurer", JSON.stringify({ utilisateur: u }));
         pont.appeler("formulaires"); // premier appel : charge les modules de calcul
       });
       App.pyodide = pyodide;
     } catch (e) {
       pont = null;
+      echec = String(e);
+      console.error(e);
       $("etat").className = "message erreur";
-      $("etat-texte").textContent = "Le calcul n'a pas pu se charger (connexion Internet nécessaire la première fois ; rechargez avec Ctrl+F5) : " + e;
+      $("etat").setAttribute("role", "alert");
+      $("etat-texte").textContent = "Le calcul n'a pas pu se charger (la connexion Internet est nécessaire la première fois). Vérifiez la connexion Internet, puis réessayez. Détail : " + echec;
       $("avance").hidden = true;
+      if (!$("etat-reessayer")) $("etat").append(el("button", { id: "etat-reessayer", type: "button", class: "secondaire petit", texte: "Réessayer", onclick: () => location.reload() }));
+      for (const m of document.querySelectorAll("[data-attente-calcul]")) m.replaceWith(messageEchec()); // pages déjà ouvertes : plus d'attente éternelle
       return;
     }
     mesures.total = Math.round(performance.now() - debut);
@@ -723,5 +764,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();

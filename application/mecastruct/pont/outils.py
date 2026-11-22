@@ -1,5 +1,7 @@
 """Pont des pages « Données et aide » : convertisseur d'unités."""
 
+import math
+
 from mecastruct.core import units
 from mecastruct.core.utils import load_json
 from mecastruct.pont.noyau import calcul
@@ -76,7 +78,11 @@ def convertir(s):
     """Valeur convertie de l'unité « de » vers « vers », et dans toutes les unités de la grandeur."""
     g = next(x for x in units.unitCatalog() if x["name"] == s["grandeur"])
     valeur = float(s["valeur"])
+    if g["name"] == "Température absolue" and float(units.convertUnits(valeur, g["name"], s["de"], "K")) < -1e-9:
+        raise ValueError("Cette température est sous le zéro absolu (0 K, soit −273,15 °C ou −459,67 °F) : elle n'existe pas.")
     resultat = float(units.convertUnits(valeur, g["name"], s["de"], s["vers"]))
+    if not all(math.isfinite(float(units.convertUnits(valeur, g["name"], s["de"], u["label"]))) for u in g["units"]):
+        raise ValueError("Valeur trop grande : un des résultats dépasse les nombres que le calcul sait écrire. Essayez une valeur plus petite.")
     def texte(x: float) -> str:
         return f"{float(x):.10g}".replace(".", ",")
 

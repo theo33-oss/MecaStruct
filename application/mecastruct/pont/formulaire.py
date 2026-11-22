@@ -4,10 +4,10 @@ Chaque champ est un dict JSON que docs/js/machine.js sait dessiner. Aucune logiq
 """
 
 
-def nb(ident, libelle, unite="", mini=None, maxi=None, aide="", entier=False):
-    """Champ numérique (virgule ou point acceptés), borné si mini ou maxi."""
+def nb(ident, libelle, unite="", mini=None, maxi=None, aide="", entier=False, exclu=False):
+    """Champ numérique (virgule ou point acceptés), borné si mini ou maxi ; `exclu` : la borne mini elle-même est refusée (> mini)."""
     securite = ident == "s" and libelle.startswith("Coefficient de sécurité")
-    exclu = securite and (mini is None or mini <= 0)  # s = 0 n'a pas de sens : strictement positif
+    exclu = bool(exclu and mini is not None) or (securite and (mini is None or mini <= 0))  # s = 0 n'a pas de sens : strictement positif
     return {"id": ident, "type": "nombre", "libelle": libelle, "unite": unite, "min": 0.0 if exclu else mini, "max": maxi, "aide": aide,
             "entier": entier, "minExclu": exclu,
             # coefficient de sécurité s : la page propose aussi la marge en % (marge = s − 1), le calcul garde s

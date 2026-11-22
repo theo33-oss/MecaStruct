@@ -301,9 +301,21 @@ def annexe(s):
     return {"gM0": 1.0, "gM1": 1.0} if s["nom"] in ("EN", "FR") else {}
 
 
+def _toutes_en_erreur(T):
+    """Vrai si chaque ligne calculée de la colonne « Résistance » est une erreur (mécanisme, appui invalide…) : à dire en clair, pas en « nan »."""
+    verdicts = [str(v) for v in T["Résistance"]]
+    return bool(verdicts) and all(v.startswith(("erreur", "Erreur de calcul")) for v in verdicts)
+
+
+def _cause(verdict):
+    return re.sub(r"^(erreur|Erreur de calcul \([^)]*\)) ?: ", "", str(verdict))
+
+
 @calcul("beam.combos")
 def poutreCombinaisons(s):
     T = beam_services.computeCombinations(s, dm())
+    if _toutes_en_erreur(T.iloc[:-1]):  # poutre vide ou mécanisme : même message que les autres compléments
+        raise ValueError(_cause(T["Résistance"].iloc[0]))
     env = T.iloc[-1]
     ok = env["Résistance"] == "vérifié"
     status = f"Combinaisons : {len(T) - 1} calculée(s), enveloppe Kt·σ max = {env['Kt·σ max (MPa)']:.4g} MPa ({env['Résistance']})"
@@ -347,6 +359,8 @@ def poutreMobile(s):
 @calcul("beam.leger")
 def poutreLeger(s):
     T, best = beam_design.findLightestProfile(s, dm(), s["pfam"], s["pdef"])
+    if best is None and not T.empty and _toutes_en_erreur(T):  # mécanisme : aucun profilé n'y changera rien
+        raise ValueError(_cause(T["Résistance"].iloc[0]))
     if best is None:
         return _complement(f"Aucun profilé {s['pfam']} ne vérifie ce chargement : essayez une autre famille.", False, {"Profilés": T})
     return _complement(f"Profilé {s['pfam']} le plus léger qui vérifie : {best['Name']}. La saisie de la section est inchangée.", True, {"Profilés": T})
@@ -617,11 +631,11 @@ def _formulaires() -> dict:
                           for k in ("secSrc", "secForme", "tigeM", "tigeD", *["f_" + d for d in DIMENSIONS])}},
             "groupes": [
                 groupe("Poutre et matériau",
-                       nb("L", "Longueur L", "m", 0.0, aide="Longueur de la poutre entre ses deux extrémités."),
+                       nb("L", "Longueur L", "m", 0.0, aide="Longueur de la poutre entre ses deux extrémités.", exclu=True),
                        liste("mat", "Matériau", noms, aide="Remplit E, G et Re avec les valeurs de la base."),
-                       nb("E", "E", "GPa", aide="Module d'Young : rigidité du matériau (acier 210 GPa)."),
-                       nb("G", "G", "GPa", aide="Module de cisaillement : G = E / (2(1+ν))."),
-                       nb("Re", "Re", "MPa", aide="Limite élastique.")),
+                       nb("E", "E", "GPa", 0.0, aide="Module d'Young : rigidité du matériau (acier 210 GPa).", exclu=True),
+                       nb("G", "G", "GPa", 0.0, aide="Module de cisaillement : G = E / (2(1+ν)).", exclu=True),
+                       nb("Re", "Re", "MPa", 0.0, aide="Limite élastique.", exclu=True)),
                 groupe("Section",
                        liste("secSrc", "Origine de la section", list(ORIGINES_SECTION), etiquettes=list(ORIGINES_SECTION.values()),
                              aide="D'où viennent S, les inerties et les fibres extrêmes de la poutre."),
@@ -673,7 +687,7 @@ def _formulaires() -> dict:
                        liste("plane", "Plan de la déformée", ["xy", "xz"], etiquettes=["(x,y) : v, Mfz, Iz", "(x,z) : w, Mfy, Iy"]),
                        case("shear", "Tranchant dans Castigliano"),
                        nb("s", "Coefficient de sécurité s", "", 0.0, aide="On exige σ ≤ Re / s (typiquement 1,5 à 3)."),
-                       nb("Kt", "Kt", "", 0.0, aide="Concentration de contrainte (1 sans trou ni épaulement)."),
+                       nb("Kt", "Kt", "", 1.0, aide="Concentration de contrainte (1 sans trou ni épaulement)."),
                        nb("thDT", "ΔT uniforme", "°C"), nb("thGy", "Gradient selon y : T(+y) − T(−y)", "°C"),
                        nb("thGz", "Gradient selon z : T(+z) − T(−z)", "°C"),
                        case("selfw", "Poids propre (ρ·S·g, cas G)")),  # ouvert : le poids propre est coché de base

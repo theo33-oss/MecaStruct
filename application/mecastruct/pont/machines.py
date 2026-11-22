@@ -271,7 +271,9 @@ def machineOuvrir(s):
     if not isinstance(d, dict) or d.get("app") not in APPS_ACCEPTES or not isinstance(d.get("saisie"), dict):
         raise ValueError("Ce fichier n'est pas une étude MecaStruct.")
     if d.get("page") != ident:
-        raise ValueError(f"Cette étude vient d'une autre page (« {d.get('page')} »).")
+        origine = d.get("page")
+        raise ValueError(f"Cette étude vient d'une autre page (« {origine} »)." if isinstance(origine, str) and origine.strip()
+                         else "Cette étude vient d'une page inconnue : elle ne s'ouvre pas ici.")
     defaut = noyau.tous_formulaires()[ident]["defaut"]
     for cle, v in d["saisie"].items():
         if cle not in defaut:

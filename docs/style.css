@@ -47,6 +47,7 @@ body { margin: 0; padding: 0 16px 32px; background: var(--fond); color: var(--en
 .entete, #menu, #sous, main, footer { max-width: 1440px; margin-left: auto; margin-right: auto; }
 a { color: var(--lien); }
 h1 { font-size: 1.8rem; margin: 20px 0 4px; line-height: 1.25; scroll-margin-top: 120px; }
+h1[tabindex="-1"]:focus { outline: none; } /* le focus va sur le titre après un changement de page : pas de cadre autour */
 h2 { font-size: 1.25rem; margin: 18px 0 6px; }
 h3, h2.titre-bloc { font-size: 1.2rem; margin: 22px 0 8px; padding: 2px 0 4px 10px; border-left: 4px solid var(--accent); border-bottom: 2px solid var(--bord-fort); }
 h4 { font-size: .95rem; margin: 14px 0 6px; }
@@ -88,7 +89,11 @@ button.secondaire { background: transparent; }
 button.petit { min-height: 30px; padding: 2px 10px; font-size: .85rem; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 input.invalide { border-color: var(--err-texte); box-shadow: 0 0 0 1px var(--err-texte); }
-.erreur-champ { color: var(--err-texte); font-size: .8rem; }
+.erreur-champ { color: var(--err-texte); font-size: .8rem; overflow-wrap: anywhere; }
+.statut-tableau { margin: 4px 0 0; font-size: .85rem; }
+.resultat.obsolete > :not(.perime) { opacity: .5; }
+button.lien-champ { min-height: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.message, .toast, .legende, .notif-perime { overflow-wrap: anywhere; }
 label.case { flex-direction: row; align-items: center; gap: 8px; font-size: .9rem; grid-column: 1 / -1; }
 label.case input { width: auto; min-height: 0; }
 .ligne { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

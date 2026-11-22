@@ -4,14 +4,18 @@
 (() => {
   const { el } = App;
 
-  App.genre("texte", async (contenu, page) => {
+  App.genre("texte", async (contenu, page, { perime = () => false } = {}) => {
     const zone = el("article", { class: "texte" }, App.message("info", "Chargement…"));
     contenu.append(zone);
     try {
       const r = await fetch(page.source, { cache: "no-cache" });
+      if (perime()) return; // l'utilisateur a changé de page pendant le chargement : rien à ajouter
       if (!r.ok) throw new Error(r.status);
-      zone.innerHTML = App.markdown(await r.text()); // markdown() échappe le texte avant de poser ses balises
+      const texte = await r.text();
+      if (perime()) return;
+      zone.innerHTML = App.markdown(texte); // markdown() échappe le texte avant de poser ses balises
     } catch (e) {
+      if (perime()) return;
       zone.replaceChildren(App.message("erreur", "Le texte n'a pas pu être chargé. Il est aussi sur GitHub : "),
         el("a", { href: App.DEPOT + "/blob/main/" + page.source, texte: page.source }));
     }
@@ -19,7 +23,7 @@
 
   App.genre("references", (contenu, page, { pret }) => {
     contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: "Normes et cours sur lesquels l'application s'appuie ou qu'elle cite. Seuls le numéro, le titre et l'année sont donnés : les textes des normes sont protégés (AFNOR) et se consultent chez l'éditeur, les cours appartiennent à leurs auteurs. Les mentions sont celles imprimées sur les documents (« non indiqué » sinon). Avant tout usage professionnel, vérifiez les valeurs et les clauses dans le texte officiel et dans l'annexe nationale du pays." }));
-    if (!pret) return contenu.append(App.message("info", "Le calcul se charge : les références apparaîtront dans quelques secondes."));
+    if (!pret) return contenu.append(App.attente("Le calcul se charge : les références apparaîtront dans quelques secondes."));
     const r = App.calculer("references");
     if (!r.ok) return contenu.append(App.message("erreur", r.erreur));
     const GENRES = [["norme", "Normes"], ["cours", "Cours (Université de Bordeaux)"], ["document", "Documents techniques et données de matériaux"]];

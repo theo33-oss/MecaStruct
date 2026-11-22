@@ -32,8 +32,12 @@
     const choisies = new Set(catalogue.categories);
     const recherche = el("input", { type: "search", placeholder: "Nom du matériau", "aria-label": "Rechercher un matériau" });
     const dessiner = () => {
-      const r = App.calculer("base.materiaux", { categories: [...choisies], recherche: recherche.value });
-      tableau.replaceChildren(r.ok ? App.tableau(r.sortie) : App.message("erreur", r.erreur));
+      if (!choisies.size) { // aucune catégorie cochée : aucun matériau (pas « tous »), et le dire
+        tableau.replaceChildren(App.message("info", "Aucune catégorie cochée : cochez-en au moins une pour afficher des matériaux."));
+        return;
+      }
+      const r = App.calculer("base.materiaux", { categories: [...choisies], recherche: recherche.value.trim() });
+      tableau.replaceChildren(r.ok ? (r.sortie.lignes.length ? App.tableau(r.sortie) : App.message("info", "Aucun matériau ne correspond à cette recherche.")) : App.message("erreur", r.erreur));
     };
     recherche.addEventListener("input", dessiner);
     const cases = catalogue.categories.map((c) => {
@@ -49,11 +53,28 @@
       { id: "rho", libelle: "ρ (kg/m³)", valeur: 7850 }, { id: "auteur", libelle: "Ajouté par", valeur: "Utilisateur", texte: true },
     ]);
     const suppr = el("select", { "aria-label": "Matériau à supprimer" }, catalogue.utilisateur.map((n) => el("option", { value: n, texte: n })));
+    const boutonSuppr = el("button", { type: "button", class: "secondaire", texte: "Supprimer ce matériau utilisateur" });
+    const aucun = el("span", { class: "legende", texte: "Aucun matériau utilisateur à supprimer." });
+    const majSuppr = () => { // liste vide : rien à supprimer, le bouton ne fait pas semblant
+      boutonSuppr.disabled = !suppr.options.length;
+      suppr.disabled = !suppr.options.length;
+      aucun.hidden = !!suppr.options.length;
+    };
     const apres = (r, ok) => {
       garder(r);
       message.replaceChildren(App.message(r.ok ? "succes" : "erreur", r.ok ? r.sortie.message : r.erreur));
-      if (r.ok) { const c = App.calculer("base.catalogue").sortie; suppr.replaceChildren(...c.utilisateur.map((n) => el("option", { value: n, texte: n }))); dessiner(); }
+      if (r.ok) { const c = App.calculer("base.catalogue").sortie; suppr.replaceChildren(...c.utilisateur.map((n) => el("option", { value: n, texte: n }))); majSuppr(); dessiner(); }
     };
+    // Confirmation en ligne (même principe que dans « Comparer des études »), sans boîte de dialogue.
+    const demander = (texte, libelle, fn) => message.replaceChildren(el("p", { class: "message avertissement", role: "status" }, texte, " ",
+      el("button", { type: "button", class: "primaire petit", texte: libelle, onclick: () => { message.replaceChildren(); fn(); } }), " ",
+      el("button", { type: "button", class: "secondaire petit", texte: "Annuler", onclick: () => message.replaceChildren() })));
+    boutonSuppr.addEventListener("click", () => {
+      const nom = suppr.value;
+      if (!nom) return message.replaceChildren(App.message("info", "Aucun matériau utilisateur à supprimer."));
+      demander(`Supprimer le matériau « ${nom} » ? Il disparaît de la liste des matériaux de tous les calculs de ce navigateur ; un calcul qui l'utilise devra changer de matériau.`,
+        "Supprimer", () => apres(App.calculer("base.supprimer_materiau", { nom })));
+    });
     panneau.append(
       el("details", { class: "groupe", open: true }, el("summary", { texte: "Catégories" }), el("div", { class: "grille" }, cases)),
       el("label", { class: "large" }, "Rechercher un matériau", recherche), tableau,
@@ -66,10 +87,9 @@
         if (!s) return message.replaceChildren(App.message("avertissement", "Corrigez les champs signalés en rouge."));
         apres(App.calculer("base.ajouter_materiau", s));
       } })),
-      el("p", { class: "ligne" }, suppr, el("button", { type: "button", class: "secondaire", texte: "Supprimer ce matériau utilisateur", onclick: () => {
-        if (suppr.value) apres(App.calculer("base.supprimer_materiau", { nom: suppr.value }));
-      } })),
+      el("p", { class: "ligne" }, suppr, boutonSuppr, aucun),
       message);
+    majSuppr();
     dessiner();
   }
 
@@ -184,7 +204,7 @@
 
   App.genre("base", (contenu, page, { pret }) => {
     contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: page.texte }));
-    if (!pret) return contenu.append(App.message("info", "Le calcul se charge : la base apparaîtra dans quelques secondes."));
+    if (!pret) return contenu.append(App.attente("Le calcul se charge : la base apparaîtra dans quelques secondes."));
     const c = App.calculer("base.catalogue");
     if (!c.ok) return contenu.append(App.message("erreur", c.erreur));
     contenu.append(App.onglets([

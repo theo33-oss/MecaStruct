@@ -1,5 +1,6 @@
 """Pont web : chaque calcul rend du JSON valide, les mêmes nombres que le service, et la page connaît ses calculs."""
 
+import copy
 import json
 import re
 from pathlib import Path
@@ -426,3 +427,56 @@ def test_aucune_erreur_technique_sur_valeurs_extremes():
                 s[cle] = x
                 r = appel(ident, s)
                 assert r["ok"] or not any(t in r["erreur"] for t in technique), (ident, cle, x, r["erreur"])
+
+
+# ------------------------------------------------------------------------------------------ lot B : saisie fiable
+
+
+def _poutre_vide():
+    s = copy.deepcopy(FORMULAIRES["beam"]["defaut"])
+    for cle in ("sup", "supx", "hg", "pl", "pm", "dl"):
+        s[cle] = []
+    s["combo"] = [{"name": "ELU", "gG": 1.35, "gQ": 1.5, "gW": 0.0, "gS": 0.0}]
+    return s
+
+
+@pytest.mark.parametrize("ident", ["beam.combos", "beam.leger"])
+def test_complements_de_poutre_sur_mecanisme_disent_mecanisme(ident):
+    r = appel(ident, _poutre_vide())
+    assert not r["ok"] and "Mécanisme" in r["erreur"] and "nan" not in r["erreur"]
+    assert appel(ident, FORMULAIRES["beam"]["defaut"])["ok"]  # la poutre de l'exemple, elle, se calcule
+
+
+def test_formulaire_poutre_bornes_cote_client():
+    champs = {c["id"]: c for g in FORMULAIRES["beam"]["groupes"] for c in g["champs"]}
+    for ident in ("L", "E", "G", "Re"):
+        assert champs[ident]["min"] == 0.0 and champs[ident]["minExclu"], ident
+    assert champs["Kt"]["min"] == 1.0 and not champs["Kt"]["minExclu"]
+
+
+def test_recherche_de_materiau_rognee_et_aucune_categorie_cochee():
+    cats = appel("base.catalogue")["sortie"]["categories"]
+    tout = appel("base.materiaux", {"categories": cats, "recherche": ""})["sortie"]["lignes"]
+    assert tout
+    assert appel("base.materiaux", {"categories": [], "recherche": ""})["sortie"]["lignes"] == []  # aucune catégorie : rien, pas « tout »
+    nom = tout[0][0]
+    assert appel("base.materiaux", {"categories": cats, "recherche": f"  {nom}  "})["sortie"]["lignes"]
+
+
+def test_etude_sans_page_ne_dit_pas_none():
+    texte = json.dumps({"app": "MecaStruct", "saisie": {}})
+    r = appel("machine.ouvrir", {"ident": "aju", "texte": texte})
+    if not r["ok"]:  # selon APPS_ACCEPTES le refus peut venir plus tôt ; s'il vient de la page, il ne cite pas « None »
+        assert "None" not in r["erreur"]
+    texte = json.dumps({"app": "MecaStruct RdM Pro", "version": 1, "saisie": FORMULAIRES["aju"]["defaut"]})
+    r = appel("machine.ouvrir", {"ident": "aju", "texte": texte})
+    assert not r["ok"] and "None" not in r["erreur"]
+
+
+def test_convertisseur_refuse_sous_le_zero_absolu_et_les_valeurs_trop_grandes():
+    r = appel("conv", {"grandeur": "Température absolue", "valeur": -1000, "de": "°C", "vers": "K"})
+    assert not r["ok"] and "zéro absolu" in r["erreur"]
+    assert appel("conv", {"grandeur": "Température absolue", "valeur": -273.15, "de": "°C", "vers": "K"})["ok"]
+    assert appel("conv", {"grandeur": "Température absolue", "valeur": -459.67, "de": "°F", "vers": "K"})["ok"]
+    r = appel("conv", {"grandeur": "Longueur", "valeur": 1e308, "de": "m", "vers": "mm"})
+    assert not r["ok"] and "trop grande" in r["erreur"] and "inf" not in r["erreur"].split()

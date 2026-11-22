@@ -7,11 +7,12 @@
   App.genre("convertisseur", (contenu, page, { pret }) => {
     contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: page.texte }));
     if (!pret) {
-      contenu.append(App.message("info", "Le calcul se charge : le convertisseur apparaîtra dans quelques secondes."));
+      contenu.append(App.attente("Le calcul se charge : le convertisseur apparaîtra dans quelques secondes."));
       return;
     }
     const cat = App.calculer("conv.catalogue").sortie;
-    const garde = App.memoire.lire("conv", {});
+    const lue = App.memoire.lire("conv", {});
+    const garde = lue && typeof lue === "object" && !Array.isArray(lue) ? lue : {}; // jamais « null » ni un tableau
     const grandeur = el("select", {}, cat.grandeurs.map((g) => el("option", { value: g.nom, texte: g.nom })));
     const valeur = el("input", { type: "text", inputmode: "decimal" });
     const de = el("select"), vers = el("select");

@@ -295,7 +295,7 @@
         if (etape.genre !== "champ") return;
         const t = e.target;
         if (!t || !t.dataset || t.dataset.id !== etape.c.id) return;
-        if (e.type === "input" && (t.classList.contains("invalide") || t.tagName === "SELECT")) return; // valeur refusée : pas validée
+        if (e.type === "input" && (t.classList.contains("invalide") || t.dataset.refuse || t.tagName === "SELECT")) return; // valeur refusée : pas validée
         if (e.type === "keydown" && e.key !== "Enter") return;
         faits.add(index);
         majEtat();

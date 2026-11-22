@@ -21,7 +21,8 @@
 
   // Saisie gardée dans le navigateur, sinon valeurs de l'exemple ; les clés inconnues sont ignorées.
   function saisieDepart(ident, f) {
-    const gardee = App.memoire.lire("saisie." + ident, {});
+    const lue = App.memoire.lire("saisie." + ident, {});
+    const gardee = lue && typeof lue === "object" && !Array.isArray(lue) ? lue : {}; // jamais « null » ni un tableau
     const s = copie(f.defaut);
     for (const k of Object.keys(s)) if (k in gardee) s[k] = gardee[k];
     return s;
@@ -29,11 +30,12 @@
 
   function verifierNombre(c, texte) {
     const v = App.nombre(texte);
-    if (v === "" || Number.isNaN(v)) return [NaN, "Nombre attendu."];
+    const u = c.unite ? " " + c.unite : ""; // la borne s'écrit avec l'unité du champ : « Minimum 0 mm. »
+    if (v === "" || Number.isNaN(v)) return [NaN, "Nombre attendu (ex. 12,5), sans unité."];
     if (c.entier && !Number.isInteger(v)) return [NaN, "Nombre entier attendu."];
     if (c.min !== null && c.min !== undefined && (c.minExclu ? v <= c.min : v < c.min))
-      return [NaN, c.minExclu ? `Doit être supérieur à ${App.fr(c.min)}.` : `Minimum ${App.fr(c.min)}.`];
-    if (c.max !== null && c.max !== undefined && v > c.max) return [NaN, `Maximum ${App.fr(c.max)}.`];
+      return [NaN, c.minExclu ? `Doit être supérieur à ${App.fr(c.min)}${u}.` : `Minimum ${App.fr(c.min)}${u}.`];
+    if (c.max !== null && c.max !== undefined && v > c.max) return [NaN, `Maximum ${App.fr(c.max)}${u}.`];
     if (Math.abs(v) > 1e18) return [NaN, "Valeur démesurée (au plus 10¹⁸) : vérifiez l'unité."]; // même plafond que le calcul (pont/noyau.py)
     return [v, ""];
   }
@@ -42,6 +44,9 @@
 
   const securiteEnMarge = () => App.memoire.lire("securite", "coef") === "marge"; // réglage commun à toutes les pages
 
+  // Repère data-id d'un champ (focus conservé quand les champs sont redessinés) ; les boutons n'ont pas toujours d'identifiant
+  const repere = (c) => c.id ?? `${c.type}|${c.calcul || ""}|${c.libelle}`;
+
   function champ(c, saisie, changer, outils) {
     const aide = c.aide || undefined;
     const titre = c.libelle + (c.unite ? ` (${c.unite})` : "");
@@ -49,6 +54,7 @@
     if (c.type === "case") {
       const input = el("input", { type: "checkbox" });
       input.checked = !!valeur;
+      input.dataset.id = c.id;
       input.addEventListener("change", () => changer(c.id, input.checked));
       return el("label", { class: "case", aide }, input, " " + c.libelle);
     }
@@ -66,14 +72,26 @@
         contenu = noms.map((n) => el("optgroup", { label: n }, options.map((o, i) => (c.familles[i] === n ? option(o, i) : null))));
       }
       const select = el("select", {}, contenu);
+      // valeur gardée qui n'est plus proposée (matériau retiré de la base) : pas de repli silencieux sur un autre choix
+      let introuvable = null;
+      if (!c.options_de && valeur !== undefined && valeur !== null && valeur !== "" && !options.some((o) => String(o) === String(valeur))) {
+        select.prepend(el("option", { value: String(valeur), class: "indisponible", texte: `${valeur} (indisponible)` }));
+        introuvable = el("span", { class: "erreur-champ", id: "err-" + c.id,
+          texte: c.id === "mat" ? "Matériau introuvable : choisissez-en un autre." : `Valeur enregistrée introuvable (« ${valeur} ») : choisissez-en une autre.` });
+        select.setAttribute("aria-invalid", "true");
+        select.setAttribute("aria-describedby", introuvable.id);
+      }
       select.value = String(saisie[c.id]);
-      select.addEventListener("change", () => changer(c.id, typeof options[0] === "number" ? Number(select.value) : select.value));
+      select.addEventListener("change", () => {
+        if (introuvable) { select.querySelector("option.indisponible")?.remove(); introuvable.remove(); select.removeAttribute("aria-invalid"); select.removeAttribute("aria-describedby"); introuvable = null; }
+        changer(c.id, typeof options[0] === "number" ? Number(select.value) : select.value);
+      });
       select.dataset.id = c.id;
-      return el("label", { aide }, titre, select);
+      return el("label", { aide }, titre, select, introuvable);
     }
     if (c.type === "matrice") return matrice(c, saisie, changer);
     if (c.type === "bouton") {
-      return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => {
+      return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", "data-id": repere(c), texte: c.libelle, aide: c.aide || undefined, onclick: () => {
         const r = App.calculer(c.calcul, saisie);
         if (r.ok) outils.fusionner(r.sortie, `${c.libelle} : fait.`);
         else outils.signaler("erreur", r.erreur);
@@ -88,6 +106,7 @@
     }
     if (c.type === "texte") {
       const input = el("input", { type: "text", value: valeur ?? "" });
+      input.dataset.id = c.id;
       input.addEventListener("input", () => changer(c.id, input.value));
       return el("label", { aide }, titre, input);
     }
@@ -111,33 +130,54 @@
     }
     if (c.type === "action") return action(c, saisie, outils);
     if (c.type === "transfert") { // recopie des champs d'une page dans une autre (section → Poutres, efforts → Sections…)
-      return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.transfert(c) }));
+      return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", "data-id": repere(c), texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.transfert(c) }));
     }
     if (c.type === "extra") { // calcul complémentaire (combinaisons, Eurocode 3…) : son résultat s'affiche sous le résultat principal
-      return el("div", { class: "action" }, el("button", { type: "button", class: "primaire", texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.extra(c) }));
+      return el("div", { class: "action" }, el("button", { type: "button", class: "primaire", "data-id": repere(c), texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.extra(c) }));
     }
     // sécurité : coefficient s ou marge en % (marge = s − 1), au choix ; la saisie garde toujours s
     const enMarge = !!c.securite && securiteEnMarge();
+    const regle = enMarge ? { ...c, min: 0, max: null, minExclu: false, unite: "%" } : c;
     const input = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false" });
     input.value = affiche(enMarge && typeof valeur === "number" ? 100 * (valeur - 1) : valeur);
     input.dataset.id = c.id; // repère pour le mode guidé (js/guide.js)
     // l'étiquette englobe aussi la liste « Coefficient s / Marge » : c'est elle qui la reçoit, le champ garde son propre nom
     if (c.securite) input.setAttribute("aria-label", enMarge ? "Marge de sécurité (%)" : titre);
-    const erreur = el("span", { class: "erreur-champ", hidden: true });
-    input.addEventListener("input", () => {
-      let [v, texte] = verifierNombre(enMarge ? { ...c, min: 0, max: null, minExclu: false } : c, input.value);
+    const erreur = el("span", { class: "erreur-champ", id: "err-" + c.id, hidden: true });
+    const evaluer = () => { // [valeur, message] : NaN et un message si le texte est refusé
+      let [v, texte] = verifierNombre(regle, input.value);
       if (enMarge && !texte) v = Number((1 + v / 100).toPrecision(12));
+      return [v, texte];
+    };
+    const montrer = (texte) => {
       input.classList.toggle("invalide", !!texte);
       input.setAttribute("aria-invalid", String(!!texte));
+      if (texte) input.setAttribute("aria-describedby", erreur.id); else input.removeAttribute("aria-describedby");
       erreur.textContent = texte;
       erreur.hidden = !texte;
-      changer(c.id, v);
-    });
+    };
+    let attenteErreur = null;
+    // Une erreur ne s'affiche qu'à la sortie du champ ou 700 ms après la dernière frappe : jamais pendant la frappe d'un « - » ou d'un « 1e ».
+    // Une erreur déjà affichée se met à jour tout de suite, et disparaît dès que le texte est bon.
+    const valider = (immediat = false) => {
+      const [v, texte] = evaluer();
+      clearTimeout(attenteErreur);
+      if (texte) input.dataset.refuse = texte; else delete input.dataset.refuse; // état « refusé » lu aussi par le mode guidé
+      if (!texte || immediat || input.classList.contains("invalide")) montrer(texte);
+      else attenteErreur = setTimeout(() => montrer(evaluer()[1]), 700);
+      return v;
+    };
+    input.addEventListener("input", () => changer(c.id, valider(), input.value));
+    input.addEventListener("blur", () => valider(true));
+    const brut = outils.brut(c.id); // champ redessiné alors que son texte était refusé : on garde ce qui a été tapé, avec son erreur
+    if (brut !== undefined) { input.value = brut; valider(true); }
+    else if (outils.controle && evaluer()[1]) { outils.refuser(c.id, input.value); valider(true); } // étude ouverte : chaque champ repasse par la validation
     if (c.securite) {
       const forme = el("select", { "aria-label": "Forme de la sécurité", class: "forme-securite",
         aide: "Coefficient de sécurité s, ou marge en % (marge = s − 1 : 30 % de marge donne s = 1,30). Valable pour toutes les pages." },
         el("option", { value: "coef", texte: "Coefficient s" }), el("option", { value: "marge", texte: "Marge (%)" }));
       forme.value = enMarge ? "marge" : "coef";
+      forme.dataset.id = c.id + "|forme";
       forme.addEventListener("change", () => { App.memoire.ecrire("securite", forme.value); outils.rafraichir(); });
       return el("label", { aide: aide || (enMarge ? "Marge de sécurité = s − 1 : on exige σ ≤ Re / (1 + marge)." : undefined) },
         el("span", { class: "titre-securite" }, enMarge ? "Marge de sécurité (%)" : titre, forme), input, erreur);
@@ -154,7 +194,7 @@
 
   // Liste + bouton : le choix part au calcul indiqué, qui rend des valeurs à recopier dans la saisie (profilé…).
   function action(c, saisie, outils) {
-    const select = el("select");
+    const select = el("select", { "data-id": repere(c) + "|liste" });
     const remplir = () => {
       const o = c.options_de;
       const r = o ? App.calculer(o.calcul, { [o.cle]: saisie[o.depuis] }) : { ok: true, sortie: c.options || [] };
@@ -163,7 +203,7 @@
     };
     remplir();
     outils.surChangement((id) => { if (c.options_de && id === c.options_de.depuis) remplir(); });
-    const bouton = el("button", { type: "button", class: "secondaire", texte: c.bouton, onclick: () => {
+    const bouton = el("button", { type: "button", class: "secondaire", "data-id": repere(c), texte: c.bouton, onclick: () => {
       if (!select.value) return outils.signaler("avertissement", `${c.libelle} : choisissez d'abord une ligne dans la liste.`);
       const r = App.calculer(c.calcul, { ...saisie, choix: select.value });
       if (r.ok) outils.fusionner(r.sortie, `${c.libelle} : ${select.value} appliqué.`);
@@ -172,37 +212,83 @@
     return el("div", { class: "action", aide: c.aide || undefined }, el("label", {}, c.libelle, select), bouton);
   }
 
+  // Cellules refusées d'un tableau ou d'une matrice : une ligne de statut sous le tableau (« Ligne 3, colonne L (m) : nombre attendu »).
+  function majStatut(statut, racine) {
+    const faux = [...racine.querySelectorAll("input.invalide")];
+    statut.hidden = !faux.length;
+    if (!faux.length) { statut.textContent = ""; return; }
+    const i = faux[0];
+    const cause = String(i.dataset.refuse || "").replace(/\.$/, "");
+    const autres = faux.length > 1 ? ` (et ${faux.length - 1} autre${faux.length > 2 ? "s" : ""} cellule${faux.length > 2 ? "s" : ""})` : "";
+    statut.textContent = `Ligne ${i.closest("tr").sectionRowIndex + 1}, colonne ${i.dataset.colonne} : ${cause.charAt(0).toLowerCase() + cause.slice(1)}${autres}`;
+  }
+  // Validation douce d'une cellule : le texte refusé est noté tout de suite (data-refuse), l'erreur se montre à la sortie de la cellule
+  // ou 700 ms après la dernière frappe ; une cellule redevenue bonne se nettoie aussitôt.
+  function validationCellule(input, racine, statut) {
+    let attente = null;
+    const montrer = () => {
+      const texte = input.dataset.refuse || "";
+      input.classList.toggle("invalide", !!texte);
+      input.title = texte;
+      input.setAttribute("aria-invalid", String(!!texte));
+      if (texte) input.setAttribute("aria-describedby", statut.id); else input.removeAttribute("aria-describedby");
+      majStatut(statut, racine);
+    };
+    input.addEventListener("blur", () => { clearTimeout(attente); montrer(); });
+    return {
+      refuser(texte, immediat = false) { // texte vide : cellule valide
+        clearTimeout(attente);
+        if (texte) input.dataset.refuse = texte; else delete input.dataset.refuse;
+        if (!texte || immediat || input.classList.contains("invalide")) montrer(); else attente = setTimeout(montrer, 700);
+      },
+    };
+  }
+
   // Matrice carrée (tenseur) : une case modifiée est recopiée en position symétrique si demandé.
   function matrice(c, saisie, changer) {
     const m = copie(saisie[c.id]);
     const n = m.length;
     const cases = [];
-    const publier = () => changer(c.id, cases.flat().some((i) => i.classList.contains("invalide")) ? NaN : copie(m));
-    const corps = el("tbody", {}, m.map((ligne, i) => el("tr", {}, el("th", { scope: "row", texte: c.noms[i] }), ligne.map((v, j) => {
+    const statut = el("p", { class: "erreur-champ statut-tableau", id: "err-" + c.id, role: "status", hidden: true });
+    const publier = () => changer(c.id, cases.flat().some((i) => i.dataset.refuse) ? NaN : copie(m));
+    const corps = el("tbody"); // rempli plus bas : les cellules ont besoin de lui pour la ligne de statut
+    corps.append(...m.map((ligne, i) => el("tr", {}, el("th", { scope: "row", texte: c.noms[i] }), ligne.map((v, j) => {
       const input = el("input", { type: "text", inputmode: "decimal", "aria-label": `σ${c.noms[i]}${c.noms[j]}` });
       input.value = affiche(v);
+      input.dataset.colonne = c.noms[j];
+      const validation = validationCellule(input, corps, statut);
+      input.validation = validation;
       (cases[i] = cases[i] || [])[j] = input;
       input.addEventListener("input", () => {
         const [x, texte] = verifierNombre({}, input.value);
-        input.classList.toggle("invalide", !!texte);
+        validation.refuser(texte);
         if (!texte) {
           m[i][j] = x;
-          if (c.symetrique && i !== j) { m[j][i] = x; cases[j][i].value = input.value; cases[j][i].classList.remove("invalide"); }
+          if (c.symetrique && i !== j) { m[j][i] = x; cases[j][i].value = input.value; cases[j][i].validation.refuser("", true); }
         }
         publier();
       });
       return el("td", {}, input);
     }))));
-    return el("div", { class: "tableau-saisie", aide: c.aide || undefined }, el("div", { class: "titre-tableau", texte: c.libelle }),
-      el("table", { class: "editable matrice" }, el("thead", {}, el("tr", {}, el("th"), c.noms.map((x) => el("th", { scope: "col", texte: x })))), corps));
+    return el("div", { class: "tableau-saisie", "data-champ": c.id, aide: c.aide || undefined }, el("div", { class: "titre-tableau", texte: c.libelle }),
+      el("table", { class: "editable matrice" }, el("thead", {}, el("tr", {}, el("th"), c.noms.map((x) => el("th", { scope: "col", texte: x })))), corps), statut);
   }
 
   // Tableau éditable : une ligne par élément, ajout et retrait de lignes, collage depuis Excel (tabulations).
   function tableauEditable(c, saisie, changer) {
     let lignes = copie(saisie[c.id] || []);
     const corps = el("tbody");
+    const statut = el("p", { class: "erreur-champ statut-tableau", id: "err-" + c.id, role: "status", hidden: true });
+    // texte refusé tapé dans une cellule, par ligne : il reste affiché (en rouge) quand les lignes sont redessinées
+    const brutCellules = new Map();
+    const brutDe = (ligne, id) => (brutCellules.get(ligne) || {})[id];
+    const noterBrut = (ligne, id, texte) => {
+      const o = brutCellules.get(ligne) || {};
+      if (texte === undefined) delete o[id]; else o[id] = texte;
+      brutCellules.set(ligne, o);
+    };
     const publier = () => {
-      const invalide = corps.querySelector(".invalide");
+      const invalide = corps.querySelector("[data-refuse]");
       changer(c.id, invalide ? NaN : copie(lignes));
     };
     // Tableau « polaire » (force inclinée) : F, le plan et α remplissent Fx, Fy, Fz (même règle que services/forces.py) ;
@@ -227,7 +313,7 @@
       } else return;
       for (const [cle, champ] of Object.entries(champs.get(ligne) || {}))
         if (cle !== id && (COMPOSANTES.includes(cle) || cle === po.norme || cle === po.angle)) {
-          champ.value = affiche(ligne[cle]); champ.classList.remove("invalide"); champ.title = "";
+          champ.value = affiche(ligne[cle]); noterBrut(ligne, cle, undefined); champ.validation.refuser("", true);
         }
     }
     const cellule = (ligne, k) => {
@@ -245,19 +331,30 @@
       }
       const i = el("input", { type: "text", "aria-label": k.libelle, inputmode: k.genre === "nombre" ? "decimal" : undefined });
       i.value = k.genre === "nombre" ? affiche(ligne[k.id]) : (ligne[k.id] ?? "");
+      i.dataset.colonne = k.libelle;
+      i.validation = validationCellule(i, corps, statut);
       if (!champs.has(ligne)) champs.set(ligne, {});
       champs.get(ligne)[k.id] = i;
+      if (k.genre === "nombre") {
+        // texte refusé gardé d'un dessin à l'autre ; sinon la valeur déjà dans la ligne (étude ouverte) repasse par la validation
+        const brut = brutDe(ligne, k.id);
+        if (brut !== undefined) { i.value = brut; i.validation.refuser(verifierNombre({ entier: k.entier }, brut)[1] || "Nombre attendu (ex. 12,5), sans unité.", true); }
+        else if (typeof ligne[k.id] === "number") { // colonne absente d'une ligne (F, α…) : vide, pas refusée
+          const t = verifierNombre({ entier: k.entier }, i.value)[1];
+          if (t) { noterBrut(ligne, k.id, i.value); i.validation.refuser(t, true); }
+        }
+      }
       i.addEventListener("input", () => {
         if (k.genre !== "nombre") { ligne[k.id] = i.value; return publier(); }
         if (c.polaire && [c.polaire.norme, c.polaire.angle].includes(k.id) && i.value.trim() === "") {
           // F ou α vidé = plus de force inclinée : Fx, Fy, Fz gardent leur valeur et se saisissent de nouveau à la main
-          i.classList.remove("invalide"); i.title = "";
+          noterBrut(ligne, k.id, undefined); i.validation.refuser("", true);
           ligne[k.id] = 0;
           return publier();
         }
         const [v, texte] = verifierNombre({ entier: k.entier }, i.value);
-        i.classList.toggle("invalide", !!texte);
-        i.title = texte;
+        noterBrut(ligne, k.id, texte ? i.value : undefined);
+        i.validation.refuser(texte);
         if (!texte) { ligne[k.id] = v; majPolaire(ligne, k.id); }
         publier();
       });
@@ -269,6 +366,7 @@
         c.colonnes.map((k) => el("td", {}, cellule(ligne, k))),
         el("td", {}, el("button", { type: "button", class: "secondaire petit", "aria-label": `Retirer la ligne ${n + 1}`, texte: "×",
           disabled: lignes.length <= (c.min || 0), onclick: () => { lignes.splice(n, 1); dessiner(); publier(); } })))));
+      majStatut(statut, corps);
     };
     // Collage de plusieurs cellules (Excel) : remplit à partir de la case, ajoute les lignes manquantes.
     function coller(e, n0, k0) {
@@ -283,7 +381,11 @@
           const k = c.colonnes[k0 + dk];
           if (!k) return;
           collees.push(k.id);
-          if (k.genre === "nombre") { const x = App.nombre(v); if (typeof x === "number" && !Number.isNaN(x)) lignes[n][k.id] = x; }
+          if (k.genre === "nombre") {
+            const x = App.nombre(v);
+            if (typeof x === "number" && !Number.isNaN(x)) { lignes[n][k.id] = x; noterBrut(lignes[n], k.id, undefined); }
+            else if (v.trim() !== "") noterBrut(lignes[n], k.id, v.trim()); // collé mais refusé : visible en rouge, pas ignoré en silence
+          }
           else if (k.genre === "case") lignes[n][k.id] = /^(1|vrai|oui|true|x)$/i.test(v.trim());
           else lignes[n][k.id] = v.trim();
         });
@@ -298,11 +400,13 @@
     }
     const nouvelleLigne = () => Object.fromEntries(c.colonnes.map((k) => [k.id, k.defaut]));
     dessiner();
-    return el("div", { class: "tableau-saisie" },
+    if (corps.querySelector("[data-refuse]")) publier(); // valeur déjà refusée à l'ouverture (étude, mémoire) : le calcul est bloqué, la cellule en rouge
+    return el("div", { class: "tableau-saisie", "data-champ": c.id },
       el("div", { class: "titre-tableau", aide: c.aide || undefined }, c.libelle),
       el("div", { class: "defile" }, el("table", { class: "editable" },
         el("thead", {}, el("tr", {}, c.colonnes.map((k) => el("th", { scope: "col", texte: k.libelle })), el("th", { scope: "col" }, el("span", { class: "cache", texte: "Retirer" })))),
         corps)),
+      statut,
       el("button", { type: "button", class: "secondaire petit", texte: "Ajouter une ligne", onclick: () => { lignes.push(nouvelleLigne()); dessiner(); publier(); } }));
   }
 
@@ -312,12 +416,15 @@
     let saisie = saisieDepart(ident, f);
     const auto = f.auto !== false;
     const invalides = new Set();
+    const brutInvalide = new Map(); // champ numérique refusé → texte tapé (réaffiché, en rouge, si les champs sont redessinés)
     const abonnes = [];
     let calculee = null; // empreinte de la saisie du dernier résultat affiché
     const zoneSchema = el("div", { class: "schema" });
     const zoneMessage = el("div");
     const zoneResultat = el("div", { class: "resultat", "aria-live": "polite" });
     let minuterie = null;
+    let minuterieCalcul = null; // calcul différé des pages à bouton : un clic de plus remplace le précédent
+    let offreAnnuler = false; // un message « Annuler » est affiché
     let comparaison = null; // « Comparer des études » (js/comparer.js)
     const enregistrer = () => App.memoire.ecrire("saisie." + ident, saisie);
     const tousChamps = f.groupes.flatMap((g) => g.champs);
@@ -342,17 +449,22 @@
       select.closest("label").after(notif);
     }
 
-    const changer = (id, v) => {
-      if (typeof v === "number" && Number.isNaN(v)) invalides.add(id);
-      else {
-        invalides.delete(id);
+    const oublierInvalide = (id) => { invalides.delete(id); brutInvalide.delete(id); };
+    const viderInvalides = () => { invalides.clear(); brutInvalide.clear(); };
+    const changer = (id, v, brut) => {
+      if (offreAnnuler) { zoneMessage.replaceChildren(); offreAnnuler = false; } // la saisie a bougé : « Annuler » ne remettrait plus l'état d'avant
+      if (typeof v === "number" && Number.isNaN(v)) {
+        invalides.add(id);
+        if (brut !== undefined) brutInvalide.set(id, brut); else brutInvalide.delete(id);
+      } else {
+        oublierInvalide(id);
         saisie[id] = v;
         enregistrer();
         const suite = (f.suites || {})[id];
         if (suite) {
           const r = App.calculer(suite.calcul, { nom: v, champs: suite.champs, saisie });
           if (r.ok) {
-            for (const [k, x] of Object.entries(r.sortie)) if (x !== null) saisie[k] = x;
+            for (const [k, x] of Object.entries(r.sortie)) if (x !== null) { saisie[k] = x; oublierInvalide(k); }
             enregistrer();
             if (!auto && suite.champs.length) matPerime = { id, nom: v, champs: suite.champs };
             if (!suite.discret) dessinerChamps();
@@ -364,16 +476,18 @@
         if (controleurs.has(id)) dessinerChamps(); // champs affichés ou listes qui dépendent de celui-ci
       }
       clearTimeout(minuterie);
-      minuterie = setTimeout(() => (auto ? relancer() : apercu()), auto ? 250 : 400);
+      // champ refusé : on attend 700 ms (le temps de finir de taper « -12,5 ») avant de griser le résultat affiché
+      minuterie = setTimeout(() => (auto ? relancer() : apercu()), invalides.size ? 700 : auto ? 250 : 400);
     };
     const zoneExtras = el("div", { class: "extras", "aria-live": "polite" });
     const extras = {}; // calcul → { saisie au moment du calcul, bloc affiché }
+    const extrasEnCours = new Map(); // calcul différé d'un complément → fonction qui l'annule
     const outils = {
       rafraichir: () => { dessinerChamps(); if (derniere) afficherResultat(derniere); },
       // Les saisies des pages sources partent au calcul ; ce qu'il rend est écrit dans la saisie de chaque page cible
       // (fusion champ par champ : un champ absent du résultat garde sa valeur). « self » désigne cette page.
       transfert: (c) => {
-        if (invalides.size) return signaler("avertissement", "Corrigez d'abord les champs signalés en rouge.");
+        if (invalides.size) return signaler("avertissement", blocage("Corrigez d'abord les champs signalés en rouge :"));
         const demande = { ...(c.params || {}) };
         for (const [cle, page] of Object.entries(c.entrees || {})) demande[cle] = page === "self" ? saisie : App.lireSaisie(page);
         const r = App.calculer(c.calcul, demande);
@@ -384,37 +498,81 @@
           else App.ecrireSaisie(page, { ...App.lireSaisie(page), ...r.sortie[cle] });
         }
         const texte = r.sortie.info || `${c.libelle} : fait.`;
-        if (ici) { Object.assign(saisie, ici); enregistrer(); dessinerChamps(); (auto ? relancer : apercu)(); }
+        if (ici) { Object.assign(saisie, ici); Object.keys(ici).forEach(oublierInvalide); enregistrer(); dessinerChamps(); (auto ? relancer : apercu)(); }
         const lien = c.ouvrir ? el("a", { href: "#/" + c.ouvrir[0], texte: c.ouvrir[1] }) : null;
         zoneMessage.replaceChildren(el("p", { class: "message succes", role: "status" }, texte + " ", lien));
       },
       extra: (c) => {
-        if (invalides.size) return signaler("avertissement", "Corrigez d'abord les champs signalés en rouge.");
+        if (invalides.size) return signaler("avertissement", blocage("Corrigez d'abord les champs signalés en rouge :"));
         const titreExtra = () => App.titreImage(c.titre || c.libelle, () => bloc.querySelector(".bilan, .verdict"), "resultat.png");
         const bloc = el("section", { class: "extra" }, titreExtra(), App.message("info", "Calcul en cours…"));
         extras[c.calcul]?.bloc.remove();
+        extrasEnCours.get(c.calcul)?.(); // clics répétés : un seul calcul, un seul « Calcul en cours… »
         zoneExtras.prepend(bloc);
-        setTimeout(() => {
+        const attente = setTimeout(() => {
+          extrasEnCours.delete(c.calcul);
           const r = App.calculer(c.calcul, saisie);
           bloc.replaceChildren(titreExtra());
           if (!r.ok) return bloc.append(App.message("erreur", r.erreur));
           bloc.append(...construireResultat(r.sortie, c.calcul, "", true));
           extras[c.calcul] = { empreinte: JSON.stringify(saisie), bloc };
         }, 30);
+        extrasEnCours.set(c.calcul, () => { clearTimeout(attente); bloc.remove(); });
       },
       surChangement: (a) => abonnes.push(a),
-      fusionner: (valeurs, texte) => { Object.assign(saisie, valeurs); enregistrer(); dessinerChamps(); apercu(); signaler("succes", texte); },
+      brut: (id) => brutInvalide.get(id),
+      refuser: (id, brut) => { invalides.add(id); brutInvalide.set(id, brut); }, // champ refusé à l'ouverture d'une étude
+      controle: false, // vrai pendant le dessin des champs d'une étude ouverte : chaque valeur repasse par la validation
+      fusionner: (valeurs, texte) => { Object.assign(saisie, valeurs); Object.keys(valeurs).forEach(oublierInvalide); enregistrer(); dessinerChamps(); apercu(); signaler("succes", texte); },
       signaler: (n, t) => signaler(n, t),
     };
     let minuterieMessage = null;
-    function signaler(niveau, texte) {
-      zoneMessage.replaceChildren(App.message(niveau, texte));
+    // `restaurer` : fonction qui remet l'état d'avant ; le message propose alors un bouton « Annuler » pendant 8 s.
+    function signaler(niveau, contenu, restaurer) {
+      const p = el("p", { class: "message " + niveau, role: niveau === "erreur" ? "alert" : "status" }, contenu);
+      offreAnnuler = !!restaurer;
+      if (restaurer) p.append(" ", el("button", { type: "button", class: "secondaire petit", texte: "Annuler", aide: "Remet la saisie d'avant.",
+        onclick: () => { clearTimeout(minuterieMessage); zoneMessage.replaceChildren(); offreAnnuler = false; restaurer(); } }));
+      zoneMessage.replaceChildren(p);
       clearTimeout(minuterieMessage); // un second message ne doit pas être effacé par le minuteur du premier
-      minuterieMessage = setTimeout(() => zoneMessage.replaceChildren(), niveau === "erreur" ? 12000 : 6000);
+      minuterieMessage = setTimeout(() => { zoneMessage.replaceChildren(); offreAnnuler = false; }, restaurer ? 8000 : niveau === "erreur" ? 12000 : 6000);
     }
+    // État d'avant une action qui remplace la saisie (exemple chargé…) : rend la fonction qui le remet.
+    function memoriser() {
+      const avant = { saisie: copie(saisie), invalides: new Set(invalides), brut: new Map(brutInvalide), exemple: App.memoire.lire("exemple." + ident) };
+      return () => {
+        saisie = avant.saisie;
+        invalides.clear(); avant.invalides.forEach((x) => invalides.add(x));
+        brutInvalide.clear(); avant.brut.forEach((v, k) => brutInvalide.set(k, v));
+        if (avant.exemple !== undefined) App.memoire.ecrire("exemple." + ident, avant.exemple);
+        enregistrer();
+        dessinerChamps();
+        relancer();
+        signaler("info", "Saisie d'avant remise.");
+      };
+    }
+
+    // Champs refusés : leur nom, en boutons qui donnent le focus au champ.
+    const nomChamp = (id) => { const c = tousChamps.find((x) => x.id === id); return c ? c.libelle + (c.unite ? ` (${c.unite})` : "") : id; };
+    function aller(id) {
+      const zone = formulaire.querySelector(`.tableau-saisie[data-champ="${id}"]`);
+      const cible = zone ? zone.querySelector("input.invalide, input[data-refuse]") || zone.querySelector("input") : [...formulaire.querySelectorAll("[data-id]")].find((x) => x.dataset.id === id);
+      if (!cible) return;
+      const groupe = cible.closest("details");
+      if (groupe && !groupe.open) groupe.open = true;
+      cible.focus();
+      cible.scrollIntoView({ block: "center" });
+    }
+    const listeInvalides = () => [...invalides].flatMap((id, n) => [n ? ", " : "",
+      el("button", { type: "button", class: "lien-champ", "data-aller": id, texte: nomChamp(id), aide: "Va au champ à corriger.", onclick: () => aller(id) })]);
+    const blocage = (debut) => [debut + " ", ...listeInvalides(), "."];
 
     const formulaire = el("form", { class: "saisie", onsubmit: (e) => { e.preventDefault(); relancer(true); } });
     function dessinerChamps() {
+      // le champ qui avait le focus (et la position du curseur) le retrouve une fois les champs recréés
+      const actif = document.activeElement;
+      const focus = actif && actif !== document.body && formulaire.contains(actif) && actif.dataset && actif.dataset.id !== undefined
+        ? { id: actif.dataset.id, sel: actif.type === "text" ? [actif.selectionStart, actif.selectionEnd, actif.selectionDirection] : null } : null;
       abonnes.length = 0;
       const haut = el("div", { class: "actions-saisie" });
       if (!auto) haut.append(el("button", { type: "submit", class: "primaire", texte: "Calculer", aide: "Lance le calcul (Entrée dans un champ)." }));
@@ -422,18 +580,19 @@
         // tableaux de la saisie (appuis, charges, barres…) : le cas personnalisé les vide, les combinaisons restent
         const tableaux = Object.keys(f.defaut).filter((k) => k !== "combo" && Array.isArray(f.defaut[k]));
         const noms = tableaux.length ? [...f.exemples, VIDE] : f.exemples;
-        const choix = el("select", { "aria-label": "Exemple" }, noms.map((n) => el("option", { value: n, texte: n === VIDE ? "Cas personnalisé (tableaux vides)" : NOMS_EXEMPLES[n] || n })));
+        const choix = el("select", { "aria-label": "Exemple", "data-id": "|exemple" }, noms.map((n) => el("option", { value: n, texte: n === VIDE ? "Cas personnalisé (tableaux vides)" : NOMS_EXEMPLES[n] || n })));
         const garde = App.memoire.lire("exemple." + ident, f.exemples[0]); // l'exemple chargé reste affiché dans la liste
         if (noms.includes(garde)) choix.value = garde;
-        haut.append(choix, el("button", { type: "button", class: "secondaire", texte: "Charger l'exemple", aide: "Remplace la saisie par l'exemple choisi, ou vide les tableaux pour partir de zéro.", onclick: () => {
+        haut.append(choix, el("button", { type: "button", class: "secondaire", "data-id": "|exemple-charger", texte: "Charger l'exemple", aide: "Remplace la saisie par l'exemple choisi, ou vide les tableaux pour partir de zéro.", onclick: () => {
+          const retablir = memoriser(); // le bouton « Annuler » du message remet la saisie d'avant
           App.memoire.ecrire("exemple." + ident, choix.value);
-          invalides.clear();
+          viderInvalides();
           if (choix.value === VIDE) {
             saisie = { ...copie(f.defaut), ...Object.fromEntries(tableaux.map((k) => [k, []])) };
             enregistrer();
             dessinerChamps();
             apercu();
-            return signaler("info", "Cas personnalisé : les tableaux sont vides. Ajoutez vos lignes, puis cliquez sur Calculer.");
+            return signaler("info", "Cas personnalisé : les tableaux sont vides. Ajoutez vos lignes, puis cliquez sur Calculer.", retablir);
           }
           const r = App.calculer(ident + ".exemple", { nom: choix.value });
           if (!r.ok) return signaler("erreur", r.erreur);
@@ -441,20 +600,29 @@
           enregistrer();
           dessinerChamps();
           relancer();
+          signaler("succes", `Exemple « ${NOMS_EXEMPLES[choix.value] || choix.value} » chargé : la saisie d'avant est remplacée.`, retablir);
         } }));
       } else {
-        haut.append(el("button", { type: "button", class: "secondaire", texte: "Valeurs de l'exemple", aide: "Remet les valeurs de l'exemple du cours ou du classeur.",
-          onclick: () => { saisie = copie(f.defaut); invalides.clear(); App.memoire.oublier("saisie." + ident); dessinerChamps(); relancer(); } }));
+        haut.append(el("button", { type: "button", class: "secondaire", "data-id": "|exemple-defaut", texte: "Valeurs de l'exemple", aide: "Remet les valeurs de l'exemple du cours ou du classeur.",
+          onclick: () => {
+            const retablir = memoriser();
+            saisie = copie(f.defaut); viderInvalides(); App.memoire.oublier("saisie." + ident); dessinerChamps(); relancer();
+            signaler("succes", "Valeurs de l'exemple rétablies : la saisie d'avant est remplacée.", retablir);
+          } }));
       }
       if (f.norme) {
-        haut.append(el("button", { type: "button", class: "secondaire", texte: "Valeurs conseillées par la norme", aide: "Qualités, lissage et jeu de montage conseillés pour ce diamètre.",
+        haut.append(el("button", { type: "button", class: "secondaire", "data-id": "|norme", texte: "Valeurs conseillées par la norme", aide: "Qualités, lissage et jeu de montage conseillés pour ce diamètre.",
           onclick: () => {
             const r = App.calculer(ident + ".norme", saisie);
-            if (r.ok && r.sortie) { Object.assign(saisie, r.sortie); enregistrer(); dessinerChamps(); relancer(); }
+            if (r.ok && r.sortie) { Object.assign(saisie, r.sortie); Object.keys(r.sortie).forEach(oublierInvalide); enregistrer(); dessinerChamps(); relancer(); }
             else signaler("avertissement", "Diamètre hors table : saisissez les valeurs.");
           } }));
       }
       const ouverts = Object.fromEntries([...formulaire.querySelectorAll("details.groupe")].map((d) => [d.dataset.titre, d.open]));
+      // un champ refusé reste refusé s'il est redessiné avec son texte ; sans texte à réafficher (tableau, matrice) ou devenu
+      // invisible, il n'est plus compté (sinon le calcul resterait bloqué sans aucun champ rouge)
+      const visibles = new Set(f.groupes.flatMap((g) => g.champs.filter(visible).map((c) => c.id)));
+      for (const id of [...invalides]) if (!visibles.has(id) || !brutInvalide.has(id)) oublierInvalide(id);
       formulaire.replaceChildren(haut, zoneMessage, ...f.groupes.filter((g) => g.champs.some(visible)).map((g) => {
         const champs = g.champs.filter(visible).map((c) => champ(c, saisie, changer, outils));
         const d = el("details", { class: "groupe", open: g.titre in ouverts ? ouverts[g.titre] : g.ouvert !== false }, el("summary", { texte: g.titre }),
@@ -473,6 +641,13 @@
           el("p", { class: "legende note", texte: f.note.slice(coupe).trim() })));
       }
       formulaire.append(barreFichiers());
+      if (focus) {
+        const cible = [...formulaire.querySelectorAll("[data-id]")].find((x) => x.dataset.id === focus.id);
+        if (cible) {
+          cible.focus({ preventScroll: true });
+          if (focus.sel && cible.type === "text") { try { cible.setSelectionRange(...focus.sel); } catch (e) { /* champ sans sélection */ } }
+        }
+      }
     }
 
     // ---------- fichiers : enregistrer, ouvrir, lien de partage, Excel ----------
@@ -482,12 +657,18 @@
       const r = App.calculer(structure ? ident + ".ouvrir" : "machine.ouvrir", structure ? { texte } : { ident, texte });
       if (!r.ok) return signaler("erreur", `${origine} : ${r.erreur}`);
       saisie = { ...copie(f.defaut), ...r.sortie };
-      invalides.clear();
+      viderInvalides();
       enregistrer();
-      dessinerChamps();
+      outils.controle = true; // chaque champ repasse par la validation (bornes, 1e30…) et se marque en rouge s'il est refusé
+      try { dessinerChamps(); } finally { outils.controle = false; }
       relancer();
-      signaler("succes", `${origine} : étude chargée.`);
-      App.toast(`${origine} : étude chargée.`);
+      if (invalides.size) {
+        signaler("avertissement", [`${origine} : étude chargée, mais des valeurs sont refusées :`, " ", ...listeInvalides(), "."]);
+        App.toast(`${origine} : étude chargée, ${invalides.size} champ${invalides.size > 1 ? "s" : ""} à corriger.`, "erreur");
+      } else {
+        signaler("succes", `${origine} : étude chargée.`);
+        App.toast(`${origine} : étude chargée.`);
+      }
     }
     function barreFichiers() {
       const entree = el("input", { type: "file", accept: ".json,application/json", hidden: true });
@@ -541,27 +722,56 @@
     }
 
     function apercu() {
-      if (!f.apercu || invalides.size) return;
-      const a = App.calculer(ident + ".apercu", saisie);
-      zoneSchema.replaceChildren(a.ok && a.sortie && a.sortie.data ? App.figure(a.sortie, "figure schema-figure", false)
-        : App.message("info", "Schéma indisponible pour cette saisie" + (a.erreur ? " : " + a.erreur : ".")));
+      if (invalides.size) return signalerInvalides(); // le résultat affiché reste, grisé et signalé comme daté
+      griser(false);
+      if (f.apercu) {
+        const a = App.calculer(ident + ".apercu", saisie);
+        zoneSchema.replaceChildren(a.ok && a.sortie && a.sortie.data ? App.figure(a.sortie, "figure schema-figure", false)
+          : App.message("info", "Schéma indisponible pour cette saisie" + (a.erreur ? " : " + a.erreur : ".")));
+      }
       if (calculee !== null && calculee !== JSON.stringify(saisie)) perime();
+      else zoneResultat.querySelector(":scope > .perime")?.remove(); // saisie revenue à celle du résultat : plus rien de daté
     }
-    function perime() {
-      if (zoneResultat.querySelector(".perime")) return;
-      const m = App.message("avertissement", "Saisie modifiée depuis le dernier calcul : les résultats ci-dessous datent de l'ancienne saisie. Cliquez sur « Calculer ».");
-      m.classList.add("perime");
-      zoneResultat.prepend(m);
+    const TEXTE_PERIME = "Saisie modifiée depuis le dernier calcul : les résultats ci-dessous datent de l'ancienne saisie. Cliquez sur « Calculer ».";
+    const TEXTE_INVALIDE = "Un champ est invalide : le résultat affiché date de la dernière saisie valide.";
+    const aResultat = () => !!zoneResultat.querySelector(".bilan, .verdict"); // un résultat de calcul est affiché (pas un message)
+    // Bandeau « résultat daté » en tête de la zone de résultat, créé ou mis à jour (texte et liens des champs à corriger).
+    function perime(texte = TEXTE_PERIME, ...suite) {
+      let m = zoneResultat.querySelector(":scope > .perime");
+      if (!m) {
+        m = App.message("avertissement", "");
+        m.classList.add("perime");
+        zoneResultat.prepend(m);
+      }
+      m.replaceChildren(texte, ...suite);
+    }
+    // Résultat grisé (classe obsolete) tant qu'un champ est invalide : on garde l'ancien, on ne le remplace pas par une erreur.
+    function griser(oui) {
+      zoneResultat.classList.toggle("obsolete", oui);
+      if (oui) zoneResultat.setAttribute("aria-busy", "true"); else zoneResultat.removeAttribute("aria-busy");
+    }
+    function signalerInvalides() {
+      if (aResultat()) { perime(TEXTE_INVALIDE, " ", ...listeInvalides()); griser(true); }
+      else {
+        const m = App.message("avertissement", "");
+        m.replaceChildren(...blocage("Corrigez les champs signalés en rouge : le calcul reprendra dès qu'ils seront valides. Champs à corriger :"));
+        zoneResultat.replaceChildren(m);
+      }
     }
 
     function relancer(parClic = false) {
       if (!App.pret) return;
-      if (invalides.size) {
-        zoneResultat.replaceChildren(App.message("avertissement", "Corrigez les champs signalés en rouge : le calcul reprendra dès qu'ils seront valides."));
+      if (invalides.size) return signalerInvalides();
+      griser(false);
+      // même saisie que le résultat affiché : rien à recalculer (un clic sur « Calculer » ramène seulement le résultat à l'écran)
+      if (calculee !== null && calculee === JSON.stringify(saisie) && aResultat()) {
+        zoneResultat.querySelector(":scope > .perime")?.remove();
+        if (parClic) montrer();
         return;
       }
       if (f.apercu && auto) apercu();
       const lancer = () => {
+        minuterieCalcul = null;
         const r = App.calculer(ident, saisie);
         calculee = JSON.stringify(saisie);
         if (matPerime) { matPerime = null; afficherPerime(); }
@@ -573,8 +783,9 @@
       };
       if (auto) lancer();
       else { // laisse le navigateur afficher « Calcul en cours » avant un calcul de quelques dixièmes de seconde
+        clearTimeout(minuterieCalcul); // clics répétés : un seul calcul, un seul message
         zoneResultat.replaceChildren(App.message("info", "Calcul en cours…"));
-        setTimeout(lancer, 30);
+        minuterieCalcul = setTimeout(lancer, 30);
       }
     }
 
@@ -899,8 +1110,9 @@
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {
       App.oublierLien();
-      App.decompresser(lien.etude).then((texte) => appliquer(texte, "Lien de partage"))
+      App.decompresser(lien.etude).then((texte) => { if (bloc.isConnected) appliquer(texte, "Lien de partage"); })
         .catch(() => {
+          if (!bloc.isConnected) return; // page quittée pendant la lecture du lien
           signaler("erreur", "Lien de partage illisible ou incomplet : la page montre ses valeurs de départ.");
           if (auto) relancer(); else zoneResultat.replaceChildren(App.message("info", "Renseignez les données, puis cliquez sur « Calculer »."));
         });
@@ -918,17 +1130,19 @@
     return bloc;
   }
 
-  App.genre("machine", async (contenu, page, { pret }) => {
+  App.genre("machine", async (contenu, page, { pret, perime = () => false }) => {
     contenu.append(el("h1", { texte: page.titre }), el("p", { class: "intro", texte: page.texte }));
     if (!pret) {
-      contenu.append(App.message("info", "Le calcul se charge : les champs apparaîtront dans quelques secondes."));
+      contenu.append(App.attente("Le calcul se charge : les champs apparaîtront dans quelques secondes."));
       return;
     }
     if (page.pont) {
       const attente = App.message("info", "Chargement des bibliothèques de cette page (scipy, shapely)… quelques secondes la première fois.");
       contenu.append(attente);
-      if (!await App.preparer(page)) {
-        attente.replaceWith(App.message("erreur", "Les bibliothèques de cette page n'ont pas pu se charger. Rechargez la page (Ctrl+F5)."));
+      const prete = await App.preparer(page);
+      if (perime()) return; // page quittée pendant le chargement : rien ne s'ajoute à la page courante
+      if (!prete) {
+        attente.replaceWith(App.messageEchec("Les bibliothèques de cette page n'ont pas pu se charger. Vérifiez la connexion Internet, puis réessayez."));
         return;
       }
       attente.remove();
