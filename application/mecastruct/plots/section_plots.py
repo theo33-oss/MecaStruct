@@ -377,8 +377,8 @@ def filetage(nom: str, t: dict, diametre: str) -> go.Figure:
     fig.add_shape(type="line", x0=-0.2 * d, x1=fin + 0.1 * d, y0=0, y1=0, line=dict(color=rgb(_AXES), width=1.2, dash="dashdot"))
     fig.add_annotation(x=-0.2 * d, y=0, text="axe", showarrow=False, xanchor="right", font=dict(color=rgb(_AXES), size=12))
     fig.add_annotation(xref="paper", yref="paper", x=0, y=-0.03, xanchor="left", yanchor="top", showarrow=False, font=dict(size=12),
-                       text=f"ds = (d2 + d3)/2 ; As = π·ds²/4 = {t['As']:.1f} mm² (ISO 898-1) · valeurs : H7g6.fr, Dimensions des filetages ISO (ISO 68-1, ISO 724)")
+                       text=f"ds = (d2 + d3)/2 ; As = π·ds²/4 = {t['As']:.1f} mm² (ISO 898-1)<br>valeurs : H7g6.fr, Dimensions des filetages ISO (ISO 68-1, ISO 724)")
     fig.update_layout(title=f"Filetage {nom} × {P:g} mm : où se trouvent d3 et ds", showlegend=False, height=380,
-                      margin=dict(l=10, r=10, t=60, b=60), xaxis=dict(visible=False, range=[-0.45 * d, 1.55 * d]),
+                      margin=dict(l=10, r=10, t=60, b=80), xaxis=dict(visible=False, range=[-0.45 * d, 1.55 * d]),
                       yaxis=dict(visible=False, range=[-0.18 * d, 0.58 * d], scaleanchor="x"))  # fmt: skip
     return fig

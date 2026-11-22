@@ -469,7 +469,30 @@ const App = (() => {
   }
 
   // Avant une page lourde : ses bibliothèques, puis sa famille du pont.
-  async function preparer(p) {
+  // Les appels simultanés (page ouverte pendant le préchargement) attendent le même chargement au lieu de le refaire.
+  const enCours = new Map();
+  function preparer(p) {
+    const cle = (p.pont || "") + "|" + (p.paquets || []).join(",");
+    if (!enCours.has(cle)) enCours.set(cle, preparerPage(p).then((ok) => { if (!ok) enCours.delete(cle); return ok; }));
+    return enCours.get(cle);
+  }
+
+  // Dès que le calcul est prêt, charge en arrière-plan les bibliothèques des autres pages (scipy, shapely, jinja2, sympy) :
+  // l'accueil se lit pendant ce temps et les pages lourdes s'ouvrent ensuite sans attente. Évité en mode économie de données.
+  async function prechargerPages() {
+    if (navigator.connection && navigator.connection.saveData) return;
+    const vues = new Set();
+    for (const p of PAGES) {
+      if (!p.pont) continue;
+      const cle = p.pont + "|" + (p.paquets || []).join(",");
+      if (vues.has(cle)) continue;
+      vues.add(cle);
+      await new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(r, { timeout: 3000 }) : setTimeout(r, 300)));
+      try { await preparer(p); } catch (e) { console.warn("Préchargement impossible :", p.id, e); }
+    }
+  }
+
+  async function preparerPage(p) {
     if (!p.pont) return true;
     if (charges.has("pont:" + p.pont)) return paquets(p.paquets || []);
     const t = performance.now();
@@ -693,6 +716,7 @@ const App = (() => {
     console.info("MecaStruct prêt", mesures);
     etat("");
     afficher();
+    prechargerPages();
   }
 
   function genre(nom, rendu) {

@@ -34,6 +34,11 @@ class Engrenement(PageMachine):
 
         def denture(c: Zone) -> None:
             mp.num(c, P, "k", "Largeur de denture k = b/m", min_value=1.0)
+            mp.num(c, P, "alpha", "Angle de pression α", "°", min_value=14.5, max_value=25.0)
+            c.legende(
+                "20° est la valeur normalisée courante (ISO 53) ; elle ne modifie que les efforts radial et normal et "
+                "le dessin : la contrainte en pied de dent (formule de Lewis simplifiée du cours) suppose un profil à 20°."
+            )
             c.liste("Matériau du pignon", state.dm().listMaterials(), f"{P}.materiau")
             mp.num(c, P, "s", "Coefficient de sécurité sur l'effort s", min_value=1.0)
 
@@ -43,7 +48,7 @@ class Engrenement(PageMachine):
 
     def notes(self, z: Zone) -> None:
         z.legende(
-            "Angle de pression 20°, dent à profil normal. Contrainte de flexion en pied de dent (poutre encastrée) "
+            "Angle de pression 20° par défaut (14,5° à 25° possible), dent à profil normal. Contrainte de flexion en pied de dent (poutre encastrée) "
             "comparée à Rpe = Re/s : Re est la limite élastique du matériau de la base (valeur moyenne à minorer). "
             "Usuellement k entre 6 et 10 et s = 1,5 si l'effort est mal connu."
         )

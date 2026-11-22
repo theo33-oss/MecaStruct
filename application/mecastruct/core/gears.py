@@ -13,6 +13,21 @@ from mecastruct.core.errors import MecaStructError
 _ID = "MecaStruct:Gears:invalidInput"
 MODULES = (1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 16, 20, 25, 32, 40, 50)  # série principale ISO 54 (mm)
 ALPHA = 20.0  # angle de pression normalisé (°)
+ALPHA_MIN, ALPHA_MAX = 14.5, 25.0  # angles de pression usuels (°) : 14,5° (ancien), 20° (normalisé), 25°
+
+
+def checkAlpha(alpha: float) -> float:
+    """Valide l'angle de pression (°) : entre 14,5 et 25 inclus. Renvoie `alpha` en float."""
+    if not isinstance(alpha, (int, float)) or not math.isfinite(alpha) or not ALPHA_MIN <= alpha <= ALPHA_MAX:
+        raise MecaStructError(
+            _ID, f"L'angle de pression doit être compris entre {ALPHA_MIN:g}° et {ALPHA_MAX:g}° (saisi : {alpha})."
+        )
+    return float(alpha)
+
+
+def minTeeth(alpha: float = ALPHA) -> int:
+    """Nombre de dents usuel sous lequel il y a interférence de taillage sans déport : 2/sin²α arrondi (17 à 20°)."""
+    return round(2 / math.sin(math.radians(alpha)) ** 2)
 
 
 def geometry(m: float, Z: int, alpha: float = ALPHA) -> dict:

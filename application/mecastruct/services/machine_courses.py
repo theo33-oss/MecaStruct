@@ -149,24 +149,28 @@ def computeBearingSet(s: dict) -> dict:
 
 
 def defaultGearInput() -> dict:
-    """Pignon Z = 20, module 2 mm, roue Z = 40, 500 W à 500 tr/min, acier S235, k = 8, sécurité 1,5."""
-    return {"m": 2.0, "Z1": 20, "Z2": 40, "P": 500.0, "N": 500.0, "k": 8.0, "materiau": "S235", "s": 1.5}
+    """Pignon Z = 20, module 2 mm, roue Z = 40, 500 W à 500 tr/min, acier S235, k = 8, sécurité 1,5, α = 20°."""
+    return {"m": 2.0, "Z1": 20, "Z2": 40, "P": 500.0, "N": 500.0, "k": 8.0, "materiau": "S235", "s": 1.5,
+            "alpha": gears.ALPHA}  # fmt: skip
 
 
 def computeGearMesh(s: dict, dm: DataManager) -> dict:
     """Engrènement droit : géométrie, rapport, efforts sur la denture, contrainte en pied de dent et module minimal.
 
-    Entrées : m (mm), Z1, Z2, P (W) et N (tr/min) sur le pignon, k = b/m, materiau (base de données), s (sécurité).
-    Le pignon est vérifié avec Rpe = Re/s (Re lu dans la base de matériaux, converti en MPa).
+    Entrées : m (mm), Z1, Z2, P (W) et N (tr/min) sur le pignon, k = b/m, materiau (base de données), s (sécurité),
+    alpha (angle de pression en °, de 14,5 à 25 ; 20 si absent des anciens fichiers de projet).
+    Le pignon est vérifié avec Rpe = Re/s (Re lu dans la base de matériaux, converti en MPa). L'angle ne modifie que
+    les efforts radial et normal : la contrainte en pied de dent (formule du cours) suppose un profil à 20°.
     """
     Z1, Z2 = int(s["Z1"]), int(s["Z2"])
+    alpha = gears.checkAlpha(s.get("alpha", gears.ALPHA))
     if s["N"] <= 0:
         raise MecaStructError("MecaStruct:Gears:invalidInput", "La fréquence de rotation du pignon doit être positive.")
     C1 = 30 * s["P"] / (math.pi * s["N"])
-    geo = gears.geometry(s["m"], Z1)
+    geo = gears.geometry(s["m"], Z1, alpha)
     r = gears.ratio(Z1, Z2)
     a = gears.centerDistance(s["m"], Z1, Z2)
-    f = gears.toothForces(C1, geo["d"])
+    f = gears.toothForces(C1, geo["d"], alpha)
     Rpe = dm.getMaterial(s["materiau"])["Re"] / 1e6 / s["s"]
     sigma = gears.rootStress(f["Ft"], s["m"], s["k"])
     mMini = gears.moduleMini(f["Ft"], s["k"], Rpe)
@@ -178,7 +182,7 @@ def computeGearMesh(s: dict, dm: DataManager) -> dict:
     )
     latex = [
         rf"C_1 = \frac{{P}}{{\omega}} = {C1:.4g}\ \mathrm{{N{{\cdot}}m}}",
-        rf"F_t = \frac{{2C_1}}{{d_1}} = {f['Ft']:.5g}\ \mathrm{{N}}, \quad F_r = F_t \tan\alpha = {f['Fr']:.5g}\ "
+        rf"\alpha = {alpha:g}^\circ \quad F_t = \frac{{2C_1}}{{d_1}} = {f['Ft']:.5g}\ \mathrm{{N}}, \quad F_r = F_t \tan\alpha = {f['Fr']:.5g}\ "
         rf"\mathrm{{N}}, \quad F_n = \frac{{F_t}}{{\cos\alpha}} = {f['Fn']:.5g}\ \mathrm{{N}}",
         rf"\sigma = \frac{{54\, F_t}}{{\pi^2\, k\, m^2}} = {sigma:.4g}\ \mathrm{{MPa}}",
         rf"m \geq \sqrt{{\frac{{54\, F_t}}{{\pi^2\, k\, R_{{pe}}}}}} = {mMini:.4g}\ \mathrm{{mm}}",
@@ -187,6 +191,13 @@ def computeGearMesh(s: dict, dm: DataManager) -> dict:
         f"Géométrie du pignon : d1 = m·Z1 = {geo['d']:g} mm ; roue d2 = {s['m'] * Z2:g} mm ; entraxe "
         f"a = {a:g} mm ; pas p = π·m = {geo['p']:.4g} mm",
         f"Couple au pignon : C1 = 30·P/(π·N) = {C1:.4g} N·m",
+        f"Angle de pression α = {alpha:g}° : Fr = Ft·tan α, Fn = Ft/cos α"
+        + (
+            ""
+            if alpha == gears.ALPHA
+            else " ; la contrainte en pied de dent (formule de Lewis simplifiée du cours) suppose un profil à 20°, "
+            "elle n'en tient pas compte"
+        ),
         f"Largeur de denture b = k·m = {s['k'] * s['m']:g} mm (k = {s['k']:g}, plage usuelle 6 à 10)",
         f"Rpe = Re/s = {Rpe * s['s']:g}/{s['s']:g} = {Rpe:.4g} MPa (Re du matériau {s['materiau']})",
         f"Module minimal {mMini:.4g} mm, module normalisé retenu {mNorm:g} mm",
@@ -197,16 +208,17 @@ def computeGearMesh(s: dict, dm: DataManager) -> dict:
             ("Entraxe (mm)", f"{a:g}"),
             ("Diamètre primitif pignon (mm)", f"{geo['d']:g}"),
             ("Couple pignon C1 (N·m)", f"{C1:.4g}"),
+            ("Angle de pression α (°)", f"{alpha:g}"),
             ("Effort tangentiel Ft (N)", f"{f['Ft']:.5g}"),
             ("Effort radial Fr (N)", f"{f['Fr']:.5g}"),
             ("Effort normal Fn (N)", f"{f['Fn']:.5g}"),
-            ("Contrainte en pied de dent σ (MPa)", f"{sigma:.4g}"),
+            ("Contrainte en pied de dent σ (MPa), calculée pour un profil à 20°", f"{sigma:.4g}"),
             ("Rpe admissible (MPa)", f"{Rpe:.4g}"),
             ("Module minimal (mm)", f"{mMini:.4g}"),
             ("Module normalisé retenu (mm)", f"{mNorm:g}"),
         ]
     )
-    res = {"r": r, "a": a, "d": geo["d"], "C1": C1, "Ft": f["Ft"], "Fr": f["Fr"], "Fn": f["Fn"], "sigma": sigma,
+    res = {"r": r, "a": a, "d": geo["d"], "C1": C1, "alpha": alpha, "Ft": f["Ft"], "Fr": f["Fr"], "Fn": f["Fn"], "sigma": sigma,
            "Rpe": Rpe, "mMini": mMini, "mNorm": mNorm, "rapport": [head, *rapport], "latex": latex}  # fmt: skip
     return {"result": res, "tables": {"Synthèse": tab}, "status": head, "ok": ok}
 

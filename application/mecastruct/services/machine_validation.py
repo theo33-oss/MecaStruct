@@ -16,6 +16,7 @@ from datetime import datetime
 
 import numpy as np
 
+from mecastruct.core import gears
 from mecastruct.core.utils import load_json
 from mecastruct.services.validation_report import (
     _CHOIX,
@@ -156,7 +157,8 @@ def _gearMesh(s: dict, res: dict, dm) -> tuple[list[dict], list[tuple]]:
     Rpe = Re / s["s"]
     sigma = 54 * Ft / (math.pi**2 * k * m**2)
     mMini = math.sqrt(54 * Ft / (math.pi**2 * k * Rpe))
-    al = math.radians(20)
+    alpha = R.get("alpha", 20.0)
+    al = math.radians(alpha)
     rows = [
         _grp("Géométrie"),
         _hc("Rapport de transmission", rf"r = -Z_1/Z_2 = -{Z1}/{Z2}", -Z1 / Z2, R["r"]),
@@ -171,8 +173,20 @@ def _gearMesh(s: dict, res: dict, dm) -> tuple[list[dict], list[tuple]]:
             "N·m",
         ),  # fmt: skip
         _hc("Effort tangentiel", rf"F_t = 2 C_1/d_1 = 2000 \times {C1:.6g}/{d1:g}", Ft, R["Ft"], "N"),
-        _hc("Effort radial", rf"F_r = F_t \tan 20^\circ = {Ft:.6g} \tan 20^\circ", Ft * math.tan(al), R["Fr"], "N"),
-        _hc("Effort normal", rf"F_n = F_t/\cos 20^\circ = {Ft:.6g}/\cos 20^\circ", Ft / math.cos(al), R["Fn"], "N"),
+        _hc(
+            "Effort radial",
+            rf"F_r = F_t \tan {alpha:g}^\circ = {Ft:.6g} \tan {alpha:g}^\circ",
+            Ft * math.tan(al),
+            R["Fr"],
+            "N",
+        ),
+        _hc(
+            "Effort normal",
+            rf"F_n = F_t/\cos {alpha:g}^\circ = {Ft:.6g}/\cos {alpha:g}^\circ",
+            Ft / math.cos(al),
+            R["Fn"],
+            "N",
+        ),
         _grp("Résistance en pied de dent"),
         _hc(
             "Contrainte en pied de dent",
@@ -191,6 +205,7 @@ def _gearMesh(s: dict, res: dict, dm) -> tuple[list[dict], list[tuple]]:
             "mm",
         ),
     ]
+    zmin = gears.minTeeth(alpha)
     chk = [
         _chk(
             "Résistance du pied de dent : σ ≤ Rpe",
@@ -204,7 +219,16 @@ def _gearMesh(s: dict, res: dict, dm) -> tuple[list[dict], list[tuple]]:
             R["mNorm"] >= R["mMini"],
         ),  # fmt: skip
         _chk("Largeur de denture usuelle : 6 ≤ k ≤ 10", f"k = {k:g}", _lvl(6 <= k <= 10, "warn")),
-        _chk("Pas d'interférence de taillage : Z1 ≥ 17 (α = 20°, sans déport)", f"Z1 = {Z1}", _lvl(Z1 >= 17, "warn")),
+        _chk(
+            f"Pas d'interférence de taillage : Z1 ≥ {zmin} (α = {alpha:g}°, sans déport)",
+            f"Z1 = {Z1}",
+            _lvl(Z1 >= zmin, "warn"),
+        ),
+        _chk(
+            "Angle de pression de 20° pour la contrainte en pied de dent (formule du cours)",
+            f"α = {alpha:g}°",
+            _lvl(alpha == 20.0, "warn"),
+        ),
     ]
     return rows, chk
 
@@ -519,11 +543,13 @@ TYPES = {
             ("P", "Puissance au pignon P", "W"),
             ("N", "Fréquence de rotation du pignon", "tr/min"),
             ("k", "Largeur de denture k = b/m", ""),
+            ("alpha", "Angle de pression α", "°"),
             ("materiau", "Matériau du pignon", ""),
             ("s", "Coefficient de sécurité sur l'effort s", ""),
         ],
         "hyp": [
-            "Denture droite, profil en développante normalisé, angle de pression α = 20°, sans déport.",
+            "Denture droite, profil en développante, angle de pression α saisi (20° par défaut), sans déport ; la "
+            "contrainte en pied de dent (formule du cours) suppose un profil à 20°.",
             "Effort transmis par une seule dent ; dent assimilée à une poutre encastrée au pied (formule du cours).",
             "Couple constant : ni choc, ni coefficient de service, ni rendement dans les efforts.",
             "Re du matériau de la base : valeur moyenne, à minorer selon l'état de livraison.",

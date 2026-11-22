@@ -134,9 +134,12 @@ def _formulaires() -> dict:
                        nb("Z2", "Dents de la roue Z2", "", 1.0, 1000.0), ligne=True),
                 groupe("Transmission", nb("P", "Puissance au pignon P", "W", 0.0), nb("N", "Fréquence de rotation du pignon", "tr/min", 0.1)),
                 groupe("Denture et matériau", nb("k", "Largeur de denture k = b/m", "", 1.0, aide="Usuellement entre 6 et 10."),
+                       nb("alpha", "Angle de pression α", "°", 14.5, 25.0,
+                          aide="20° est la valeur normalisée courante (ISO 53) ; elle ne modifie que les efforts radial et normal "
+                               "et le dessin : la contrainte en pied de dent (formule de Lewis simplifiée du cours) suppose un profil à 20°."),
                        liste("materiau", "Matériau du pignon", noms), nb("s", "Coefficient de sécurité sur l'effort s", "", 1.0)),
             ],
-            "note": "Angle de pression 20°, dent à profil normal. Contrainte de flexion en pied de dent (poutre encastrée) "
+            "note": "Angle de pression 20° par défaut (14,5° à 25° possible), dent à profil normal. Contrainte de flexion en pied de dent (poutre encastrée) "
                     "comparée à Rpe = Re/s. Usuellement k entre 6 et 10 et s = 1,5 si l'effort est mal connu.",
         },
         "trn": {

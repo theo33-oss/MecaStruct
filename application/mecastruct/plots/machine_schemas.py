@@ -16,11 +16,9 @@ from mecastruct.plots._common import COULEUR, arrow, num, teinte
 from mecastruct.plots._common import cote as _cote
 
 _ID = "MecaStruct:Schema:invalidInput"
-_ALPHA = math.radians(gears.ALPHA)
 _ZMIN = 5  # en dessous, le dessin d'une denture n'a plus de sens
 _ZMAX = 1000  # au-dessus, le dessin coûte des secondes et des millions de points (Z = 200 000 : 16 s)
 _NSATMAX = 24
-_ZINTERF = 17  # 2/sin²α = 17,1 : nombre de dents usuel sous lequel il y a interférence de taillage sans déport
 
 
 def _inv(a: float) -> float:
@@ -28,18 +26,20 @@ def _inv(a: float) -> float:
     return math.tan(a) - a
 
 
-def _profil(Z: int, m: float, saillie: float, creux: float, phase: float = 0.0, centre=(0.0, 0.0)) -> np.ndarray:
-    """Contour fermé (points x, y en mm) d'une roue à denture droite en développante de cercle, α = 20°.
+def _profil(Z: int, m: float, saillie: float, creux: float, phase: float = 0.0, centre=(0.0, 0.0),
+            alpha: float = gears.ALPHA) -> np.ndarray:  # fmt: skip
+    """Contour fermé (points x, y en mm) d'une roue à denture droite en développante de cercle (α = 20° par défaut).
 
     Entrées : Z, m (mm), saillie et creux (mm) autour du cercle primitif (m et 1,25·m pour une roue extérieure ;
-    1,25·m et m pour le creux d'une couronne intérieure), phase (rad, axe d'une dent), centre (mm).
+    1,25·m et m pour le creux d'une couronne intérieure), phase (rad, axe d'une dent), centre (mm), alpha (°).
     """
+    al = math.radians(alpha)
     # shortcut: pas de dégagement de pied dessiné (interférence sous 17 dents), suffisant pour un schéma
     r = m * Z / 2
-    rb, ra, rf = r * math.cos(_ALPHA), r + saillie, max(r - creux, 0.05 * r)
+    rb, ra, rf = r * math.cos(al), r + saillie, max(r - creux, 0.05 * r)
     rho = np.linspace(max(rb, rf), ra, 8)
     # demi-épaisseur angulaire de la dent au rayon rho : π/(2Z) au primitif, développante au-delà du cercle de base
-    beta = np.maximum(math.pi / (2 * Z) + _inv(_ALPHA) - np.array([_inv(math.acos(rb / x)) for x in rho]), 0.0)
+    beta = np.maximum(math.pi / (2 * Z) + _inv(al) - np.array([_inv(math.acos(rb / x)) for x in rho]), 0.0)
     pas = 2 * math.pi / Z
     polaire: list[tuple[float, float]] = []
     for k in range(Z):
@@ -115,11 +115,14 @@ def _dents(*Z: int) -> None:
 
 
 def gearMesh(s: dict) -> go.Figure:
-    """Pignon et roue en prise, vue de face : dentures, cercles primitifs, entraxe et ligne d'action (α = 20°).
+    """Pignon et roue en prise, vue de face : dentures, cercles primitifs, entraxe et ligne d'action (angle α).
 
-    Entrée : saisie de la page Engrenages (m en mm, Z1, Z2 ; N pour le sens de rotation du pignon).
+    Entrée : saisie de la page Engrenages (m en mm, Z1, Z2 ; N pour le sens de rotation du pignon ; alpha en °,
+    20 si absent).
     """
     m, Z1, Z2 = float(s["m"]), int(s["Z1"]), int(s["Z2"])
+    alpha = gears.checkAlpha(s.get("alpha", gears.ALPHA))
+    al = math.radians(alpha)
     if m <= 0:
         raise MecaStructError(_ID, "Module strictement positif.")
     _dents(Z1, Z2)
@@ -127,8 +130,8 @@ def gearMesh(s: dict) -> go.Figure:
     a = gears.centerDistance(m, Z1, Z2)
     fig = go.Figure()
     # une dent du pignon face à la roue (angle 0) tombe dans un creux de la roue (angle π)
-    _surface(fig, _profil(Z1, m, m, 1.25 * m), "positif", f"Pignon Z1 = {Z1}")
-    _surface(fig, _profil(Z2, m, m, 1.25 * m, math.pi + math.pi / Z2, (a, 0.0)), "aires", f"Roue Z2 = {Z2}")
+    _surface(fig, _profil(Z1, m, m, 1.25 * m, alpha=alpha), "positif", f"Pignon Z1 = {Z1}")
+    _surface(fig, _profil(Z2, m, m, 1.25 * m, math.pi + math.pi / Z2, (a, 0.0), alpha), "aires", f"Roue Z2 = {Z2}")
     for r, c in ((r1, 0.0), (r2, a)):
         _trait(fig, _cercle(r, (c, 0.0)), COULEUR["trait"], "dash")
         alesage = max(min(0.3 * r, r - 2.5 * m), 0.1 * r)
@@ -136,10 +139,10 @@ def gearMesh(s: dict) -> go.Figure:
         _trait(fig, np.array([[c - 0.15 * r, 0], [c + 0.15 * r, 0]]), COULEUR["trait"])
         _trait(fig, np.array([[c, -0.15 * r], [c, 0.15 * r]]), COULEUR["trait"])
     # ligne d'action : tangente aux deux cercles de base, inclinée de α sur la tangente commune en I
-    T1 = r1 * math.cos(_ALPHA) * np.array([math.cos(_ALPHA), -math.sin(_ALPHA)])
-    T2 = np.array([a, 0.0]) + r2 * math.cos(_ALPHA) * np.array([-math.cos(_ALPHA), math.sin(_ALPHA)])
-    _trait(fig, np.array([T1, T2]), COULEUR["charge"], "dot", 1.6, "Ligne d'action (α = 20°)")
-    u = np.array([math.sin(_ALPHA), math.cos(_ALPHA)]) * (1 if s.get("N", 1) >= 0 else -1)
+    T1 = r1 * math.cos(al) * np.array([math.cos(al), -math.sin(al)])
+    T2 = np.array([a, 0.0]) + r2 * math.cos(al) * np.array([-math.cos(al), math.sin(al)])
+    _trait(fig, np.array([T1, T2]), COULEUR["charge"], "dot", 1.6, f"Ligne d'action (α = {num(alpha)}°)")
+    u = np.array([math.sin(al), math.cos(al)]) * (1 if s.get("N", 1) >= 0 else -1)
     longueur = 0.45 * min(r1, r2) + 2 * m
     arrow(fig, (r1, 0.0), (r1 + longueur * u[0], longueur * u[1]), COULEUR["charge"], 2.5)
     _texte(fig, r1 + longueur * u[0], longueur * u[1], "F<sub>n</sub> sur la roue", xanchor="left", xshift=6)
@@ -150,17 +153,18 @@ def gearMesh(s: dict) -> go.Figure:
     titre = (
         f"Pignon Z1 = {Z1} et roue Z2 = {Z2}, module {num(m)} mm<br>"
         f"<sup>rapport ω2/ω1 = {num(gears.ratio(Z1, Z2))} ; cercles primitifs en tirets ; hauteur de dent 2,25·m</sup>"
-        + _interference(Z1, Z2)
+        + _interference(Z1, Z2, alpha=alpha)
     )
     return _vue(fig, titre)
 
 
-def _interference(*Z: int) -> str:
-    """Avertissement sous Zmin = 2/sin²α ≈ 17 dents : sans déport, la dent est dégagée au taillage (non dessiné)."""
-    if min(Z) >= _ZINTERF:
+def _interference(*Z: int, alpha: float = gears.ALPHA) -> str:
+    """Avertissement sous Zmin = 2/sin²α (≈ 17 dents à 20°) : sans déport, la dent est dégagée au taillage (non dessiné)."""
+    zmin = gears.minTeeth(alpha)
+    if min(Z) >= zmin:
         return ""
     return (
-        f"<br><sup><span style='color:#b3261e'>moins de {_ZINTERF} dents : déport de denture nécessaire contre "
+        f"<br><sup><span style='color:#b3261e'>moins de {zmin} dents : déport de denture nécessaire contre "
         "l'interférence de taillage (non dessiné)</span></sup>"
     )
 

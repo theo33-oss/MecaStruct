@@ -12,6 +12,9 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 
 ## Non publié (site)
 
+- Site : défilement indépendant des colonnes ; message de la tige filetée sur deux lignes ; titres de sections au style des autres titres ; « Demander à une IA » en languette latérale ; accueil à titres repliables ; panneau « Représentation » escamotable (mémorisable par page) ; notification et bouton « Actualiser » après un changement de matériau ; mode guidé pas à pas ; zone « Comparer des études » (variantes, tableau, graphique, export JSON, copie vers Excel, impression).
+- Site : les bibliothèques des pages lourdes (scipy, shapely, jinja2, sympy) se chargent en arrière-plan dès que l'accueil est prêt.
+- Engrenages : champ « Angle de pression » (14,5° à 25°, 20° par défaut) pour les efforts, le schéma, l'Excel et le dossier de validation ; la contrainte en pied de dent reste calculée pour un profil à 20°.
 - « Demander à une IA » : bouton fixe en bas à gauche du site (et bouton de la barre d'exports du bureau). Il copie l'étude (consigne + bloc-notes : données, modes de ruine, résultats, démarche) ; on la colle dans Claude ou ChatGPT (liens proposés), l'IA présente le problème, puis on lui pose ses questions. Rien n'est envoyé automatiquement.
 - Diagramme des modes de ruine : pour une limite (norme comme VEd/Vpl,Rd, durée, rigidité…), « marge » devient « réserve » (1 − taux, au plus 100 %), pour ne plus la confondre avec la marge de sécurité s − 1 ; une réserve presque pleine s'écrit « > 99,9 % » et non « 100 % ». Même mot dans le bureau et le bloc-notes.
 - `construire_web.py` garde le zip tel quel quand son contenu n'a pas changé : une autre version de zlib (Python 3.14+ sous Windows, nouvelle image Ubuntu de la CI) ne fait plus échouer le contrôle « docs/ est à jour ».

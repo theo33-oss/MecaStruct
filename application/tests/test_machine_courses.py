@@ -87,6 +87,38 @@ def test_efforts_sur_la_denture():
     assert f["Fn"] == pytest.approx(500 / math.cos(math.radians(20)))
 
 
+def test_angle_de_pression_defaut_20_inchange():
+    s = mc.defaultGearInput()
+    assert s["alpha"] == 20.0
+    dm = DataManager()
+    avec = mc.computeGearMesh(s, dm)["result"]
+    sans = mc.computeGearMesh({k: v for k, v in s.items() if k != "alpha"}, dm)["result"]  # ancien projet sans alpha
+    for cle in ("Ft", "Fr", "Fn", "sigma", "mMini", "mNorm"):
+        assert avec[cle] == sans[cle]
+    assert avec["Fr"] == pytest.approx(avec["Ft"] * math.tan(math.radians(20)))
+
+
+@pytest.mark.parametrize("alpha", [14.5, 25.0])
+def test_angle_de_pression_efforts(alpha):
+    dm = DataManager()
+    s = mc.defaultGearInput()
+    ref = mc.computeGearMesh(s, dm)["result"]
+    r = mc.computeGearMesh({**s, "alpha": alpha}, dm)["result"]
+    a = math.radians(alpha)
+    assert r["Ft"] == pytest.approx(ref["Ft"])  # Ft, contrainte de pied et module ne dépendent pas de α
+    assert r["Fr"] == pytest.approx(r["Ft"] * math.tan(a))
+    assert r["Fn"] == pytest.approx(r["Ft"] / math.cos(a))
+    assert r["sigma"] == pytest.approx(ref["sigma"])
+    assert r["mMini"] == pytest.approx(ref["mMini"])
+    assert r["alpha"] == alpha
+
+
+@pytest.mark.parametrize("alpha", [10.0, 30.0, 14.4, 25.1, float("nan")])
+def test_angle_de_pression_hors_bornes(alpha):
+    with pytest.raises(MecaStructError, match="angle de pression"):
+        mc.computeGearMesh({**mc.defaultGearInput(), "alpha": alpha}, DataManager())
+
+
 def test_contrainte_de_pied_et_module_minimal():
     # le cours écrit la forme approchée 5,47·Ft/(k·m²) : la formule exacte 54/π² en est l'équivalent à 0,3 % près
     assert gears.rootStress(500, 2, 8) == pytest.approx(5.47 * 500 / (8 * 4), rel=3e-3)

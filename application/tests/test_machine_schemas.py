@@ -51,6 +51,21 @@ def test_pignon_et_roue_engrenent_sans_se_chevaucher(Z1, Z2, m):
     assert "interférence" not in fig.layout.title.text
 
 
+@pytest.mark.parametrize("alpha", [14.5, 20.0, 25.0])
+def test_dessin_suit_l_angle_de_pression(alpha):
+    fig = ms.gearMesh({**mc.defaultGearInput(), "Z1": 40, "Z2": 60, "m": 2.0, "alpha": alpha})
+    pignon, roue = _xy(_trace(fig, "Pignon")), _xy(_trace(fig, "Roue"))
+    assert not _dedans(roue, pignon).any() and not _dedans(pignon, roue).any()
+    ligne = _trace(fig, "Ligne d'action")
+    # la ligne d'action est tangente aux cercles de base : sa distance au centre du pignon vaut r1·cos α
+    (x1, x2), (y1, y2) = ligne.x, ligne.y
+    dist = abs(x1 * y2 - x2 * y1) / math.hypot(x2 - x1, y2 - y1)
+    assert dist == pytest.approx(40 * 2.0 / 2 * math.cos(math.radians(alpha)))
+    assert f"{alpha:g}" in ligne.name
+    with pytest.raises(MecaStructError):
+        ms.gearMesh({**mc.defaultGearInput(), "alpha": 10.0})
+
+
 def test_moins_de_17_dents_interference_signalee():
     fig = ms.gearMesh({**mc.defaultGearInput(), "Z1": 12, "Z2": 65, "m": 3.0})
     assert "interférence" in fig.layout.title.text  # Zmin = 2/sin²α ≈ 17 sans déport : les dents se chevauchent

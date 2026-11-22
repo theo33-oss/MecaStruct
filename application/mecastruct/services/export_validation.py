@@ -19,7 +19,6 @@ from mecastruct import __version__
 from mecastruct.services import export_texte, project_io
 
 TOLERANCE = 1e-3  # écart relatif accepté entre la formule Excel et MecaStruct
-ALPHA = "RADIANS(20)"  # angle de pression des engrenages
 
 
 # ------------------------------------------------------------------------------------------- formules par calcul
@@ -133,14 +132,20 @@ def _rlt(s, r, _dm):
 
 def _eng(s, r, dm):
     Re = dm.getMaterial(s["materiau"])["Re"] / 1e6
-    return [("xRe", f"Re du pignon ({s['materiau']})", Re, "MPa")], [
+    extras = [("xRe", f"Re du pignon ({s['materiau']})", Re, "MPa")]
+    if "alpha" in s:
+        alpha = "RADIANS({alpha})"  # donnée modifiable du classeur
+    else:  # ancien fichier de projet sans angle de pression : 20°
+        extras.append(("xAl", "Angle de pression α", r["alpha"], "°"))
+        alpha = "RADIANS({xAl})"
+    return extras, [
         ("r", "Rapport de transmission", "−Z1 / Z2", "", "-{Z1}/{Z2}", r["r"]),
         ("a", "Entraxe a", "m (Z1 + Z2) / 2", "mm", "{m}*({Z1}+{Z2})/2", r["a"]),
         ("d", "Diamètre primitif du pignon d1", "m · Z1", "mm", "{m}*{Z1}", r["d"]),
         ("C", "Couple au pignon C1", "30 P / (π N)", "N·m", "30*{P}/(PI()*{N})", r["C1"]),
         ("t", "Effort tangentiel Ft", "2 C1 / d1", "N", "2*[C]*1000/[d]", r["Ft"]),
-        ("f", "Effort radial Fr", "Ft · tan 20°", "N", f"[t]*TAN({ALPHA})", r["Fr"]),
-        ("n", "Effort normal Fn", "Ft / cos 20°", "N", f"[t]/COS({ALPHA})", r["Fn"]),
+        ("f", "Effort radial Fr", "Ft · tan α", "N", f"[t]*TAN({alpha})", r["Fr"]),
+        ("n", "Effort normal Fn", "Ft / cos α", "N", f"[t]/COS({alpha})", r["Fn"]),
         ("s", "Contrainte en pied de dent σ", "54 Ft / (π² k m²)", "MPa", "54*[t]/(PI()^2*{k}*{m}^2)", r["sigma"]),
         ("R", "Résistance pratique Rpe", "Re / s", "MPa", "{xRe}/{s}", r["Rpe"]),
         ("m", "Module minimal", "√(54 Ft / (π² k Rpe))", "mm", "SQRT(54*[t]/(PI()^2*{k}*[R]))", r["mMini"]),

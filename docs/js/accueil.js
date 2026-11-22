@@ -4,16 +4,34 @@
 (() => {
   const { el } = App;
 
+  // Titre repliable (<details>/<summary> natifs, fermé par défaut). Clic et clavier sont la référence ; avec une souris,
+  // le survol ouvre aussi (et referme en quittant, sauf si on a cliqué). Échap referme. Le contenu pousse la mise en page.
+  const survol = window.matchMedia ? window.matchMedia("(hover: hover)") : { matches: false };
+  function repliable(titre, contenu) {
+    const resume = el("summary", {}, titre);
+    const d = el("details", { class: "repli" }, resume, contenu);
+    let parSurvol = false;
+    resume.addEventListener("click", (e) => {
+      if (parSurvol) { e.preventDefault(); parSurvol = false; } // ouvert au survol : le clic le garde ouvert
+    });
+    d.addEventListener("mouseenter", () => { if (survol.matches && !d.open) { parSurvol = true; d.open = true; } });
+    d.addEventListener("mouseleave", () => { if (parSurvol) { parSurvol = false; d.open = false; } });
+    d.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && d.open) { parSurvol = false; d.open = false; resume.focus(); }
+    });
+    return d;
+  }
+
   App.genre("accueil", (contenu) => {
     const familles = App.FAMILLES.map((f) => {
       const pages = App.PAGES.filter((p) => p.famille === f.id);
       return el("section", { class: "carte famille-carte" },
-        el("h2", { texte: f.titre }),
         el("p", { class: "legende", texte: f.texte }),
-        el("ul", { class: "liste-pages" }, pages.map((p) => el("li", {},
-          el("a", { href: "#/" + p.id, texte: p.titre }),
-          p.genre === "bureau" ? el("span", { class: "pastille", texte: "bureau", aide: "Disponible dans l'application de bureau ; arrive bientôt dans le navigateur." }) : null,
-          el("span", { class: "legende", texte: " " + p.texte })))));
+        repliable(el("h2", { texte: f.titre }),
+          el("ul", { class: "liste-pages" }, pages.map((p) => el("li", {},
+            el("a", { href: "#/" + p.id, texte: p.titre }),
+            p.genre === "bureau" ? el("span", { class: "pastille", texte: "bureau", aide: "Disponible dans l'application de bureau ; arrive bientôt dans le navigateur." }) : null,
+            el("span", { class: "legende", texte: " " + p.texte }))))));
     });
 
     contenu.append(
@@ -25,13 +43,13 @@
             el("a", { class: "bouton primaire", href: "#/ajustements", texte: "Commencer par un ajustement ISO 286" }),
             el("a", { class: "bouton secondaire", href: "#/limites", texte: "Ce qui est vérifié" }))),
         el("div", { class: "carte deux-facons" },
-          el("h2", { texte: "Deux façons de l'utiliser" }),
-          el("dl", {},
-            el("dt", { texte: "Dans ce navigateur" }),
-            el("dd", { texte: "Aucune installation, toutes les pages. Le premier chargement prend 15 à 30 secondes, les suivants quelques secondes. Vos saisies restent dans ce navigateur." }),
-            el("dt", { texte: "Sur le bureau Windows" }),
-            el("dd", {}, "Démarrage immédiat, hors ligne, dossiers de validation PDF et Word. ",
-              el("a", { href: App.DEPOT + "/releases/latest", texte: "Télécharger l'installateur" }), "."))),
+          repliable(el("h2", { texte: "Deux façons de l'utiliser" }),
+            el("dl", {},
+              el("dt", { texte: "Dans ce navigateur" }),
+              el("dd", { texte: "Aucune installation, toutes les pages. Le premier chargement prend 15 à 30 secondes, les suivants quelques secondes. Vos saisies restent dans ce navigateur." }),
+              el("dt", { texte: "Sur le bureau Windows" }),
+              el("dd", {}, "Démarrage immédiat, hors ligne, dossiers de validation PDF et Word. ",
+                el("a", { href: App.DEPOT + "/releases/latest", texte: "Télécharger l'installateur" }), ".")))),
       ),
       el("div", { class: "cartes" }, familles),
     );

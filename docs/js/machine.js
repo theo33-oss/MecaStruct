@@ -120,6 +120,7 @@
     const enMarge = !!c.securite && securiteEnMarge();
     const input = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false" });
     input.value = affiche(enMarge && typeof valeur === "number" ? 100 * (valeur - 1) : valeur);
+    input.dataset.id = c.id; // repère pour le mode guidé (js/guide.js)
     // l'étiquette englobe aussi la liste « Coefficient s / Marge » : c'est elle qui la reçoit, le champ garde son propre nom
     if (c.securite) input.setAttribute("aria-label", enMarge ? "Marge de sécurité (%)" : titre);
     const erreur = el("span", { class: "erreur-champ", hidden: true });
@@ -317,11 +318,29 @@
     const zoneMessage = el("div");
     const zoneResultat = el("div", { class: "resultat", "aria-live": "polite" });
     let minuterie = null;
+    let comparaison = null; // « Comparer des études » (js/comparer.js)
     const enregistrer = () => App.memoire.ecrire("saisie." + ident, saisie);
     const tousChamps = f.groupes.flatMap((g) => g.champs);
     const conditions = (c) => [].concat(c.si || []); // une condition ou une liste de conditions, toutes requises
     const controleurs = new Set(tousChamps.flatMap((c) => [...conditions(c).map((k) => k.id), c.options_de && c.type === "liste" && c.options_de.depuis].filter(Boolean)));
     const visible = (c) => conditions(c).every((k) => k.valeurs.includes(saisie[k.id]));
+
+    // Matériau changé sur une page à bouton « Calculer » : E, G, Re… sont déjà remplacés dans les champs, mais le résultat affiché
+    // date encore de l'ancien matériau. Une notification sous la case le dit, avec un bouton « Actualiser ».
+    let matPerime = null; // { id, nom, champs }
+    function afficherPerime() {
+      formulaire.querySelectorAll(".notif-matPerime").forEach((n) => n.remove());
+      if (!matPerime) return;
+      const select = formulaire.querySelector(`select[data-id="${matPerime.id}"]`);
+      if (!select) return;
+      const champs = matPerime.champs.length ? ` (${matPerime.champs.join(", ")})` : "";
+      const notif = el("div", { class: "notif-matPerime", role: "status" },
+        el("span", { texte: `Matériau changé : ${matPerime.nom}. Les propriétés${champs} sont à jour dans les champs, mais le résultat affiché date de l'ancien matériau.` }),
+        el("button", { type: "button", class: "secondaire petit", texte: "Actualiser",
+          aide: "Relance le calcul avec le matériau courant et remplace le résultat, le schéma et les graphiques affichés.",
+          onclick: () => { matPerime = null; afficherPerime(); relancer(true); } }));
+      select.closest("label").after(notif);
+    }
 
     const changer = (id, v) => {
       if (typeof v === "number" && Number.isNaN(v)) invalides.add(id);
@@ -335,7 +354,9 @@
           if (r.ok) {
             for (const [k, x] of Object.entries(r.sortie)) if (x !== null) saisie[k] = x;
             enregistrer();
+            if (!auto && suite.champs.length) matPerime = { id, nom: v, champs: suite.champs };
             if (!suite.discret) dessinerChamps();
+            else afficherPerime();
           }
         }
         abonnes.forEach((a) => a(id));
@@ -443,6 +464,7 @@
         return d;
       }));
       if (auto) formulaire.append(el("button", { type: "submit", hidden: true, texte: "Calculer" }));
+      afficherPerime();
       if (f.note) { // la source et les écarts avec le cours sont repliés : une phrase utile reste visible
         const coupe = f.note.search(/(^|\s)(Source|Fatigue|Formules classiques|Exemples) ?:? /);
         const tete = coupe > 0 ? f.note.slice(0, coupe).trim() : coupe === 0 ? "" : f.note;
@@ -542,6 +564,7 @@
       const lancer = () => {
         const r = App.calculer(ident, saisie);
         calculee = JSON.stringify(saisie);
+        if (matPerime) { matPerime = null; afficherPerime(); }
         if (!r.ok) { zoneResultat.replaceChildren(App.message("erreur", r.erreur)); if (parClic) montrer(); return; }
         afficherResultat(r.sortie);
         if (r.sortie.options) majOptions(r.sortie);
@@ -732,6 +755,7 @@
         });
         boutons.push(note, classeur);
       }
+      if (comparaison && boutons.length) boutons.push(comparaison.bouton());
       if (!boutons.length) return "";
       const sans = (f.dossier || f.dossierMachine) ? null : el("span", { class: "legende", texte: "Cette page n'a pas de dossier de validation." });
       return el("div", { class: "exports" }, el("span", { class: "exports-titre", texte: "Justifier ce calcul" }), el("div", { class: "ligne" }, boutons), sans);
@@ -775,36 +799,103 @@
       const panneau = el("div", { class: "ia-panneau", role: "dialog", "aria-label": "Demander à une IA", hidden: true },
         el("p", { texte: "Étude copiée : collez-la (Ctrl+V) dans l'IA. Elle présente d'abord le problème, puis posez-lui vos questions." }),
         el("div", { class: "ligne" }, lien("Ouvrir Claude", "https://claude.ai/new"), lien("Ouvrir ChatGPT", "https://chatgpt.com/")));
-      const bouton = el("button", { type: "button", class: "ia-bouton", texte: "Demander à une IA", "aria-expanded": "false",
-        aide: "Copie l'étude (données, résultats, démarche) avec une consigne : l'IA présente le problème, puis vous lui posez vos questions. Rien n'est envoyé : vous collez le texte dans Claude ou ChatGPT." });
+      // languette au bord gauche : réduite à une flèche au repos, déployée (libellé + panneau) après un clic
+      const bouton = el("button", { type: "button", class: "ia-bouton", "aria-expanded": "false", "aria-label": "Demander à une IA",
+        aide: "Copie l'étude (données, résultats, démarche) avec une consigne : l'IA présente le problème, puis vous lui posez vos questions. Rien n'est envoyé : vous collez le texte dans Claude ou ChatGPT." },
+        el("span", { class: "ia-fleche", "aria-hidden": "true", texte: "›" }),
+        el("span", { class: "ia-libelle", texte: "Demander à une IA" }));
       const conteneur = el("div", { class: "ia-flottant" }, panneau, bouton);
-      const fermer = () => { panneau.hidden = true; bouton.setAttribute("aria-expanded", "false"); };
+      const fermer = () => { panneau.hidden = true; conteneur.classList.remove("ouvert"); bouton.setAttribute("aria-expanded", "false"); };
       bouton.addEventListener("click", async () => {
+        if (!panneau.hidden) return fermer(); // second clic : on referme et on réduit
         const r = App.calculer(ident + ".ia", { ...saisie, _securite: App.memoire.lire("securite", "coef") });
         if (!r.ok) return signaler("erreur", r.erreur);
         const ok = await App.copier(r.sortie.texte);
         App.confirmer(null, ok, "Étude copiée", "Copie impossible", "Étude copiée : collez-la dans l'IA (Ctrl+V).");
         panneau.hidden = !ok;
+        conteneur.classList.toggle("ouvert", ok);
         bouton.setAttribute("aria-expanded", String(ok));
       });
-      // fermeture : Échap ou clic ailleurs ; les écouteurs se retirent d'eux-mêmes quand la page a disparu
+      // fermeture : Échap, clic ailleurs, défilement de la page, changement d'onglet ; les écouteurs se retirent
+      // d'eux-mêmes quand la page a disparu
       const surDocument = (e) => {
-        if (!conteneur.isConnected) { document.removeEventListener("keydown", surDocument); document.removeEventListener("click", surDocument); return; }
-        if (e.type === "keydown" ? e.key === "Escape" : !conteneur.contains(e.target)) fermer();
+        if (!conteneur.isConnected) {
+          document.removeEventListener("keydown", surDocument); document.removeEventListener("click", surDocument);
+          window.removeEventListener("scroll", surDocument);
+          return;
+        }
+        if (e.type === "keydown") { if (e.key === "Escape") fermer(); }
+        else if (e.type === "scroll") { if (!panneau.hidden) fermer(); }
+        else if (!conteneur.contains(e.target) || (e.target.closest && e.target.closest(".onglets"))) fermer();
       };
       document.addEventListener("keydown", surDocument);
       document.addEventListener("click", surDocument);
+      window.addEventListener("scroll", surDocument, { passive: true });
       return conteneur;
     }
 
     const titreResultat = App.titreImage("Résultat", () => zoneResultat.querySelector(".bilan, .verdict"), "resultat.png", "titre-resultat");
     dessinerChamps();
-    const bloc = el("div", { class: "calcul" }, boutonIA(),
+    // Pages à schéma : le schéma vit dans un panneau « Représentation » escamotable, à droite de la zone principale
+    // (grand écran) ou en section repliable avant les champs (petit écran). Replier ne retire rien du DOM : le formulaire,
+    // le schéma et leurs positions de défilement restent en place, seul le CSS (classe « replie ») change la largeur.
+    function panneauSchema() {
+      const cleMemo = "panneau." + ident;
+      const gardee = App.memoire.lire(cleMemo, null);
+      let replie = !!(gardee && typeof gardee === "object" && gardee.replie === true);
+      const idPanneau = "panneau-schema-" + ident;
+      const poignee = el("button", { type: "button", class: "poignee", "aria-controls": idPanneau },
+        el("span", { class: "poignee-fleche", "aria-hidden": "true", texte: "›" }),
+        el("span", { class: "poignee-texte", texte: "Représentation" }));
+      const coche = el("input", { type: "checkbox" });
+      coche.checked = !!gardee; // un choix mémorisé existe pour cette page
+      const contenu = el("aside", { id: idPanneau, class: "panneau-schema", "aria-label": "Représentation" },
+        App.titreImage("Schéma", () => zoneSchema.querySelector(".js-plotly-plot"), "schema.png"), zoneSchema,
+        el("label", { class: "panneau-memo", aide: "Si cochée, ce navigateur se souvient que le panneau est replié ou déplié sur cette page. Sinon il s'ouvre déplié à chaque visite." },
+          coche, "Mémoriser ce choix pour cette page"));
+      const cadre = el("div", { class: "panneau-cadre" }, poignee, contenu);
+      const appliquer = () => {
+        cadre.classList.toggle("replie", replie);
+        const texte = replie ? "Déplier le panneau de représentation" : "Replier le panneau de représentation";
+        poignee.setAttribute("aria-expanded", String(!replie));
+        poignee.setAttribute("aria-label", texte);
+        poignee.dataset.aide = texte;
+        contenu.inert = replie; // contenu hors du clavier et des lecteurs d'écran, mais toujours dans le DOM
+      };
+      // Plotly suit la largeur de la fenêtre : on la lui « rappelle » une fois la transition finie
+      const redimensionner = () => {
+        const doux = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+        setTimeout(() => {
+          window.dispatchEvent(new Event("resize"));
+          for (const d of document.querySelectorAll(".js-plotly-plot")) if (window.Plotly && d.offsetParent) { try { Plotly.Plots.resize(d); } catch (e) { /* figure en cours de tracé */ } }
+        }, doux ? 220 : 0);
+      };
+      const retenir = () => { if (coche.checked) App.memoire.ecrire(cleMemo, { replie }); else App.memoire.oublier(cleMemo); };
+      poignee.addEventListener("click", () => { replie = !replie; appliquer(); retenir(); redimensionner(); });
+      coche.addEventListener("change", retenir);
+      appliquer();
+      return { cadre, redimensionner };
+    }
+    const panneau = f.apercu ? panneauSchema() : null;
+    const colonnes = [
       el("div", { class: "colonne-saisie" }, formulaire),
       el("div", { class: "colonne-resultat" },
         auto ? null : el("div", { class: "actions-schema" }, el("button", { type: "button", class: "primaire", texte: "Calculer", aide: "Lance le calcul.", onclick: () => relancer(true) })),
-        f.apercu ? App.titreImage("Schéma", () => zoneSchema.querySelector(".js-plotly-plot"), "schema.png") : null, f.apercu ? zoneSchema : null,
-        titreResultat, zoneResultat, zoneExtras));
+        titreResultat, zoneResultat, zoneExtras)];
+    const principale = panneau ? el("div", { class: "zone-principale" }, colonnes) : null; // sans schéma : colonnes directement dans .calcul
+    const grand = matchMedia("(min-width: 1100px)");
+    const bloc = el("div", { class: "calcul" + (panneau ? " avec-schema" : "") }, boutonIA(),
+      panneau && !grand.matches ? panneau.cadre : null, // petit écran : avant les champs
+      principale || colonnes,
+      panneau && grand.matches ? panneau.cadre : null); // grand écran : à droite
+    if (panneau) {
+      const placer = () => { // le panneau change de place (sans être recréé) quand la fenêtre passe le seuil de 1100 px
+        if (!bloc.isConnected) { grand.removeEventListener("change", placer); return; }
+        if (grand.matches) bloc.append(panneau.cadre); else bloc.insertBefore(panneau.cadre, principale);
+        panneau.redimensionner();
+      };
+      grand.addEventListener("change", placer);
+    }
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {
       App.oublierLien();
@@ -822,6 +913,8 @@
         } else setTimeout(() => relancer(), 0); // le résultat de l'exemple (ou de la dernière saisie) est là dès l'arrivée
       }
     }
+    App.guide?.monter(ident, f, bloc, { saisie: () => saisie, formulaire, resultat: zoneResultat, auto, apercu: !!f.apercu });
+    comparaison = App.comparer?.monter(ident, f, bloc, { saisie: () => saisie, verifierNombre, auto }) || null;
     return bloc;
   }
 
