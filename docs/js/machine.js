@@ -44,6 +44,65 @@
 
   const securiteEnMarge = () => App.memoire.lire("securite", "coef") === "marge"; // réglage commun à toutes les pages
 
+  // « Aller à la cause » : pour chaque calcul (ou calcul complémentaire), le champ à corriger en premier pour un critère de
+  // services/criteres.py ; « g:Titre » désigne un groupe de champs. Le premier motif qui correspond à « groupe|mode » l'emporte.
+  // Un calcul ou un critère absent d'ici n'a pas de lien : on ne relie que ce qui est sûr. La cible est le LEVIER de conception
+  // (section, longueur, diamètre…), pas la charge imposée ; revue métier faite. Dans `pal`, « Collerette » doit rester avant « Pression ».
+  const CAUSES = {
+    beam: [[/./, ["g:Section"]]],
+    "beam.ec3": [[/Déversement/, ["Lcr"]], [/./, ["g:Section"]]],
+    "beam.fatigue": [[/./, ["g:Fatigue (Goodman)"]]],
+    ossature: [[/./, ["g:Nœuds et pièces"]]],
+    truss: [[/Résistance/, ["S"]], [/Flambage/, ["Imin"]]],
+    tra: [[/./, ["S0"]]],
+    cis: [[/^Matage\|/, ["Sm"]], [/^Clavette\|/, ["Lk"]], [/^Goupille\|/, ["dp"]], [/\|Jourawski/, ["g:Section pour Jourawski"]],
+      [/\|Cisaillement : τ max/, ["S"]]],
+    tor: [[/./, ["D"]]],
+    fle: [[/./, ["g:Reprendre la section et les efforts"]]],
+    fla: [[/./, ["g:Section"]]],
+    ten: [[/./, ["sig"]]],
+    fre: [[/Adhérence/, ["L"]], [/./, ["g:Tolérances et montage"]]],
+    pal: [[/Collerette/, ["Dfl"]], [/Vitesse/, ["materiau"]], [/Pression/, ["L"]]],
+    rlt: [[/./, ["C"]]],
+    eng: [[/./, ["m"]]],
+    emb: [[/./, ["ts"]]],
+    mot: [[/Couple nominal/, ["Cn"]], [/Couple maxi/, ["Cmax"]], [/Vitesse maxi/, ["Nmax"]]],
+  };
+
+  const VERDICTS = { ok: ["✓", "Conforme"], neutre: ["⚠", "À vérifier"], ko: ["✗", "Non conforme"], info: ["ℹ", "Information"] };
+  // « info » : calcul qui rend des valeurs sans critère de conformité (pas de mode de ruine, ni verdict vrai ou faux)
+  const nombreOuNull = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  // Avertissements du bloc « Décision », par calcul : fonction (saisie du calcul) → texte, ou null s'il n'y a rien à dire.
+  // Une ligne par réserve connue ; ajouter ici, sans toucher au reste, une limite de modèle que la saisie peut franchir.
+  const AVERTISSEMENTS = {
+    eng: (s) => (nombreOuNull(s.alpha) !== null && s.alpha !== 20
+      ? "α ≠ 20° : la contrainte en pied de dent reste calculée pour un profil à 20°." : null),
+    beam: (s) => { // dernier appui (colonne « pos » du tableau « sup ») loin de l'extrémité L : porte-à-faux
+      const L = nombreOuNull(s.L);
+      const appuis = Array.isArray(s.sup) ? s.sup.map((a) => nombreOuNull(a && a.pos)).filter((x) => x !== null) : [];
+      if (L === null || L <= 0 || appuis.length < 2) return null; // un seul appui : console, pas un oubli
+      const dernier = Math.max(...appuis);
+      if (L - dernier > 0.01 * L) return `La longueur L (${affiche(L)} m) dépasse le dernier appui (${affiche(dernier)} m) : la poutre a un porte-à-faux.`;
+      if (dernier - L > 0.01 * L) return `Un appui (${affiche(dernier)} m) est au-delà de la longueur L (${affiche(L)} m) : vérifiez les positions.`;
+      return null;
+    },
+  };
+  const tauxDe = (c) => (Number.isFinite(c.taux) ? c.taux : Infinity);
+  // Même nom de mode dans plusieurs études (Pression de matage P : matage, clavette, goupille) : l'étude lève le doute
+  const libelleMode = (c, crit) => (c.groupe && crit.filter((x) => x.mode === c.mode).length > 1 ? `${c.mode} (${c.groupe})` : c.mode);
+
+  // Barre résumé du bas d'écran (petit écran) : état partagé par les calculs affichés (un seul à la fois en pratique)
+  const blocsResume = new Map(); // bloc monté → son observateur
+  const barresVisibles = new Set();
+  const petitEcran = matchMedia("(max-width: 1099.98px)");
+  function majPageResume() {
+    for (const [b, io] of blocsResume) if (!b.isConnected) { io.disconnect(); blocsResume.delete(b); barresVisibles.delete(b); }
+    document.body.classList.toggle("avec-resume", petitEcran.matches && blocsResume.size > 0); // marge basse du contenu
+    document.documentElement.classList.toggle("resume-visible", petitEcran.matches && barresVisibles.size > 0); // décale languette IA et messages
+  }
+  petitEcran.addEventListener("change", majPageResume);
+  window.addEventListener("hashchange", () => setTimeout(majPageResume, 500));
+
   // Repère data-id d'un champ (focus conservé quand les champs sont redessinés) ; les boutons n'ont pas toujours d'identifiant
   const repere = (c) => c.id ?? `${c.type}|${c.calcul || ""}|${c.libelle}`;
 
@@ -422,6 +481,9 @@
     const zoneSchema = el("div", { class: "schema" });
     const zoneMessage = el("div");
     const zoneResultat = el("div", { class: "resultat" });
+    // Tête de résultat « Décision » : hors de zoneResultat, que les calculs en cours ou les erreurs vident ; elle garde donc
+    // le résultat précédent (marqué « résultat précédent ») pendant un calcul, un résultat daté ou grisé.
+    const zoneDecision = el("div", { class: "zone-decision" });
     // Seule la phrase du bilan est annoncée aux lecteurs d'écran (pas tout le résultat), 800 ms après le dernier calcul.
     const annonce = el("p", { class: "cache", role: "status", "aria-atomic": "true" });
     let minuterieAnnonce = null;
@@ -525,7 +587,7 @@
           const r = App.calculer(c.calcul, saisie);
           bloc.replaceChildren(titreExtra());
           if (!r.ok) return bloc.append(App.message("erreur", r.erreur));
-          bloc.append(...construireResultat(r.sortie, c.calcul, "", true));
+          bloc.append(...construireResultat(r.sortie, c.calcul, "", true, true));
           annoncer(`${c.titre || c.libelle} : ${phraseAnnonce(r.sortie)}`, true);
           extras[c.calcul] = { empreinte: JSON.stringify(saisie), bloc };
         }, 30);
@@ -566,14 +628,44 @@
 
     // Champs refusés : leur nom, en boutons qui donnent le focus au champ.
     const nomChamp = (id) => { const c = tousChamps.find((x) => x.id === id); return c ? c.libelle + (c.unite ? ` (${c.unite})` : "") : id; };
+    // Donne le focus au champ (ou au groupe « g:Titre »), ouvre le groupe replié, fait défiler (le menu collant est pris en compte
+    // par scroll-padding-top = --barre) et met la cible en évidence 2 s (classe cause-surlignee, sans animation nécessaire).
+    // Rend faux si la cible n'est pas affichée avec la saisie actuelle.
+    let minuterieCause = null;
     function aller(id) {
-      const zone = formulaire.querySelector(`.tableau-saisie[data-champ="${id}"]`);
-      const cible = zone ? zone.querySelector("input.invalide, input[data-refuse]") || zone.querySelector("input") : [...formulaire.querySelectorAll("[data-id]")].find((x) => x.dataset.id === id);
-      if (!cible) return;
+      const zone = id.startsWith("g:") ? null : formulaire.querySelector(`.tableau-saisie[data-champ="${id}"]`);
+      const cible = id.startsWith("g:") ? [...formulaire.querySelectorAll("details.groupe")].find((d) => d.dataset.titre === id.slice(2))
+        : zone ? zone.querySelector("input.invalide, input[data-refuse]") || zone.querySelector("input") || zone.querySelector("button")
+          : [...formulaire.querySelectorAll("[data-id]")].find((x) => x.dataset.id === id);
+      if (!cible) return false;
       const groupe = cible.closest("details");
       if (groupe && !groupe.open) groupe.open = true;
-      cible.focus();
-      cible.scrollIntoView({ block: "center" });
+      const entier = cible.matches("details");
+      const doux = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+      (entier ? cible.querySelector("summary") : cible).focus({ preventScroll: true });
+      cible.scrollIntoView({ block: entier ? "start" : "center", behavior: doux ? "smooth" : "auto" });
+      const cadre = entier ? cible : cible.closest("label, .tableau-saisie, .action") || cible;
+      formulaire.querySelectorAll(".cause-surlignee").forEach((x) => x.classList.remove("cause-surlignee"));
+      cadre.classList.add("cause-surlignee");
+      clearTimeout(minuterieCause);
+      minuterieCause = setTimeout(() => cadre.classList.remove("cause-surlignee"), 2000);
+      return true;
+    }
+    // Lien « Aller à la cause » d'un critère : rien si le calcul ou le critère n'a pas de champ sûr dans CAUSES, ou si ce
+    // champ n'existe pas dans ce formulaire. Au clic, la première cible affichée avec la saisie actuelle reçoit le focus.
+    function causesDe(cle, c) {
+      const entree = (CAUSES[cle] || []).find(([motif]) => motif.test(`${c.groupe || ""}|${c.mode}`));
+      const existe = (t) => (t.startsWith("g:") ? f.groupes.some((g) => g.titre === t.slice(2)) : tousChamps.some((x) => x.id === t));
+      const cibles = entree ? entree[1].filter(existe) : [];
+      return cibles.length ? cibles : null;
+    }
+    function boutonCause(cle, c, nom) {
+      const cibles = causesDe(cle, c);
+      if (!cibles) return null;
+      return el("button", { type: "button", class: "lien-cause", "aria-label": `Aller à la cause : ${nom}`, texte: "Aller à la cause",
+        aide: "Va au champ ou au groupe de champs qui influence le plus ce critère.", onclick: () => {
+          if (!cibles.some(aller)) signaler("info", "Le champ à corriger n'est pas affiché avec la saisie actuelle.");
+        } });
     }
     const listeInvalides = () => [...invalides].flatMap((id, n) => [n ? ", " : "",
       el("button", { type: "button", class: "lien-champ", "data-aller": id, texte: nomChamp(id), aide: "Va au champ à corriger.", onclick: () => aller(id) })]);
@@ -731,7 +823,8 @@
             } finally { bouton.disabled = false; if (!bouton.dataset.libelle) bouton.textContent = libelle; }
           } }));
       }
-      return el("div", { class: "fichiers" }, el("h2", { class: "titre-mineur", texte: "Fichiers" }), el("div", { class: "ligne" }, boutons), entree);
+      return el("div", { class: "fichiers" }, el("h2", { class: "titre-mineur", texte: "Fichiers" }), el("div", { class: "ligne" }, boutons),
+        avertAncien("Résultat précédent : le lien et le fichier reprennent la saisie actuelle, pas le résultat affiché."), entree);
     }
 
     function apercu() {
@@ -788,7 +881,7 @@
         const r = App.calculer(ident, saisie);
         calculee = JSON.stringify(saisie);
         if (matPerime) { matPerime = null; afficherPerime(); }
-        if (!r.ok) { zoneResultat.replaceChildren(App.message("erreur", r.erreur)); if (parClic) montrer(); return; }
+        if (!r.ok) { zoneDecision.replaceChildren(); majResume(null); zoneResultat.replaceChildren(App.message("erreur", r.erreur)); if (parClic) montrer(); return; }
         afficherResultat(r.sortie);
         annoncer(phraseAnnonce(r.sortie), parClic);
         if (r.sortie.options) majOptions(r.sortie);
@@ -816,25 +909,43 @@
     let derniere = null; // dernier résultat affiché (redessiné quand on change la forme de la sécurité)
     function afficherResultat(s) {
       derniere = s;
+      zoneDecision.replaceChildren(decision(s, ident));
+      majResume(resumer(s));
       zoneResultat.replaceChildren(...construireResultat(s, ident, barreExports(), !auto));
     }
     // Après un clic sur « Calculer » : le résultat vient à l'écran et son cadre s'éclaire un instant.
-    function montrer() {
+    // `surTete` (barre résumé) : le focus va aussi à la tête de résultat « Décision ».
+    function montrer(surTete = false) {
       const doux = !matchMedia("(prefers-reduced-motion: reduce)").matches;
       const col = titreResultat.closest(".colonne-resultat");
       // grand écran : la colonne de droite défile seule ; sinon c'est la page qui défile
       const interne = () => col && getComputedStyle(col).overflowY === "auto" && col.scrollHeight > col.clientHeight + 4;
+      // le titre « Résultat » se range sous le menu collant (--barre) ; le bloc « Décision » est juste dessous
       const ecart = () => titreResultat.getBoundingClientRect().top - (interne() ? col.getBoundingClientRect().top + 4 : App.hautBarre() + 12);
       const aller = (behavior) => {
         if (interne()) col.scrollTo({ top: col.scrollTop + ecart(), behavior });
-        else titreResultat.scrollIntoView({ block: "start", behavior });
+        else window.scrollBy({ top: ecart(), behavior });
       };
-      aller(doux ? "smooth" : "auto");
-      // les graphiques se dessinent ensuite et déplacent la page : on recale une fois, sans animation
-      setTimeout(() => { if (Math.abs(ecart()) > 24) aller("auto"); }, 900);
+      // Mode guidé : le résultat ne fait pas sauter la page sous la carte (« Suivant » doit rester où on l'a vu) ; le guide amène
+      // lui-même la page au verdict à l'étape qui le montre. Le bouton « Voir le résultat » (surTete) défile toujours.
+      const guide = guideActif() && !surTete;
+      if (!guide) {
+        aller(doux ? "smooth" : "auto");
+        // Un seul recalage final, sans animation : les graphiques ont fini de se dessiner et ont pu déplacer la page. Il n'a lieu que
+        // si la personne n'a pas repris la main (molette, doigt, clavier) entre-temps, sinon il l'arracherait à sa lecture.
+        let reprise = false;
+        const noter = () => { reprise = true; };
+        const evenements = ["wheel", "touchstart", "keydown", "pointerdown"];
+        for (const e of evenements) window.addEventListener(e, noter, { passive: true, once: true });
+        setTimeout(() => {
+          for (const e of evenements) window.removeEventListener(e, noter);
+          if (!reprise && !guideActif() && Math.abs(ecart()) > 24) aller("auto");
+        }, 900);
+      }
       zoneResultat.classList.remove("eclair");
       void zoneResultat.offsetWidth; // relance l'animation si le calcul est refait
       zoneResultat.classList.add("eclair");
+      if (surTete) zoneDecision.firstElementChild?.focus({ preventScroll: true });
     }
 
     const phraseEtat = (t) => { const p = App.decimalesFr(String(t || "")); return /^[a-zà-ÿ]{2}/.test(p) ? p.charAt(0).toUpperCase() + p.slice(1) : p; };
@@ -856,7 +967,7 @@
 
     // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient de sécurité ou marge s − 1
     // (résistance), ou réserve 1 − taux (durée, rigidité, vitesse, norme…). Les études d'une même page ont un sous-titre.
-    function bilan(s) {
+    function bilan(s, cle) {
       const crit = s.criteres || [];
       const ko = crit.filter((c) => !c.ok).length;
       const etat = s.ok === true ? "ok" : s.ok === false ? "ko" : "neutre";
@@ -887,6 +998,7 @@
         if (c.genre === "resistance" && c.sens === "max" && c.s_obtenu > 0 && c.s_obtenu < 1)
           marge.push(el("span", { class: "depasse-limite", texte: `dépasse la limite du matériau de ${nf(100 * (1 / c.s_obtenu - 1))} %`,
             aide: "Valeur calculée divisée par la limite du matériau (Re, sans sécurité), moins 1." }));
+        const lienCause = !c.ok || (etat === "neutre" && c === pire) ? boutonCause(cle, c, libelleMode(c, crit)) : null;
         const aideLigne = [barre, ...marge].map((x) => x.dataset && x.dataset.aide).filter(Boolean).join(" ");
         lignes.push(el("li", { class: "mode " + (c.ok ? "ok" : "ko") + (c === pire && crit.length > 1 ? " pire" : "") },
           // UN seul arrêt de tabulation par ligne : le nom du mode porte l'aide de la jauge et des chiffres (lecteur d'écran compris)
@@ -896,13 +1008,145 @@
           el("span", { class: "mode-chiffres" },
             // taux sans unité d'une norme (effort / résistance ≤ 1) : le taux en % suffit
             (!c.unite && c.limite === 1) ? null : el("span", { texte: `${nf(c.valeur, 4)}${u} pour ${nf(c.limite, 4)}${u} ${c.sens === "max" ? "admissibles" : "requis"}` }),
-            el("span", { texte: `taux ${nf(100 * c.taux)} %` }), marge)));
+            el("span", { texte: `taux ${nf(100 * c.taux)} %` }), marge),
+          // mode non admissible (ou le plus sollicité d'un résultat « à vérifier ») : lien vers le champ qui l'influence le plus
+          lienCause ? el("span", { class: "mode-cause" }, lienCause) : null));
       }
       return el("section", { class: "bilan " + etat },
         el("p", { class: "bilan-tete" }, el("span", { class: "verdict-etat", texte: pastille }), el("strong", { texte: phrase })),
         el("ul", { class: "modes" }, lignes),
         el("p", { class: "bilan-phrase", texte: phraseEtat(s.status) }));
     }
+
+    // Ce que la tête de résultat et la barre résumé disent, calculé à partir des critères et du verdict déjà renvoyés :
+    // verdict, mode dimensionnant (taux le plus élevé), coefficient de sécurité minimal (modes de résistance) ou réserve.
+    function resumer(s) {
+      const crit = s.criteres || [];
+      const ko = crit.filter((c) => !c.ok);
+      const niveau = ko.length || s.ok === false ? "ko" : s.ok === true ? "ok" : crit.length ? "neutre" : "info";
+      const plusSollicite = (liste) => liste.reduce((m, c) => (m === null || tauxDe(c) > tauxDe(m) ? c : m), null);
+      const pire = plusSollicite(crit), pireKo = plusSollicite(ko);
+      const finis = crit.filter((c) => c.genre === "resistance" && Number.isFinite(c.s_obtenu));
+      const smin = finis.reduce((m, c) => (m === null || c.s_obtenu < m.s_obtenu ? c : m), null);
+      const enMarge = securiteEnMarge();
+      let court = "";
+      if (smin) court = enMarge ? `marge min ${nf(100 * (smin.s_obtenu - 1))} %` : `s min ${nf(smin.s_obtenu)}`;
+      else if (pire) court = tauxDe(pire) <= 1 ? `réserve ${reserve(pire.taux)} %` : `dépassement ${nf(100 * (tauxDe(pire) - 1))} %`;
+      return { crit, niveau, pire, pireKo, smin, enMarge, court };
+    }
+
+    // Tête de résultat : verdict (texte + icône + couleur), coefficient de sécurité minimal ou réserve, mode dimensionnant,
+    // paramètre le plus influent (quand CAUSES le désigne), action conseillée. Texte seul : aucun graphique n'est nécessaire.
+    function decision(s, cle) {
+      const r = resumer(s);
+      const [icone, mot] = VERDICTS[r.niveau];
+      const faits = [];
+      const fait = (titre, ...valeur) => faits.push(el("div", {}, el("dt", { texte: titre }), el("dd", {}, ...valeur)));
+      if (r.smin) {
+        const c = r.smin;
+        fait(r.enMarge ? "Marge de sécurité minimale" : "Coefficient de sécurité minimal",
+          el("strong", { texte: r.enMarge ? `${nf(100 * (c.s_obtenu - 1))} %` : `s = ${nf(c.s_obtenu)}` }),
+          el("span", { class: "decision-sous", texte: r.enMarge ? `demandée ${nf(100 * (c.s_demande - 1))} %` : `demandé ${nf(c.s_demande)}` }));
+      } else if (r.pire) {
+        fait(tauxDe(r.pire) <= 1 ? "Réserve minimale" : "Dépassement", el("strong", { texte: tauxDe(r.pire) <= 1 ? `${reserve(r.pire.taux)} %` : `${nf(100 * (tauxDe(r.pire) - 1))} %` }));
+      }
+      if (r.pire) {
+        fait("Mode dimensionnant", el("strong", { texte: libelleMode(r.pire, r.crit) }), el("span", { class: "decision-sous", texte: `taux ${nf(100 * tauxDe(r.pire))} %` }));
+        // paramètre le plus influent : seulement un champ précis de CAUSES (un groupe de champs n'est pas un paramètre)
+        const cibles = causesDe(cle, r.pire);
+        const champ = cibles && !cibles[0].startsWith("g:") ? cibles[0] : null;
+        if (champ) fait("Paramètre le plus influent", el("button", { type: "button", class: "lien-champ", texte: nomChamp(champ),
+          aide: "Va à ce champ.", onclick: () => { if (!aller(champ)) signaler("info", "Le champ n'est pas affiché avec la saisie actuelle."); } }));
+      }
+      let action = "Vérifiez les hypothèses.";
+      if (r.niveau === "ko" && r.pireKo) {
+        const nom = libelleMode(r.pireKo, r.crit);
+        action = r.pireKo.genre === "resistance" ? `Réduire la charge ou augmenter la section pour « ${nom} ».` : `Revoir la charge ou les dimensions pour « ${nom} ».`;
+      } else if (r.niveau === "ok") action = "Aucune action requise : tous les critères sont admissibles.";
+      else if (r.niveau === "info") action = "Ce calcul donne des valeurs, sans critère de conformité.";
+      const avert = (AVERTISSEMENTS[cle] || (() => null))(saisie); // limite du modèle que la saisie franchit
+      const cause = r.niveau === "ko" && r.pireKo ? boutonCause(cle, r.pireKo, libelleMode(r.pireKo, r.crit)) : null;
+      return el("section", { class: "decision " + r.niveau, role: "group", "aria-label": "Décision", tabindex: "-1" },
+        el("p", { class: "decision-verdict" }, el("span", { class: "decision-etat" }, el("span", { "aria-hidden": "true", texte: icone }), " " + mot)),
+        faits.length ? el("dl", { class: "decision-faits" }, faits) : null,
+        avert ? el("p", { class: "decision-avert", role: "note" }, el("span", { "aria-hidden": "true", texte: "⚠ " }), avert) : null,
+        el("p", { class: "decision-action" }, action, cause ? " " : null, cause));
+    }
+
+    // Barre résumé du bas d'écran (sous 1100 px) : montrée quand ni le titre « Résultat » ni la tête de résultat ne sont à l'écran.
+    // Son texte (role="status") se met à jour 800 ms après le dernier calcul, comme la zone d'annonce du bilan.
+    let resumeDispo = false, texteResume = "", minuterieResume = null;
+    const vu = { bloc: false, titre: true, decision: false }; // zones de la page actuellement à l'écran
+    const barreResume = el("div", { class: "barre-resume neutre", role: "status", "aria-atomic": "true", hidden: true },
+      el("span", { class: "barre-resume-texte" }),
+      el("button", { type: "button", class: "barre-resume-bouton", texte: "Voir le résultat",
+        aide: "Fait défiler jusqu'à la tête du résultat.", onclick: () => montrer(true) }));
+    // Pendant le mode guidé la barre se range : elle cachait le champ désigné, sous la carte du guide (js/guide.js)
+    const guideActif = () => document.body.classList.contains("guide-actif");
+    function visibiliteResume() {
+      const voir = resumeDispo && vu.bloc && !vu.titre && !(vu.decision && zoneDecision.firstElementChild) && !guideActif();
+      barreResume.hidden = !voir;
+      if (voir) barresVisibles.add(bloc); else barresVisibles.delete(bloc);
+      majPageResume();
+    }
+    // Saisie modifiée depuis le dernier calcul (ou champ invalide) : la barre ne rend plus de verdict, ni couleur, ni « Conforme ».
+    let resumeCourant = null, resumeAncien = false;
+    function ecrireResume(immediat = false) {
+      clearTimeout(minuterieResume);
+      const r = resumeCourant;
+      if (!r) return;
+      const ecrire = () => {
+        const calcul = !!minuterieCalcul; // calcul différé en cours : « à recalculer » serait faux
+        const ancien = resumeAncien && !calcul;
+        const [icone, mot] = ancien ? ["↻", "Résultat ancien — à recalculer"] : calcul ? ["…", "Calcul en cours…"] : VERDICTS[r.niveau];
+        const texte = ancien || calcul ? mot : [mot, r.court].filter(Boolean).join(" · ");
+        barreResume.classList.remove("ok", "ko", "neutre", "info");
+        if (!ancien && !calcul) barreResume.classList.add(r.niveau);
+        barreResume.classList.toggle("ancien", resumeAncien);
+        if (texte === texteResume) return; // même phrase : rien de neuf à dire
+        texteResume = texte;
+        barreResume.firstElementChild.replaceChildren(el("span", { "aria-hidden": "true", texte: icone + " " }), texte);
+      };
+      if (!texteResume || immediat) ecrire(); else minuterieResume = setTimeout(ecrire, 800);
+    }
+    function majResume(r) { // r : résultat de resumer(), ou null (plus de résultat)
+      clearTimeout(minuterieResume);
+      resumeDispo = !!r;
+      resumeCourant = r;
+      if (!r) { texteResume = ""; visibiliteResume(); return; }
+      resumeAncien = false; // un résultat tout neuf : il remplace tout de suite « Résultat ancien » ou « Calcul en cours »
+      ecrireResume(texteResume === "Résultat ancien — à recalculer" || texteResume === "Calcul en cours…");
+      visibiliteResume();
+    }
+    document.addEventListener("mecastruct:guide", function surGuide() {
+      if (!bloc.isConnected) { document.removeEventListener("mecastruct:guide", surGuide); return; }
+      visibiliteResume();
+    });
+    function surveillerResume(essais = 0) {
+      if (!window.IntersectionObserver || blocsResume.has(bloc)) return;
+      if (!bloc.isConnected) { if (essais < 50) setTimeout(() => surveillerResume(essais + 1), 100); return; } // pas encore dans la page
+      const io = new IntersectionObserver((entrees) => {
+        for (const e of entrees) {
+          if (e.target === titreResultat) vu.titre = e.isIntersecting;
+          else if (e.target === zoneDecision) vu.decision = e.isIntersecting;
+          else vu.bloc = e.isIntersecting;
+        }
+        visibiliteResume();
+      });
+      blocsResume.set(bloc, io);
+      io.observe(titreResultat);
+      io.observe(zoneDecision);
+      io.observe(bloc);
+      majPageResume();
+    }
+    // Résultat précédent : pendant un calcul, un résultat daté ou grisé, la tête de résultat reste affichée mais le dit.
+    new MutationObserver(() => {
+      const ancien = zoneResultat.classList.contains("obsolete") || !!zoneResultat.querySelector(":scope > .perime")
+        || (!!zoneDecision.firstElementChild && !aResultat());
+      zoneDecision.classList.toggle("ancien", ancien);
+      if (ancien !== resumeAncien) { resumeAncien = ancien; ecrireResume(); }
+      for (const a of bloc.querySelectorAll(".avert-ancien")) a.hidden = !ancien; // exports et lien : ils reprennent la saisie actuelle
+    }).observe(zoneResultat, { childList: true, attributes: true, attributeFilter: ["class"] });
 
     // Contrôles oui / non sans valeur limite (conditions de montage d'un train épicycloïdal).
     const controles = (s) => ((s.controles || []).length ? el("section", { class: "bilan neutre" },
@@ -911,11 +1155,11 @@
         el("span", { class: "mode-nom", texte: `${c.nom} = ${App.decimalesFr(c.valeur)}` }),
         el("span", { class: "mode-etat", texte: c.ok ? "Respectée" : "Non respectée" }))))) : "");
 
-    function construireResultat(s, cle, exports = "", avecHeure = false) {
+    function construireResultat(s, cle, exports = "", avecHeure = false, avecDecision = false) {
       const niveau = s.ok === true ? "succes" : s.ok === false ? "erreur" : "info";
       const prefixe = s.ok === true ? "Vérifié. " : s.ok === false ? "Non vérifié. " : "";
       let verdict;
-      if ((s.criteres || []).length) verdict = bilan(s);
+      if ((s.criteres || []).length) verdict = bilan(s, cle);
       else {
         verdict = App.message(niveau, prefixe + App.decimalesFr(s.status));
         verdict.classList.add("verdict");
@@ -933,7 +1177,7 @@
       const metriques = (s.metriques || []).length
         ? el("div", { class: "metriques" }, s.metriques.map(([n, v]) => el("div", { class: "metrique" }, el("span", { texte: n }), el("strong", { texte: App.decimalesFr(v) }))))
         : null;
-      return [verdict, controles(s), avecHeure ? heure : "", exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
+      return [avecDecision ? decision(s, cle) : "", verdict, controles(s), avecHeure ? heure : "", exports, metriques || "", liste.length ? App.onglets(liste, cle) : ""];
     }
 
     // Un résultat complémentaire dont la saisie a changé depuis le calcul est signalé (jamais effacé en silence).
@@ -970,6 +1214,9 @@
       if ((s.rapport || []).length) p.append(el("h3", { class: "titre-mineur", texte: "Démarche" }), el("ul", {}, s.rapport.filter((l) => String(l).trim()).map((l) => el("li", { texte: App.decimalesFr(l) }))));
     }
 
+    // Petit avertissement sous les exports et le lien de l'étude : visible tant que le résultat affiché n'est plus celui de la saisie
+    // (saisie modifiée, champ invalide). Les boutons restent actifs : c'est un rappel, pas un blocage.
+    const avertAncien = (texte) => el("p", { class: "legende avert-ancien", role: "note", hidden: !resumeAncien, texte: "⚠ " + texte });
     // Exports placés juste sous le verdict : dossier de validation, bloc-notes, Excel de validation.
     function barreExports() {
       const boutons = (f.dossier || f.dossierMachine) ? boutonDossier() : [];
@@ -997,7 +1244,8 @@
       if (comparaison && boutons.length) boutons.push(comparaison.bouton());
       if (!boutons.length) return "";
       const sans = (f.dossier || f.dossierMachine) ? null : el("span", { class: "legende", texte: "Cette page n'a pas de dossier de validation." });
-      return el("div", { class: "exports" }, el("span", { class: "exports-titre", texte: "Justifier ce calcul" }), el("div", { class: "ligne" }, boutons), sans);
+      return el("div", { class: "exports" }, el("span", { class: "exports-titre", texte: "Justifier ce calcul" }), el("div", { class: "ligne" }, boutons),
+        avertAncien("Résultat précédent : l'export reprend la saisie actuelle, pas le résultat affiché. Recalculez d'abord."), sans);
     }
 
     // Dossier de validation : télécharger le fichier HTML, ou l'ouvrir prêt à imprimer (Imprimer, Enregistrer en PDF).
@@ -1035,8 +1283,11 @@
     function boutonIA() {
       if (!f.exports) return null;
       const lien = (texte, href) => el("a", { class: "bouton secondaire", href, target: "_blank", rel: "noopener noreferrer", texte });
+      const TEXTE_IA = "Étude copiée : collez-la (Ctrl+V) dans l'IA. Elle présente d'abord le problème, puis posez-lui vos questions.";
+      // zone « status » : le texte y est écrit après l'ouverture du panneau, sinon un texte déjà là n'est pas annoncé
+      const phraseIA = el("p", { role: "status", "aria-live": "polite" });
       const panneau = el("div", { class: "ia-panneau", role: "dialog", "aria-label": "Demander à une IA", hidden: true },
-        el("p", { texte: "Étude copiée : collez-la (Ctrl+V) dans l'IA. Elle présente d'abord le problème, puis posez-lui vos questions." }),
+        phraseIA,
         el("div", { class: "ligne" }, lien("Ouvrir Claude", "https://claude.ai/new"), lien("Ouvrir ChatGPT", "https://chatgpt.com/")));
       // languette au bord gauche : réduite à une flèche au repos, déployée (libellé + panneau) après un clic
       const bouton = el("button", { type: "button", class: "ia-bouton", "aria-expanded": "false", "aria-label": "Demander à une IA",
@@ -1048,9 +1299,14 @@
       let vu = false;
       try { vu = sessionStorage.getItem("mecastruct.ia.vu") === "1"; sessionStorage.setItem("mecastruct.ia.vu", "1"); } catch (e) { /* sans mémoire de session */ }
       if (!vu) { conteneur.classList.add("annonce"); setTimeout(() => conteneur.classList.remove("annonce"), 5000); }
-      const fermer = () => { panneau.hidden = true; conteneur.classList.remove("ouvert"); bouton.setAttribute("aria-expanded", "false"); };
+      // rendreFocus : le focus revient au bouton qui a ouvert le panneau (jamais au body), sauf si la personne a cliqué ailleurs
+      const fermer = (rendreFocus = false) => {
+        const dedans = conteneur.contains(document.activeElement);
+        panneau.hidden = true; phraseIA.textContent = ""; conteneur.classList.remove("ouvert"); bouton.setAttribute("aria-expanded", "false");
+        if (rendreFocus || dedans) bouton.focus({ preventScroll: true });
+      };
       bouton.addEventListener("click", async () => {
-        if (!panneau.hidden) return fermer(); // second clic : on referme et on réduit
+        if (!panneau.hidden) return fermer(true); // second clic : on referme et on réduit
         const r = App.calculer(ident + ".ia", { ...saisie, _securite: App.memoire.lire("securite", "coef") });
         if (!r.ok) return signaler("erreur", r.erreur);
         const ok = await App.copier(r.sortie.texte);
@@ -1058,6 +1314,7 @@
         panneau.hidden = !ok;
         conteneur.classList.toggle("ouvert", ok);
         bouton.setAttribute("aria-expanded", String(ok));
+        if (ok) setTimeout(() => { phraseIA.textContent = TEXTE_IA; }, 60); // annoncé : « Étude copiée… »
       });
       // fermeture : Échap ou clic ailleurs (pas le défilement : sur mobile il suit un geste du doigt) ; les écouteurs se
       // retirent d'eux-mêmes quand la page a disparu
@@ -1067,8 +1324,8 @@
           return;
         }
         // Échap : un seul composant réagit par appui (le guide ignore un Échap déjà pris ici)
-        if (e.type === "keydown") { if (e.key === "Escape" && !panneau.hidden) { e.preventDefault(); fermer(); } }
-        else if (!conteneur.contains(e.target) || (e.target.closest && e.target.closest(".onglets"))) fermer();
+        if (e.type === "keydown") { if (e.key === "Escape" && !panneau.hidden) { e.preventDefault(); fermer(true); } }
+        else if (!panneau.hidden && (!conteneur.contains(e.target) || (e.target.closest && e.target.closest(".onglets")))) fermer();
       };
       document.addEventListener("keydown", surDocument);
       document.addEventListener("click", surDocument);
@@ -1106,12 +1363,13 @@
         contenu.inert = replie; // contenu hors du clavier et des lecteurs d'écran, mais toujours dans le DOM
       };
       // Plotly suit la largeur de la fenêtre : on la lui « rappelle » une fois la transition finie
+      // (après la transition : image suivante + 250 ms ; la hauteur propre de chaque figure est rétablie par App.redimensionnerFigures)
       const redimensionner = () => {
         const doux = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-        setTimeout(() => {
+        requestAnimationFrame(() => setTimeout(() => {
           window.dispatchEvent(new Event("resize"));
-          for (const d of document.querySelectorAll(".js-plotly-plot")) if (window.Plotly && d.offsetParent) { try { Plotly.Plots.resize(d); } catch (e) { /* figure en cours de tracé */ } }
-        }, doux ? 220 : 0);
+          App.redimensionnerFigures(document);
+        }, doux ? 250 : 0));
       };
       const retenir = () => { if (coche.checked) App.memoire.ecrire(cleMemo, { replie }); else App.memoire.oublier(cleMemo); };
       poignee.addEventListener("click", () => { replie = !replie; appliquer(); retenir(); redimensionner(); });
@@ -1124,9 +1382,9 @@
       el("div", { class: "colonne-saisie" }, formulaire),
       el("div", { class: "colonne-resultat" },
         auto ? null : el("div", { class: "actions-schema" }, el("button", { type: "button", class: "primaire", texte: "Calculer", aide: "Lance le calcul.", onclick: () => relancer(true) })),
-        titreResultat, annonce, zoneResultat, zoneExtras)];
+        titreResultat, annonce, zoneDecision, zoneResultat, zoneExtras)];
     const principale = panneau ? el("div", { class: "zone-principale" }, colonnes) : null; // sans schéma : colonnes directement dans .calcul
-    const bloc = el("div", { class: "calcul" + (panneau ? " avec-schema" : "") }, boutonIA(),
+    const bloc = el("div", { class: "calcul" + (panneau ? " avec-schema" : "") }, boutonIA(), barreResume,
       panneau && !grand.matches ? panneau.cadre : null, // petit écran : avant les champs
       principale || colonnes,
       panneau && grand.matches ? panneau.cadre : null); // grand écran : à droite
@@ -1156,6 +1414,7 @@
         } else setTimeout(() => relancer(), 0); // le résultat de l'exemple (ou de la dernière saisie) est là dès l'arrivée
       }
     }
+    surveillerResume();
     App.guide?.monter(ident, f, bloc, { saisie: () => saisie, formulaire, resultat: zoneResultat, auto, apercu: !!f.apercu });
     comparaison = App.comparer?.monter(ident, f, bloc, { saisie: () => saisie, verifierNombre, auto }) || null;
     return bloc;

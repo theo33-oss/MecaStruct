@@ -19,7 +19,9 @@
   --err-fond: #FFD3D3; --err-texte: #6B0A12;
   --ombre: 0 1px 3px rgba(42, 27, 74, .12);
   --jauge-ok: #1E8E4A; --jauge-ko: #C62B36;
+  --resume-h: 52px; /* hauteur de la barre résumé du bas d'écran (petit écran) */
 }
+:root.resume-visible { --resume-bas: var(--resume-h); } /* posé par machine.js quand la barre est affichée : décale languette IA, messages, défilement */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --fond: #0F0C18;
@@ -43,7 +45,7 @@
 
 * { box-sizing: border-box; }
 /* --barre : hauteur du menu collant, mesurée par app.js (ResizeObserver) ; 100px tant qu'elle n'est pas connue */
-html { scroll-padding-top: calc(var(--barre, 100px) + 12px); }
+html { scroll-padding-top: calc(var(--barre, 100px) + 12px); scroll-padding-bottom: calc(var(--resume-bas, 0px) + 12px); }
 body { margin: 0; padding: 0 16px 32px; background: var(--fond); color: var(--encre); font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
 .entete, #menu, #sous, main, footer { max-width: 1440px; margin-left: auto; margin-right: auto; }
 a { color: var(--lien); }
@@ -204,7 +206,7 @@ details.groupe > .grille { padding: 0 14px 14px; }
 .note { max-width: 80ch; }
 
 /* tableaux éditables, actions, métriques, explications */
-.tableau-saisie { grid-column: 1 / -1; margin: 4px 0 10px; }
+.tableau-saisie { grid-column: 1 / -1; margin: 4px 0 10px; min-width: 0; } /* min-width : le tableau défile dans .defile au lieu d'élargir la grille (débordement à 375 px) */
 .titre-tableau { font-weight: 600; font-size: .9rem; margin-bottom: 4px; }
 table.editable td { padding: 2px; border-bottom: none; }
 table.editable input, table.editable select { min-height: 34px; min-width: 70px; padding: 4px 6px; }
@@ -224,7 +226,7 @@ table.editable th { font-size: .8rem; white-space: nowrap; }
 .sous-titre { border-top: 1px solid var(--bord); padding-top: 8px; }
 
 /* tableaux, formules, figures, onglets */
-.defile { overflow-x: auto; }
+.defile { overflow-x: auto; position: relative; } /* relative : le .cache absolu de l'en-tête « Retirer » reste dans la zone qui défile (sinon il élargit la page à 375 px) */
 table { border-collapse: collapse; width: 100%; background: var(--carte); font-size: .92rem; }
 th { background: var(--bandeau); color: #FFFFFF; padding: 6px 8px; text-align: left; font-weight: 600; }
 td { padding: 5px 8px; border-bottom: 1px solid var(--bord); vertical-align: top; }
@@ -254,7 +256,7 @@ button.retour-ko { background: var(--err-fond) !important; color: var(--err-text
 @keyframes rebond { 0% { transform: scale(1); } 40% { transform: scale(1.1); } 100% { transform: scale(1); } }
 @keyframes secousse { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 /* message flottant en bas de l'écran */
-.toast { position: fixed; left: 50%; bottom: 24px; z-index: 90; max-width: min(92vw, 520px); transform: translate(-50%, 16px); opacity: 0; padding: 10px 18px; border-radius: 8px;
+.toast { position: fixed; left: 50%; bottom: calc(24px + var(--resume-bas, 0px)); z-index: 90; max-width: min(92vw, 520px); transform: translate(-50%, 16px); opacity: 0; padding: 10px 18px; border-radius: 8px;
   font-size: .95rem; font-weight: 600; box-shadow: 0 4px 16px rgba(0, 0, 0, .3); pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
 .toast.visible { opacity: 1; transform: translate(-50%, 0); }
 .toast.succes { background: var(--ok-fond); color: var(--ok-texte); border: 1px solid var(--jauge-ok); }
@@ -262,7 +264,7 @@ button.retour-ko { background: var(--err-fond) !important; color: var(--err-text
 .toast[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { button.retour-ok, button.retour-ko { animation: none; } .toast { transition: none; } }
 /* bouton « Demander à une IA » : fixe en bas à gauche, son panneau s'ouvre au-dessus */
-.ia-flottant { position: fixed; left: 0; bottom: calc(24px + var(--guide-bas, 0px)); z-index: 80; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; transition: opacity .15s; }
+.ia-flottant { position: fixed; left: 0; bottom: calc(24px + var(--guide-bas, 0px) + var(--resume-bas, 0px)); z-index: 88; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; transition: opacity .15s; }
 /* clavier virtuel ou saisie en cours : la languette s'efface (elle revient dès que le champ perd le focus) */
 body:has(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus, select:focus, textarea:focus) .ia-flottant { opacity: 0; pointer-events: none; }
 .ia-bouton { display: inline-flex; align-items: center; gap: 0; background: var(--accent); color: var(--sur-accent); border-color: var(--accent); font-weight: 600; min-height: 40px; padding: 4px 10px 4px 8px; border-radius: 0 999px 999px 0; border-left: 0; box-shadow: 0 4px 16px rgba(0, 0, 0, .3); }
@@ -281,7 +283,7 @@ body:has(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):foc
 .barre-image button:hover, .barre-image button:focus-visible { opacity: 1; }
 .figure.figure-petite { min-height: 220px; }
 /* hauteur réglable : tirer le coin en bas à droite de la figure */
-.figure { background: var(--figure-fond); border: 1px solid var(--bord); border-radius: 6px; min-height: 200px; overflow: hidden; resize: vertical; isolation: isolate; } /* isolation : la barre d'outils Plotly (z-index ~1001) reste sous le menu, la carte du guide et le toast */
+.figure { box-sizing: content-box; background: var(--figure-fond); border: 1px solid var(--bord); border-radius: 6px; min-height: 200px; overflow: hidden; resize: vertical; isolation: isolate; } /* isolation : la barre d'outils Plotly (z-index ~1001) reste sous le menu, la carte du guide et le toast */
 .onglets { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
 /* onglets de PAGE (Poutre 2D / Ossature 3D…) : bandeau et soulignement plus marqués que les onglets de résultat */
 .niveau-page > .onglets { padding: 6px 6px 0; background: var(--alt); border: 1px solid var(--bord-fort); border-bottom: 4px solid var(--accent); border-radius: 8px 8px 0 0; }
@@ -328,10 +330,10 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
 @media (max-width: 640px) {
   h1, .vedette h1 { font-size: 1.45rem; }
   /* bouton IA plus petit ; le message flottant passe au-dessus pour ne pas le recouvrir */
-  .ia-flottant { left: 0; bottom: calc(14px + var(--guide-bas, 0px)); }
+  .ia-flottant { left: 0; bottom: calc(14px + var(--guide-bas, 0px) + var(--resume-bas, 0px)); }
   .ia-bouton { min-height: 40px; min-width: 40px; padding: 4px 10px 4px 8px; font-size: .85rem; opacity: .85; }
   .ia-flottant.ouvert .ia-bouton { opacity: 1; }
-  .toast { bottom: 58px; }
+  .toast { bottom: calc(58px + var(--resume-bas, 0px)); }
   /* menu sur une ligne qui défile (le menu fixe ne mange pas le quart de l'écran) */
   #menu, #sous { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
   #menu a, #sous a { white-space: nowrap; flex: 0 0 auto; }
@@ -363,7 +365,7 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
   footer a { display: inline-block; padding: 6px 2px; }
 }
 @media print {
-  #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets, .exports, .barre-image, .toast, .ia-flottant { display: none !important; }
+  #barre, .entete .telecharger, footer, .actions-saisie, .tableau > button, .onglets, .exports, .barre-image, .toast, .ia-flottant, .barre-resume { display: none !important; }
   body { background: #fff; }
 }
 
@@ -394,6 +396,8 @@ footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; 
 .guide-boutons button[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
 .guide-boutons button[hidden] { display: none; }
 body.guide-dock { padding-bottom: calc(32px + var(--guide-bas, 0px)); }
+body.avec-resume { padding-bottom: calc(32px + var(--resume-h)); } /* marge basse : la barre résumé ne cache pas le bas de la page */
+body.guide-dock.avec-resume { padding-bottom: calc(32px + var(--guide-bas, 0px) + var(--resume-h)); }
 @media (max-width: 520px) {
   .guide-carte { padding: 8px 10px; font-size: .84rem; }
   .guide-carte[data-mode="dock"] { max-height: 54vh; }
@@ -401,6 +405,11 @@ body.guide-dock { padding-bottom: calc(32px + var(--guide-bas, 0px)); }
   .guide-boutons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .guide-boutons button { grid-column: span 2; min-height: 36px; padding: 2px 6px; font-size: .8rem; line-height: 1.15; }
   .guide-boutons button:nth-child(-n+2) { grid-column: span 3; font-size: .85rem; }
+}
+/* fenêtre basse (paysage, zoom 200 %) : carte plus basse, pour laisser la case visée à l'écran au-dessus d'elle */
+@media (max-height: 520px) {
+  .guide-carte[data-mode="dock"] { max-height: 44vh; }
+  .guide-aide { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .guide-cible { animation: none; } }
 @media print { .guide-barre, .guide-carte { display: none !important; } }
@@ -554,3 +563,52 @@ button.favori[aria-pressed="true"] { background: var(--warn-fond); color: var(--
   button.favori[aria-pressed="true"] { border: 2px solid Highlight; }
 }
 @media print { .recherche-bouton, .recherche-panneau, button.favori, .mes-etudes { display: none !important; } }
+
+/* tête de résultat « Décision » : verdict, sécurité minimale, mode dimensionnant, paramètre influent, action conseillée (js/machine.js) */
+.decision { display: grid; gap: 8px; margin: 10px 0 4px; padding: 12px 14px; background: var(--carte); border: 1px solid var(--bord); border-left: 6px solid var(--bord-fort); border-radius: 8px; box-shadow: var(--ombre); }
+.decision.ok { border-left-color: var(--jauge-ok); }
+.decision.ko { border-left-color: var(--jauge-ko); }
+.decision.neutre { border-left-color: var(--warn-texte); }
+.decision.info { border-left-color: var(--bord-fort); }
+.decision-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0; }
+.decision-etat { display: inline-flex; align-items: center; gap: 6px; padding: 3px 14px; border-radius: 999px; font-size: 1.15rem; font-weight: 700; background: var(--warn-fond); color: var(--warn-texte); }
+.decision.ok .decision-etat { background: var(--ok-fond); color: var(--ok-texte); }
+.decision.ko .decision-etat { background: var(--err-fond); color: var(--err-texte); }
+.decision.info .decision-etat { background: var(--info-fond); color: var(--info-texte); }
+/* résultat précédent (saisie modifiée, champ invalide, calcul en cours) : plus de couleur de verdict, le mot « Conforme » reste lisible */
+.zone-decision.ancien .decision { border-left-color: var(--bord-fort); }
+.zone-decision.ancien .decision .decision-etat { background: var(--info-fond); color: var(--info-texte); }
+.decision-avert { margin: 0; padding: 6px 10px; border-left: 4px solid var(--warn-texte); background: var(--warn-fond); color: var(--warn-texte); border-radius: 4px; font-size: .9rem; }
+.avert-ancien { margin: 6px 0 0; color: var(--warn-texte); font-weight: 600; }
+.avert-ancien[hidden] { display: none; }.zone-decision.ancien .decision-verdict::after { content: "résultat précédent"; font-size: .85rem; font-weight: 600; color: var(--discret); }
+.zone-decision.ancien .decision > :not(.decision-verdict) { opacity: .5; }
+.decision-faits { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 18px; margin: 0; }
+.decision-faits dt { font-size: .8rem; color: var(--discret); }
+.decision-faits dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.decision-sous { margin-left: 8px; font-size: .85rem; color: var(--discret); }
+.decision-action { margin: 0; font-size: .95rem; }
+.decision:focus-visible { outline-offset: 3px; }
+
+/* « Aller à la cause » : lien d'un mode non admissible vers le champ à corriger, qui reste surligné 2 s */
+.mode-cause { grid-column: 1 / -1; }
+button.lien-cause { display: inline-flex; align-items: center; min-height: 32px; padding: 0 4px; border: 0; background: none; color: var(--lien); font: inherit; font-weight: 600; font-size: .9rem; text-decoration: underline; text-underline-offset: 2px; }
+button.lien-cause::after { content: " →"; white-space: pre; }
+.cause-surlignee { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; background-image: linear-gradient(color-mix(in srgb, var(--warn-fond) 65%, transparent), color-mix(in srgb, var(--warn-fond) 65%, transparent)); } /* visible sans animation */
+@media (prefers-reduced-motion: no-preference) { .cause-surlignee { animation: cause-pulse .6s ease-out; } }
+@keyframes cause-pulse { from { outline-offset: 10px; outline-color: transparent; } to { outline-offset: 3px; } }
+@media (pointer: coarse) { button.lien-cause { min-height: 40px; } }
+
+/* barre résumé collée en bas d'écran, sous 1100 px : « ✓ Conforme · s min 1,8 · Voir le résultat » */
+.barre-resume { position: fixed; left: 0; right: 0; bottom: var(--guide-bas, 0px); z-index: 70; display: flex; align-items: center; justify-content: center; gap: 12px; height: var(--resume-h); padding: 0 16px; background: var(--carte); color: var(--encre); border-top: 4px solid var(--bord-fort); box-shadow: 0 -2px 10px rgba(0, 0, 0, .2); font-size: .95rem; }
+.barre-resume.ok { border-top-color: var(--jauge-ok); }
+.barre-resume.ko { border-top-color: var(--jauge-ko); }
+.barre-resume.neutre { border-top-color: var(--warn-texte); }
+.barre-resume.info, .barre-resume.ancien { border-top-color: var(--bord-fort); }
+.barre-resume.ancien .barre-resume-texte { opacity: .85; font-weight: 600; }
+.barre-resume-texte { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; font-size: .88rem; line-height: 1.2; font-weight: 700; } /* deux lignes au plus : « ✗ Non conforme · s min 0,161 » tient à 375 px */
+.barre-resume-bouton { flex: none; min-height: 40px; min-width: 40px; padding: 4px 12px; font-size: .9rem; background: transparent; color: var(--lien); border: 1px solid var(--accent); font-weight: 600; }
+@media (min-width: 1100px) { .barre-resume { display: none !important; } }
+@media (prefers-reduced-motion: no-preference) { .barre-resume:not([hidden]) { animation: resume-entree .2s ease-out; } }
+@keyframes resume-entree { from { transform: translateY(100%); } to { transform: none; } }
+/* tactile : clavier virtuel ouvert, la barre s'efface (comme la languette IA) pour ne pas recouvrir le champ */
+@media (pointer: coarse) { body:has(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus, select:focus, textarea:focus) .barre-resume { display: none; } }

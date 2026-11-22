@@ -27,6 +27,15 @@
   const nombreTexte = (v) => (typeof v === "number" && Number.isFinite(v) ? App.fr(Number(v.toPrecision(10))) : String(v ?? ""));
   const sansMouvement = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   const estListe = (c) => c.type === "liste" || c.type === "liste-fixe";
+  // Groupes de tableaux sans champ numérique ni liste, que le générateur d'étapes ne couvre pas : une étape « groupe » les
+  // ouvre et les explique, sans rien exiger (calcul → titre du groupe → phrase). Un groupe absent d'ici n'a pas d'étape.
+  const GROUPES = {
+    beam: { "Appuis et charges": "Appuis : où la poutre repose ; charges : forces à appliquer." },
+    ossature: {
+      "Nœuds et pièces": "Nœuds : les points de la structure ; pièces : les barres qui relient deux nœuds.",
+      "Charges (repère global)": "Charges : forces et moments appliqués aux nœuds, ou répartis sur les pièces, dans le repère global.",
+    },
+  };
 
   function monter(ident, f, bloc, opts = {}) {
     const formulaire = opts.formulaire;
@@ -66,20 +75,29 @@
 
     // ---------- étapes déduites du formulaire ----------
     const chercheChamp = (c) => formulaire.querySelector(`[data-id="${CSS.escape(c.id)}"]`);
+    const cibleGroupe = (titre) => [...formulaire.querySelectorAll("details.groupe")].find((d) => d.dataset.titre === titre) || null;
     function construireEtapes() {
       const champs = [];
+      const groupes = []; // étapes « groupe », chacune avant le champ de rang `apres` de la liste `champs` (l'ordre de la page)
       for (const g of f.groupes || []) {
         let rang = 0;
         for (const c of g.champs || []) {
           if (!TYPES_SAISIE.includes(c.type) || !chercheChamp(c)) continue; // non affiché (condition « si ») : pas d'étape
           champs.push({ genre: "champ", c, rang: rang++ });
         }
+        const note = (GROUPES[ident] || {})[g.titre];
+        if (note && cibleGroupe(g.titre)) groupes.push({ genre: "groupe", g, note, apres: champs.length });
       }
       const places = MAX_ETAPES - 1 - (auto ? 0 : 1);
       const premiers = champs.filter((x) => x.rang < PAR_GROUPE);
       const choisis = new Set(premiers.slice(0, places));
       for (const x of champs) if (choisis.size < places) choisis.add(x);
-      const liste = champs.filter((x) => choisis.has(x));
+      const liste = [];
+      champs.forEach((x, i) => {
+        for (const e of groupes) if (e.apres === i) liste.push(e);
+        if (choisis.has(x)) liste.push(x);
+      });
+      for (const e of groupes) if (e.apres >= champs.length) liste.push(e);
       if (!auto) liste.push({ genre: "calcul" });
       liste.push({ genre: "verdict" });
       return liste;
@@ -89,6 +107,7 @@
     function cible(e) {
       let x = null;
       if (e.genre === "champ") { const i = chercheChamp(e.c); x = i ? (i.closest("label") || i) : null; }
+      else if (e.genre === "groupe") x = cibleGroupe(e.g.titre);
       else if (e.genre === "calcul") x = [formulaire.querySelector('.actions-saisie button[type="submit"]'), bloc.querySelector(".actions-schema button")].find((b) => b && b.getClientRects().length) // celui des deux qui est visible (CSS : un seul « Calculer » à la fois)
           || formulaire.querySelector('.actions-saisie button[type="submit"]') || bloc.querySelector(".actions-schema button");
       else x = resultat.querySelector(".bilan, .verdict") || resultat;
@@ -121,6 +140,7 @@
         corps, etat, el("div", { class: "guide-boutons" }, precedent, suivant, passer, aller, quitter));
       barre.after(carte);
       document.body.classList.add("guide-actif");
+      document.dispatchEvent(new Event("mecastruct:guide")); // la barre résumé se range (machine.js)
       bouton.setAttribute("aria-pressed", "true");
 
       const lireValeur = (e) => {
@@ -161,6 +181,13 @@
             exemple ? ligne("Exemple :", `${exemple} (valeur de départ de la page).`) : null,
             ligne("Ensuite :", effet())];
         }
+        if (e.genre === "groupe") {
+          const tableaux = (e.g.champs || []).filter((c) => c.type === "tableau").map((c) => c.libelle.replace(/ \(.*\)$/, "").toLowerCase());
+          return [tete, el("h3", { class: "guide-titre", texte: e.g.titre }),
+            ligne("En bref :", e.note),
+            ligne("Attendu :", `rien d'obligatoire ici : lisez le groupe surligné et ajustez ses tableaux${tableaux.length ? " (" + tableaux.join(", ") + ")" : ""} si besoin. L'exemple de départ est déjà rempli.`),
+            ligne("Ensuite :", effet())];
+        }
         if (e.genre === "calcul") {
           return [tete, el("h3", { class: "guide-titre", texte: "Lancer le calcul" }),
             ligne("Attendu :", "cliquer sur le bouton « Calculer » surligné (ou Entrée dans un champ)."),
@@ -175,9 +202,15 @@
       function evaluer() {
         const e = etapes[index];
         const x = cible(e);
+        if (e.genre === "groupe") return { ok: true, texte: x ? "Rien de bloquant : regardez le groupe, puis cliquez sur « Suivant »." : "Ce groupe n'est pas affiché : passez à l'étape suivante." };
         if (e.genre === "champ") {
           if (!x) return { ok: true, texte: "Cette case n'est pas affichée avec les réglages actuels : passez à l'étape suivante." };
+          const champ = chercheChamp(e.c);
+          if (champ && (champ.classList.contains("invalide") || champ.dataset.refuse || champ.getAttribute("aria-invalid") === "true"))
+            return { ok: false, texte: "Valeur refusée : corrigez-la dans la case surlignée (le message est sous la case)." };
           if (faits.has(index)) return { ok: true, texte: `Fait : « ${e.c.libelle} » vaut maintenant ${lireValeur(e)}. Cliquez sur « Suivant ».` };
+          // la case porte déjà une valeur valide (exemple de départ, saisie gardée) : l'étape est validée d'office
+          if (champ && String(champ.value).trim() !== "") return { ok: true, texte: `Valeur déjà renseignée : ${lireValeur(e)}. Cliquez sur « Suivant », ou modifiez-la d'abord.` };
           return { ok: false, texte: estListe(e.c)
             ? "En attente : choisissez une valeur dans la liste."
             : "En attente : saisissez une valeur et validez avec Entrée." };
@@ -234,17 +267,23 @@
         return mode;
       }
       // à l'arrivée sur une étape : ouvre le groupe replié, amène l'élément à l'écran, puis le dégage de la carte
+      // Zone libre : sous le menu collant, au-dessus de la carte quand elle est en bas (mode « dock »). La barre résumé se range
+      // pendant le guide (machine.js), elle ne prend donc plus de place. L'élément visé s'y range en entier, ou au moins par le haut.
       function amener() {
         const x = cible(etapes[index]);
         if (!x) return;
         ouvrirParents(x);
+        if (x.matches("details")) x.open = true; // étape « groupe » : le groupe visé s'ouvre
         const vh = window.innerHeight;
         const r = x.getBoundingClientRect();
         if (r.top < hautLibre() + 8 || r.bottom > vh - 8 || !rendu(x)) x.scrollIntoView({ block: r.height > vh * 0.45 ? "start" : "center", behavior: "instant" });
         if (placer() === "dock") {
-          const limite = carte.getBoundingClientRect().top - 8;
+          const haut = hautLibre() + 8, bas = carte.getBoundingClientRect().top - 8;
           const r2 = x.getBoundingClientRect();
-          if (r2.bottom > limite) { const d = Math.min(r2.bottom - limite, r2.top - (hautLibre() + 8)); if (d > 0) window.scrollBy({ top: d, behavior: "instant" }); }
+          let d = 0;
+          if (r2.height >= bas - haut) d = r2.top - haut; // plus grand que la zone libre : on en montre le début
+          else if (r2.top < haut || r2.bottom > bas) d = (r2.top + r2.bottom) / 2 - (haut + bas) / 2; // sinon, au milieu de la zone libre
+          if (Math.abs(d) >= 1) window.scrollBy({ top: d, behavior: "instant" });
         }
       }
 
@@ -273,6 +312,7 @@
         carte.remove();
         document.body.classList.remove("guide-actif", "guide-dock");
         document.documentElement.style.removeProperty("--guide-bas");
+        document.dispatchEvent(new Event("mecastruct:guide")); // la barre résumé reparaît si besoin
         bouton.setAttribute("aria-pressed", "false");
         if (effacer) session.oublier(ident);
         actif = null;
@@ -285,8 +325,8 @@
       actionner(passer, () => afficher(index + 1));
       actionner(aller, () => {
         const x = cible(etapes[index]);
-        const champ = x && (x.matches("input, select, button") ? x : x.querySelector("input, select"));
-        if (champ) champ.focus();
+        const champ = x && (x.matches("input, select, button") ? x : x.matches("details") ? x.querySelector("summary") : x.querySelector("input, select"));
+        if (champ) { amener(); champ.focus({ preventScroll: true }); } // jamais de saut de page : amener() range déjà la case hors de la carte
       });
       actionner(quitter, () => arreter(true, true));
 
@@ -296,7 +336,7 @@
         if (etape.genre !== "champ") return;
         const t = e.target;
         if (!t || !t.dataset || t.dataset.id !== etape.c.id) return;
-        if (e.type === "input" && (t.classList.contains("invalide") || t.dataset.refuse || t.tagName === "SELECT")) return; // valeur refusée : pas validée
+        if (e.type === "input" && (t.classList.contains("invalide") || t.dataset.refuse || t.tagName === "SELECT")) return majEtat(); // valeur refusée : pas validée
         if (e.type === "keydown" && e.key !== "Enter") return;
         faits.add(index);
         majEtat();

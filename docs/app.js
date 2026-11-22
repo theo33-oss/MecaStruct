@@ -383,6 +383,7 @@ const App = (() => {
   }
   // Texte d'un titre Plotly sans ses balises (<b>, <br>…), pour l'étiquette d'un graphique lu au lecteur d'écran.
   const texteSimple = (t) => String(t || "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  const HAUTEUR_FIGURE = 420; // hauteur de départ d'une figure dont la mise en page n'en fixe pas
   // Figure Plotly du pont : fond et textes suivent le thème, largeur suit la page.
   function tracer(div, f) {
     div._figure = f;
@@ -396,22 +397,45 @@ const App = (() => {
     const encre = getComputedStyle(document.documentElement).getPropertyValue("--encre").trim();
     const fond = getComputedStyle(document.documentElement).getPropertyValue("--figure-fond").trim();
     const { data, layout } = miseEnForme(f, sombre(), encre, fond);
-    if (div.style.height) layout.height = div.clientHeight; // hauteur choisie à la souris (coin bas droit)
-    else if (!layout.height) layout.height = 420; // hauteur de départ d'une figure qui n'en fixe pas
+    // Hauteur du cadre : jamais laissée au contenu. Avec « autosize », Plotly mesure son cadre à chaque redimensionnement
+    // (fenêtre, dépliage du panneau « Représentation ») : un cadre sans hauteur propre se réduisait alors à son min-height et
+    // coupait la figure. Le cadre prend donc la hauteur de la mise en page (420 px sinon), sauf si elle a été choisie à la souris
+    // (coin bas droit : la hauteur est alors inscrite dans le style et c'est elle qui compte).
+    if (div.style.height && div.dataset.hauteurAuto !== "1") layout.height = div.clientHeight;
+    else {
+      if (!layout.height) layout.height = HAUTEUR_FIGURE;
+      div.style.height = layout.height + "px"; // cadre en « content-box » (style.css) : la hauteur du cadre est celle du tracé
+      div.dataset.hauteurAuto = "1";
+      div._hauteurAuto = layout.height;
+    }
     const tactile = !!window.matchMedia && matchMedia("(pointer: coarse)").matches;
     if (tactile) layout.dragmode = false; // au doigt, le graphique ne capte pas le glissement : la page continue de défiler
     langueGraphiques();
     Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr",
       modeBarButtonsToRemove: tactile ? BOUTONS_INUTILES.concat(["zoom2d", "pan2d"]) : BOUTONS_INUTILES });
     if (!div._suivi && window.ResizeObserver) { // la figure suit la hauteur donnée à son cadre
-      let vue = 0;
+      let vue = div.clientHeight;
       div._suivi = new ResizeObserver(() => {
         const h = div.clientHeight;
         if (!div.style.height || Math.abs(h - vue) < 4) return;
         vue = h;
+        if (div.dataset.hauteurAuto === "1") { if (Math.abs(h - div._hauteurAuto) < 4) return; delete div.dataset.hauteurAuto; } // hauteur prise à la souris
         Plotly.relayout(div, { height: h });
       });
       div._suivi.observe(div);
+    }
+  }
+  // Remet à la taille de leur cadre les figures affichées d'un bloc (panneau déplié, onglet ouvert) : Plotly refait sa mesure,
+  // puis la hauteur propre de la figure est rétablie (une mesure ne doit jamais la réduire au min-height du cadre).
+  function redimensionnerFigures(racine = document) {
+    if (!window.Plotly) return;
+    for (const d of racine.querySelectorAll(".js-plotly-plot")) {
+      if (!d.offsetParent || !d._fullLayout) continue;
+      try {
+        const retablir = () => { if (d.dataset.hauteurAuto === "1" && d._hauteurAuto && d._fullLayout && Math.abs(d._fullLayout.height - d._hauteurAuto) > 1) Plotly.relayout(d, { height: d._hauteurAuto }); };
+        const r = Plotly.Plots.resize(d);
+        if (r && r.then) r.then(retablir, () => {}); else retablir();
+      } catch (e) { /* figure en cours de tracé */ }
     }
   }
   // avecBouton = false : le bouton « Copier l'image » est déjà dans le titre du bloc (schéma).
@@ -419,6 +443,9 @@ const App = (() => {
   function figure(f, classe = "figure", avecBouton = true, opts = {}) {
     const titre = texteSimple(f.layout && (typeof f.layout.title === "string" ? f.layout.title : f.layout.title && f.layout.title.text));
     const d = el("div", { class: classe, role: "img", "aria-label": decimalesFr(opts.nom || titre || "Graphique du calcul") });
+    // hauteur donnée tout de suite : la page ne bouge plus quand Plotly finit de tracer (pas de saut de défilement ensuite)
+    const hauteur = Number(f.layout && f.layout.height) || HAUTEUR_FIGURE;
+    d.style.height = hauteur + "px"; d.dataset.hauteurAuto = "1"; d._hauteurAuto = hauteur;
     if (opts.decritPar) d.setAttribute("aria-describedby", opts.decritPar);
     requestAnimationFrame(() => tracer(d, f));
     return avecBouton ? el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png"), d) : d;
@@ -442,6 +469,7 @@ const App = (() => {
       }
       panneau.replaceChildren();
       liste.find((o) => o.id === id).rendu(panneau);
+      requestAnimationFrame(() => setTimeout(() => redimensionnerFigures(panneau), 150)); // figure tracée dans un panneau tout juste affiché
       if (cle) memoire.ecrire("onglet." + cle, id);
     };
     barre.append(...liste.map((o, i) => {
@@ -959,5 +987,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, exemple, bibliotheque, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, redimensionnerFigures, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, exemple, bibliotheque, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();
