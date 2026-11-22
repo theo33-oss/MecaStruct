@@ -4,20 +4,15 @@
 (() => {
   const { el } = App;
 
-  // Titre repliable (<details>/<summary> natifs, fermé par défaut). Clic et clavier sont la référence ; avec une souris,
-  // le survol ouvre aussi (et referme en quittant, sauf si on a cliqué). Échap referme. Le contenu pousse la mise en page.
-  const survol = window.matchMedia ? window.matchMedia("(hover: hover)") : { matches: false };
+  // Titre repliable (<details>/<summary> natifs). Clic et clavier seulement (pas de survol : il ouvrait et fermait des blocs
+  // sous le pointeur). Ouvert d'office sur grand écran (900 px et plus), replié sur téléphone. Échap referme un repli ouvert
+  // quand le focus est dedans. Le contenu pousse la mise en page.
+  const GRAND = 900;
   function repliable(titre, contenu) {
     const resume = el("summary", {}, titre);
-    const d = el("details", { class: "repli" }, resume, contenu);
-    let parSurvol = false;
-    resume.addEventListener("click", (e) => {
-      if (parSurvol) { e.preventDefault(); parSurvol = false; } // ouvert au survol : le clic le garde ouvert
-    });
-    d.addEventListener("mouseenter", () => { if (survol.matches && !d.open) { parSurvol = true; d.open = true; } });
-    d.addEventListener("mouseleave", () => { if (parSurvol) { parSurvol = false; d.open = false; } });
+    const d = el("details", { class: "repli", open: window.innerWidth >= GRAND }, resume, contenu);
     d.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && d.open) { parSurvol = false; d.open = false; resume.focus(); }
+      if (e.key === "Escape" && !e.defaultPrevented && d.open && d.contains(document.activeElement)) { d.open = false; resume.focus(); }
     });
     return d;
   }

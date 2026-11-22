@@ -111,7 +111,7 @@ def section(sec: dict, P: dict | None = None) -> go.Figure:
             y=yG + 0.32 * D * math.sin(a / 2),
             text=f"α<sub>P</sub> = {num(math.degrees(a))}°",
             showarrow=False,
-            font=dict(color=cP, size=10),
+            font=dict(color=cP, size=12),
         )
         legende(
             fig,
@@ -228,7 +228,7 @@ def sectionStress(sec: dict, P: dict | None, bend: dict | None, jour: dict | Non
                 col=1,
                 text=f"{num(sg[i])} MPa",
                 showarrow=False,
-                font=dict(color=COULEUR["trait"], size=10),
+                font=dict(color=COULEUR["trait"], size=12),
                 xanchor="right" if sg[i] < 0 else "left",
                 yanchor=ancrage,
             )
@@ -321,7 +321,7 @@ def sectionStress(sec: dict, P: dict | None, bend: dict | None, jour: dict | Non
             col=2,
             text=f"τ<sub>max</sub> = {num(tM)} MPa",
             showarrow=False,
-            font=dict(color=COULEUR["trait"], size=10),
+            font=dict(color=COULEUR["trait"], size=12),
             xanchor="center",
             yanchor="bottom",
             bgcolor="white",

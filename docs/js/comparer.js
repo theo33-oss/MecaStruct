@@ -264,7 +264,7 @@
       selX.addEventListener("change", () => { prefs.x = selX.value; rendreSynthese(); });
       selY.addEventListener("change", () => { prefs.y = selY.value; rendreSynthese(); });
       zoneGraphe = el("div", { class: "cmp-graphe" });
-      zoneDescription = el("p", { class: "legende cmp-description" });
+      zoneDescription = el("p", { class: "legende cmp-description", id: "cmp-description-" + ident });
       const entree = fichierEntree();
       const barre = el("div", { class: "ligne cmp-barre cmp-ecran", role: "group", "aria-label": "Actions sur la comparaison" },
         bouton("Ajouter une variante", ajouterVariante, "primaire petit", "Copie l'étude de référence ; vous modifiez ensuite un ou plusieurs de ses champs."),
@@ -277,11 +277,11 @@
         bouton("Nouvelle comparaison", nouvelle, "secondaire petit", "Efface cette comparaison et repart de la saisie de la page."),
         entree);
       zoneContenu.replaceChildren(zoneEtatPage, barre,
-        el("h4", { class: "cmp-titre", texte: "Études" }), zoneListe,
-        el("h4", { class: "cmp-titre", texte: "Synthèse" }),
+        el("h3", { class: "titre-mineur cmp-titre", texte: "Études" }), zoneListe,
+        el("h3", { class: "titre-mineur cmp-titre", texte: "Synthèse" }),
         el("label", { class: "case cmp-ecran cmp-masquer" }, cocheMasque, " Masquer les valeurs identiques"),
         zoneTableau,
-        el("h4", { class: "cmp-titre cmp-ecran", texte: "Graphique" }),
+        el("h3", { class: "titre-mineur cmp-titre cmp-ecran", texte: "Graphique" }),
         el("div", { class: "ligne cmp-choix cmp-ecran" }, el("label", {}, "Abscisse (paramètre)", selX), el("label", {}, "Grandeur en ordonnée", selY)),
         zoneGraphe, zoneDescription);
       rendreListe();
@@ -433,7 +433,7 @@
         entree = el("input", { type: "text", value: v ?? "" });
         entree.addEventListener("input", () => { appliquer(e, c.id, entree.value); apres(c.id, false); });
       } else {
-        entree = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false" });
+        entree = el("input", { type: "text", inputmode: App.clavierNombre(c.min), autocomplete: "off", spellcheck: "false" });
         entree.value = affiche(v);
         const erreur = el("span", { class: "erreur-champ", hidden: true });
         etiquette.append(titre, entree, erreur, indice);
@@ -677,6 +677,7 @@
 
     // ---------- graphique ----------
     const COULEUR = "#7A68C0", COULEUR_REF = "#E0A030", COULEUR_SEUIL = "#D64550";
+    const CONTOUR_REF = "#2A1B4A"; // contour sombre du marqueur ambre de la référence (l'ambre seul n'atteint pas 3:1 sur fond clair)
     function remplir(select, options, voulu) {
       const cle = JSON.stringify(options);
       if (select._cle !== cle) {
@@ -728,10 +729,11 @@
       const noms2 = points.map((p) => p.nom + (p.ref ? " (réf.)" : ""));
       const data = [numerique
         ? { type: "scatter", mode: "lines+markers", name: yLabel, x: points.map((p) => p.x), y: points.map((p) => p.y), text: noms2, line: { color: COULEUR, width: 2 },
-          marker: { color: points.map((p) => (p.ref ? COULEUR_REF : COULEUR)), size: points.map((p) => (p.ref ? 15 : 10)), symbol: points.map((p) => (p.ref ? "diamond" : "circle")), line: trait },
+          marker: { color: points.map((p) => (p.ref ? COULEUR_REF : COULEUR)), size: points.map((p) => (p.ref ? 15 : 10)), symbol: points.map((p) => (p.ref ? "diamond" : "circle")),
+            line: { color: points.map((p) => (p.ref ? CONTOUR_REF : trait.color)), width: points.map((p) => (p.ref ? 2 : trait.width)) } },
           hovertemplate: "%{text}<br>" + xLabel + " = %{x}<br>" + yLabel + " = %{y}<extra></extra>" }
         : { type: "bar", textposition: "none", name: yLabel, x: points.map((p) => (xId === "__etude" ? noms2[points.indexOf(p)] : String(p.x))), y: points.map((p) => p.y), text: noms2,
-          marker: { color: points.map((p) => (p.ref ? COULEUR_REF : COULEUR)), line: { color: "rgba(128,128,128,.9)", width: points.map((p) => (p.ref ? 3 : 0)) }, pattern: { shape: points.map((p) => (p.ref ? "/" : "")) } },
+          marker: { color: points.map((p) => (p.ref ? COULEUR_REF : COULEUR)), line: { color: points.map((p) => (p.ref ? CONTOUR_REF : "rgba(128,128,128,.9)")), width: points.map((p) => (p.ref ? 3 : 0)) }, pattern: { shape: points.map((p) => (p.ref ? "/" : "")) } },
           hovertemplate: "%{text}<br>" + yLabel + " = %{y}<extra></extra>" }];
       const avecSeuil = points.some((p) => p.seuil !== null && p.seuil !== undefined);
       const seuils = [...new Set(points.map((p) => p.seuil).filter((x) => x !== null && x !== undefined))];
@@ -741,7 +743,7 @@
       }
       const layout = { height: 340, margin: { l: 64, r: 16, t: 14, b: 56 }, showlegend: true, legend: { orientation: "h", y: -0.28 },
         xaxis: { title: { text: xLabel }, type: numerique ? "linear" : "category", ...grille }, yaxis: { title: { text: yLabel }, ...grille } };
-      zoneGraphe.replaceChildren(App.figure({ data, layout }));
+      zoneGraphe.replaceChildren(App.figure({ data, layout }, "figure", true, { decritPar: zoneDescription.id, nom: "Graphique de comparaison : " + yLabel + " selon " + xLabel }));
       const fx = (x) => (typeof x === "number" ? nf(x, 4) : String(x));
       zoneDescription.textContent = `Graphique ${numerique ? "en courbe" : "en barres"} : ${yLabel} selon ${xLabel}. ${points.length} point${points.length > 1 ? "s" : ""} : `
         + points.map((p) => `${p.nom}${p.ref ? " (référence)" : ""}, ${xId === "__etude" ? "" : xLabel + " = " + fx(p.x) + ", "}${yLabel} = ${nf(p.y, 4)}`).join(" ; ") + "."

@@ -90,7 +90,29 @@ def cote(fig: go.Figure, p1, p2, texte: str, ou: str) -> None:
         "left": dict(xanchor="right", yanchor="middle", xshift=-4),
         "right": dict(xanchor="left", yanchor="middle", xshift=4),
     }[ou]
-    fig.add_annotation(x=milieu[0], y=milieu[1], text=texte, showarrow=False, font=dict(size=10), **ancrage)
+    fig.add_annotation(x=milieu[0], y=milieu[1], text=texte, showarrow=False, font=dict(size=12), **ancrage)
+
+
+def boite_texte(x: float, y: float, texte: str, k: float, ancrage_y: str = "middle", cote: str = "center") -> tuple:
+    """Encombrement approché (x0, x1, y0, y1, en unités du dessin) d'un texte de 12 px ; `k` : unités par pixel."""
+    brut = re.sub(r"<[^>]*>", "", texte)
+    w, h = 6.0 * len(brut) * k, 15.0 * k
+    x0 = x - w / 2 if cote == "center" else x
+    y0 = {"bottom": y, "top": y - h}.get(ancrage_y, y - h / 2)
+    return (x0, x0 + w, y0, y0 + h)
+
+
+def libre_vertical(boite: tuple, autres: list, sens: float, pas: float, marge: float) -> float:
+    """Décalage vertical (multiple de `pas`, dans le `sens` donné) qui sort `boite` de toutes les `autres`."""
+    x0, x1, y0, y1 = boite
+    d = 0.0
+    for _ in range(12):
+        if not any(
+            x0 < b[1] + marge and x1 > b[0] - marge and y0 + d < b[3] + marge and y1 + d > b[2] - marge for b in autres
+        ):
+            break
+        d += sens * pas
+    return d
 
 
 def polyShape(

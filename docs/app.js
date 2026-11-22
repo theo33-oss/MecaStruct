@@ -61,6 +61,9 @@ const App = (() => {
   const exposants = (t) => String(t).replace(/(\d)e([-+−]?)(\d{1,3})(?![\w])/g, (_m, d, signe, exp) =>
     `${d}·10${signe === "+" ? "" : HAUT[signe] || ""}${String(Number(exp)).replace(/\d/g, (x) => HAUT[x])}`);
   const decimalesFr = (t) => exposants(String(t).replace(/(\d)\.(\d)/g, "$1,$2"));
+  // Clavier des champs numériques sur téléphone : « decimal » n'a pas de signe moins (iPhone), donc réservé aux champs
+  // dont le minimum est connu et positif ou nul ; sinon le champ peut être négatif et reçoit le clavier texte.
+  const clavierNombre = (min) => (typeof min === "number" && min >= 0 ? "decimal" : "text");
   const echapper = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
   function el(balise, attributs = {}, ...enfants) {
@@ -72,6 +75,12 @@ const App = (() => {
       else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
       else if (k === "aide") e.dataset.aide = v;
       else e.setAttribute(k, v === true ? "" : v);
+    }
+    // Aide portée en texte, sans arrêt de tabulation de plus : l'en-tête, le titre de tableau et la valeur clé la déclarent en
+    // aria-description (la bulle reste pour le survol) ; la ligne d'un mode de ruine reçoit UN arrêt (son nom) qui porte l'aide
+    // de sa jauge et de ses chiffres (voir `bilan` de machine.js).
+    if (e.dataset.aide && (balise === "th" || /\b(titre-tableau|metrique|mode-nom)\b/.test(e.className))) {
+      e.setAttribute("aria-description", e.dataset.aide);
     }
     e.append(...enfants.flat().filter((x) => x !== null && x !== undefined && x !== false));
     return e;
@@ -170,15 +179,16 @@ const App = (() => {
   // Message flottant (hors de portée du bouton cliqué : il faut le voir même si la page défile).
   let minuterieToast = null;
   function toast(texte, niveau = "succes") {
+    // la zone « status » est dans index.html dès le départ (une zone créée avec son texte n'est pas annoncée) ; elle reste dans
+    // l'arbre d'accessibilité (opacité 0, pas display:none) et se vide après chaque message pour que le suivant soit une vraie nouveauté
     let t = document.getElementById("toast");
-    if (!t) { t = el("div", { id: "toast", role: "status", "aria-live": "polite" }); document.body.append(t); }
+    if (!t) { t = el("div", { id: "toast", class: "toast", role: "status", "aria-live": "polite" }); document.body.append(t); }
     t.className = "toast " + niveau;
     t.textContent = texte;
-    t.hidden = false;
     void t.offsetWidth; // relance l'animation si un message précède
     t.classList.add("visible");
     clearTimeout(minuterieToast);
-    minuterieToast = setTimeout(() => { t.classList.remove("visible"); minuterieToast = setTimeout(() => { t.hidden = true; }, 300); }, niveau === "erreur" ? 3500 : 2200);
+    minuterieToast = setTimeout(() => { t.classList.remove("visible"); minuterieToast = setTimeout(() => { t.textContent = ""; t.className = "toast"; }, 300); }, niveau === "erreur" ? 3500 : 2200);
   }
   // Le bouton passe au vert (ou au rouge) avec une coche, un petit rebond, puis reprend son texte.
   function retour(bouton, ok, texteOk, texteKo = "Impossible") {
@@ -299,7 +309,7 @@ const App = (() => {
       const ok = await copier([t.entetes, ...t.lignes.map((l) => l.map(brut))].map((l) => l.join("\t")).join("\n"));
       confirmer(b, ok, "Tableau copié", "Copie impossible", "Tableau copié : à coller dans Excel.");
     });
-    return el("div", { class: "tableau" }, titre ? el("h4", { texte: titre }) : null, boutonImage(tab, "tableau.png"), el("div", { class: "defile" }, tab), b);
+    return el("div", { class: "tableau" }, titre ? el("h3", { class: "titre-mineur", texte: titre }) : null, boutonImage(tab, "tableau.png"), el("div", { class: "defile" }, tab), b);
   }
 
   // Formule LaTeX du calcul dessinée par KaTeX (texte brut si KaTeX n'est pas chargé).
@@ -342,6 +352,20 @@ const App = (() => {
     if (layout.title && layout.title.text) layout.title = { ...layout.title, x: 0.01, xanchor: "left" };
     return { data, layout };
   }
+  // Barre d'outils des graphiques : on garde zoom, déplacement, zoom avant / arrière, réinitialisation et téléchargement.
+  const BOUTONS_INUTILES = ["select2d", "lasso2d", "autoScale2d", "toggleSpikelines", "hoverClosestCartesian", "hoverCompareCartesian", "hoverClosest3d", "resetCameraLastSave3d"];
+  // Titres français des boutons restants (dictionnaire écrit ici : aucun fichier de langue à charger).
+  let langueFaite = false;
+  function langueGraphiques() {
+    if (langueFaite || !window.Plotly || !Plotly.register) return;
+    langueFaite = true;
+    Plotly.register({ moduleType: "locale", name: "fr", dictionary: {
+      "Zoom": "Zoom (rectangle)", "Pan": "Déplacer", "Zoom in": "Zoom avant", "Zoom out": "Zoom arrière", "Reset axes": "Réinitialiser les axes",
+      "Download plot as a png": "Télécharger le graphique (PNG)", "Autoscale": "Échelle automatique", "Reset camera to default": "Vue de départ",
+      "Turntable rotation": "Rotation sur plateau", "Orbital rotation": "Rotation libre" } });
+  }
+  // Texte d'un titre Plotly sans ses balises (<b>, <br>…), pour l'étiquette d'un graphique lu au lecteur d'écran.
+  const texteSimple = (t) => String(t || "").replace(/<br\s*\/?>/gi, " ").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
   // Figure Plotly du pont : fond et textes suivent le thème, largeur suit la page.
   function tracer(div, f) {
     div._figure = f;
@@ -350,7 +374,11 @@ const App = (() => {
     const { data, layout } = miseEnForme(f, sombre(), encre, fond);
     if (div.style.height) layout.height = div.clientHeight; // hauteur choisie à la souris (coin bas droit)
     else if (!layout.height) layout.height = 420; // hauteur de départ d'une figure qui n'en fixe pas
-    Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr" });
+    const tactile = !!window.matchMedia && matchMedia("(pointer: coarse)").matches;
+    if (tactile) layout.dragmode = false; // au doigt, le graphique ne capte pas le glissement : la page continue de défiler
+    langueGraphiques();
+    Plotly.react(div, data, layout, { responsive: true, displaylogo: false, locale: "fr",
+      modeBarButtonsToRemove: tactile ? BOUTONS_INUTILES.concat(["zoom2d", "pan2d"]) : BOUTONS_INUTILES });
     if (!div._suivi && window.ResizeObserver) { // la figure suit la hauteur donnée à son cadre
       let vue = 0;
       div._suivi = new ResizeObserver(() => {
@@ -363,28 +391,37 @@ const App = (() => {
     }
   }
   // avecBouton = false : le bouton « Copier l'image » est déjà dans le titre du bloc (schéma).
-  function figure(f, classe = "figure", avecBouton = true) {
-    const d = el("div", { class: classe });
+  // opts : { nom (étiquette lue), decritPar (id d'un texte qui décrit les données) }.
+  function figure(f, classe = "figure", avecBouton = true, opts = {}) {
+    const titre = texteSimple(f.layout && (typeof f.layout.title === "string" ? f.layout.title : f.layout.title && f.layout.title.text));
+    const d = el("div", { class: classe, role: "img", "aria-label": decimalesFr(opts.nom || titre || "Graphique du calcul") });
+    if (opts.decritPar) d.setAttribute("aria-describedby", opts.decritPar);
     requestAnimationFrame(() => tracer(d, f));
     return avecBouton ? el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png"), d) : d;
   }
 
   // Onglets : liste = [{ id, titre, rendu(panneau) }] ; rendu à l'ouverture (Plotly a besoin d'un panneau visible).
+  // Onglets de PAGE (clé « page.… » : Poutre 2D / Ossature 3D…) et onglets de RÉSULTAT (Graphique, Synthèse…) : même clavier,
+  // mais le bandeau des onglets de page est plus marqué (classe niveau-page).
+  let compteurOnglets = 0;
   function onglets(liste, cle) {
+    const base = "onglets-" + (++compteurOnglets);
+    const niveauPage = !!cle && cle.startsWith("page.");
     const barre = el("div", { class: "onglets", role: "tablist" });
-    const panneau = el("div", { class: "panneau", role: "tabpanel" });
+    const panneau = el("div", { class: "panneau", role: "tabpanel", id: base + "-p", tabindex: "0" });
     const ouvrir = (id) => {
       for (const b of barre.children) {
         const choisi = b.dataset.id === id;
         b.setAttribute("aria-selected", String(choisi));
         b.tabIndex = choisi ? 0 : -1; // un seul onglet dans l'ordre de tabulation, les flèches font le tour
+        if (choisi) panneau.setAttribute("aria-labelledby", b.id);
       }
       panneau.replaceChildren();
       liste.find((o) => o.id === id).rendu(panneau);
       if (cle) memoire.ecrire("onglet." + cle, id);
     };
-    barre.append(...liste.map((o) => {
-      const b = el("button", { type: "button", role: "tab", texte: o.titre, onclick: () => ouvrir(o.id) });
+    barre.append(...liste.map((o, i) => {
+      const b = el("button", { type: "button", role: "tab", id: `${base}-t${i}`, "aria-controls": base + "-p", texte: o.titre, onclick: () => ouvrir(o.id) });
       b.dataset.id = o.id;
       return b;
     }));
@@ -400,7 +437,7 @@ const App = (() => {
     });
     const garde = cle ? memoire.lire("onglet." + cle) : null;
     ouvrir(liste.some((o) => o.id === garde) ? garde : liste[0].id);
-    return el("div", { class: "bloc-onglets" }, barre, panneau);
+    return el("div", { class: "bloc-onglets" + (niveauPage ? " niveau-page" : "") }, barre, panneau);
   }
 
   // ---------- bulles d'aide au survol ou au clavier ----------
@@ -408,10 +445,32 @@ const App = (() => {
   function bulles() {
     const b = el("div", { id: "bulle", role: "tooltip", hidden: true });
     document.body.append(b);
-    const cacher = () => { b.hidden = true; };
+    // WCAG 1.4.13 : la bulle reste tant que le pointeur est sur l'élément ou sur la bulle (délai de 250 ms pour franchir l'écart),
+    // se ferme avec Échap, et un élément qui a le focus au clavier la garde. Elle décrit l'élément (aria-describedby).
+    let courante = null, minuterie = null;
+    // « bulle » s'ajoute à la liste aria-describedby de l'élément (un champ en erreur y garde son message) et s'en retire
+    const jetons = (x) => (x.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+    const decrire = (x, oui) => {
+      const l = jetons(x).filter((j) => j !== "bulle");
+      if (oui) l.push("bulle");
+      if (l.length) x.setAttribute("aria-describedby", l.join(" ")); else x.removeAttribute("aria-describedby");
+    };
+    const cacher = () => {
+      clearTimeout(minuterie);
+      b.hidden = true;
+      if (courante) { decrire(courante, false); courante = null; }
+    };
+    const planifier = () => { clearTimeout(minuterie); minuterie = setTimeout(() => { if (!(courante && courante.matches(":focus-visible"))) cacher(); }, 250); };
     const montrer = (e) => {
+      const dansBulle = e.target.closest && e.target.closest("#bulle");
+      if (dansBulle) return clearTimeout(minuterie); // le pointeur est passé sur la bulle : elle reste
       const cible = e.target.closest ? e.target.closest("[data-aide]") : null;
-      if (!cible) return cacher();
+      if (!cible) return courante ? planifier() : undefined;
+      clearTimeout(minuterie);
+      if (cible === courante && !b.hidden) return;
+      if (courante) decrire(courante, false);
+      courante = cible;
+      if (!cible.hasAttribute("aria-description")) decrire(cible, true); // sinon la description est déjà portée par l'élément
       b.textContent = cible.dataset.aide;
       b.hidden = false;
       const r = cible.getBoundingClientRect();
@@ -420,7 +479,12 @@ const App = (() => {
     };
     document.addEventListener("mouseover", montrer);
     document.addEventListener("focusin", montrer);
-    for (const ev of ["focusout", "keydown", "scroll"]) document.addEventListener(ev, cacher, true);
+    for (const ev of ["focusout", "scroll"]) document.addEventListener(ev, (e) => { if (!e.target || !e.target.closest || !e.target.closest("#bulle")) cacher(); }, true);
+    document.addEventListener("keydown", (e) => {
+      if (b.hidden) return;
+      if (e.key === "Escape") { e.preventDefault(); cacher(); } // la bulle se ferme seule : le guide ou le panneau ouvert ne reçoivent pas ce Échap
+      else if (e.key === "Tab") cacher();
+    }, true); // pas à chaque frappe : on tape dans un champ qui porte une bulle
   }
 
   // ---------- appel du calcul ----------
@@ -592,6 +656,22 @@ const App = (() => {
     document.querySelector(".entete").append(theme);
   }
 
+  // Hauteur du menu collant, en variable CSS --barre (décalages de défilement, colonnes collantes) : suit le menu quand il
+  // passe sur une ou deux lignes ; 0 quand il n'est plus collant (paysage bas).
+  let hauteurBarre = 0;
+  function mesurerBarre() {
+    const barre = $("barre");
+    if (!barre) return;
+    const maj = () => {
+      hauteurBarre = getComputedStyle(barre).position === "sticky" ? Math.ceil(barre.getBoundingClientRect().height) : 0;
+      document.documentElement.style.setProperty("--barre", hauteurBarre + "px");
+    };
+    maj();
+    if (window.ResizeObserver) new ResizeObserver(maj).observe(barre);
+    window.addEventListener("resize", maj);
+    if (window.matchMedia) matchMedia("(max-height: 520px)").addEventListener("change", maj);
+  }
+
   function majMenu(p) {
     const famille = p.famille || "accueil";
     for (const a of document.querySelectorAll("#menu .famille")) {
@@ -714,6 +794,7 @@ const App = (() => {
     menu();
     bulles();
     window.addEventListener("hashchange", afficher);
+    mesurerBarre();
     afficher(); // la page se lit pendant le chargement ; les calculs s'activent à la fin
     const debut = performance.now();
     prechargerPlotly();
@@ -756,7 +837,8 @@ const App = (() => {
     }
     console.info("MecaStruct prêt", mesures);
     etat("");
-    afficher();
+    // fin du chargement : seules les pages qui dépendent du calcul se redessinent (l'accueil et les textes gardent leur défilement et leurs replis)
+    if (courante && ["machine", "convertisseur", "base", "references"].includes(courante.genre)) afficher();
     prechargerPages();
   }
 
@@ -764,5 +846,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();

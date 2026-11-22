@@ -89,7 +89,8 @@
     function cible(e) {
       let x = null;
       if (e.genre === "champ") { const i = chercheChamp(e.c); x = i ? (i.closest("label") || i) : null; }
-      else if (e.genre === "calcul") x = formulaire.querySelector('.actions-saisie button[type="submit"]') || bloc.querySelector(".actions-schema button");
+      else if (e.genre === "calcul") x = [formulaire.querySelector('.actions-saisie button[type="submit"]'), bloc.querySelector(".actions-schema button")].find((b) => b && b.getClientRects().length) // celui des deux qui est visible (CSS : un seul « Calculer » à la fois)
+          || formulaire.querySelector('.actions-saisie button[type="submit"]') || bloc.querySelector(".actions-schema button");
       else x = resultat.querySelector(".bilan, .verdict") || resultat;
       return x && x.isConnected ? x : null;
     }
@@ -108,7 +109,7 @@
       const ecouter = (cible_, type, fn, options) => { cible_.addEventListener(type, fn, options); ecouteurs.push(() => cible_.removeEventListener(type, fn, options)); };
 
       const corps = el("div", { class: "guide-corps" });
-      const etat = el("p", { class: "guide-etat" });
+      const etat = el("p", { class: "guide-etat", role: "status", "aria-live": "polite" });
       const desactive = (b, oui) => b.setAttribute("aria-disabled", String(!!oui)); // jamais « disabled » : le focus reste sur le bouton
       const actionner = (b, fn) => b.addEventListener("click", () => { if (b.getAttribute("aria-disabled") !== "true") fn(); });
       const precedent = el("button", { type: "button", class: "secondaire petit", texte: "Précédent" });
@@ -116,7 +117,7 @@
       const passer = el("button", { type: "button", class: "secondaire petit", texte: "Passer cette étape" });
       const aller = el("button", { type: "button", class: "secondaire petit" });
       const quitter = el("button", { type: "button", class: "secondaire petit", texte: "Quitter", aide: "Ferme le guide (Échap). Vos données ne sont pas modifiées." });
-      const carte = el("div", { class: "guide-carte", role: "region", "aria-label": "Guide pas à pas", "aria-live": "polite", "data-mode": "pres" },
+      const carte = el("div", { class: "guide-carte", role: "region", "aria-label": "Guide pas à pas", "data-mode": "pres" },
         corps, etat, el("div", { class: "guide-boutons" }, precedent, suivant, passer, aller, quitter));
       barre.after(carte);
       document.body.classList.add("guide-actif");
@@ -203,7 +204,7 @@
         if (x) x.classList.add("guide-cible");
       }
       // bas du menu une fois collé en haut de la fenêtre (position « sticky ») : sa hauteur, pas sa position du moment
-      const hautLibre = () => { const b = document.getElementById("barre"); return (b ? b.offsetHeight : 0) + 6; };
+      const hautLibre = () => (App.hautBarre ? App.hautBarre() : 0) + 6; // 0 quand le menu n'est plus collant (paysage bas)
       const borner = (v, a, b) => Math.max(a, Math.min(v, b));
       function placer() {
         if (!bloc.isConnected) return arreter(false);
@@ -305,7 +306,12 @@
       ecouter(bloc, "click", (e) => {
         if (etapes[index].genre === "calcul" && e.target.closest && e.target.closest(".actions-schema button")) { faits.add(index); setTimeout(majEtat, 0); }
       });
-      ecouter(document, "keydown", (e) => { if (e.key === "Escape" && !e.defaultPrevented) arreter(true, carte.contains(document.activeElement)); });
+      // Échap quitte le guide, sauf s'il a déjà servi à autre chose (panneau IA fermé) ou s'il annule une saisie dans un champ
+      ecouter(document, "keydown", (e) => {
+        if (e.key !== "Escape" || e.defaultPrevented) return;
+        if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+        arreter(true, carte.contains(document.activeElement));
+      });
       ecouter(window, "hashchange", () => arreter(false)); // changement de page : l'étape reste mémorisée pour la reprise
 
       let trame = 0;

@@ -6,7 +6,7 @@
 
   App.genre("texte", async (contenu, page, { perime = () => false } = {}) => {
     const zone = el("article", { class: "texte" }, App.message("info", "Chargement…"));
-    contenu.append(zone);
+    contenu.append(el("h1", { texte: page.titre }), zone); // le texte markdown commence au niveau h2
     try {
       const r = await fetch(page.source, { cache: "no-cache" });
       if (perime()) return; // l'utilisateur a changé de page pendant le chargement : rien à ajouter

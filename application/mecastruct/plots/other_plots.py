@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 
 from mecastruct.core import kt_mohr
 from mecastruct.core.errors import MecaStructError
-from mecastruct.plots._common import COULEUR, arrow, legende, num, polyShape, rgb, support, teinte
+from mecastruct.plots._common import COULEUR, arrow, boite_texte, legende, libre_vertical, num, polyShape, rgb, support, teinte
 
 _ID_KT = "MecaStruct:PlotEngine:unknownKt"
 _GRIS = (0.75, 0.75, 0.75)
@@ -87,7 +87,7 @@ def bucklingCurve(curve: dict, b: dict | None = None) -> go.Figure:
                 text=f"<b>{t1}</b>",
                 textangle=-90,
                 showarrow=False,
-                font=dict(color=couleur, size=10),
+                font=dict(color=couleur, size=12),
             )
         else:
             fig.add_annotation(
@@ -96,7 +96,7 @@ def bucklingCurve(curve: dict, b: dict | None = None) -> go.Figure:
                 text=f"<b>{txt}</b>",
                 showarrow=False,
                 yanchor="top",
-                font=dict(color=couleur, size=10),
+                font=dict(color=couleur, size=12),
             )
 
     fig.add_trace(
@@ -149,7 +149,7 @@ def bucklingCurve(curve: dict, b: dict | None = None) -> go.Figure:
             showarrow=False,
             xanchor="left",
             yanchor="top",
-            font=dict(size=10),
+            font=dict(size=12),
         )
 
     if b is not None and "lambda" in b:
@@ -173,7 +173,7 @@ def bucklingCurve(curve: dict, b: dict | None = None) -> go.Figure:
             xanchor=_ancrageH(lb, lMax),
             yanchor="bottom",
             bgcolor="white",
-            font=dict(size=10),
+            font=dict(size=12),
         )
         if b.get("sigmaApplied") is not None and math.isfinite(float(b["sigmaApplied"])):
             sa = float(b["sigmaApplied"]) / 1e6
@@ -195,7 +195,7 @@ def bucklingCurve(curve: dict, b: dict | None = None) -> go.Figure:
                 xanchor=_ancrageH(lb, lMax),
                 yanchor="top",
                 bgcolor="white",
-                font=dict(color=rgb(_VERT), size=10),
+                font=dict(color=rgb(_VERT), size=12),
             )
 
     fig.update_xaxes(range=[0, lMax], title_text="λ = L'/r<sub>min</sub>")
@@ -305,7 +305,7 @@ def mohr2D(r2D: dict, theta: float | None = None) -> go.Figure:
             y=q[1] + 0.05 * ext * u[1],
             text=texte,
             showarrow=False,
-            font=dict(color=couleur, size=10),
+            font=dict(color=couleur, size=12),
             xanchor="right" if u[0] < 0 else "left",
             yanchor="top" if -u[1] > 0 else "bottom",
         )
@@ -323,7 +323,7 @@ def mohr2D(r2D: dict, theta: float | None = None) -> go.Figure:
         y=-0.06 * ext,
         text=f"δ = {num(c)}",
         showarrow=False,
-        font=dict(color=fg, size=10),
+        font=dict(color=fg, size=12),
         xanchor="center",
         yanchor="top",
         bgcolor="white",
@@ -335,7 +335,7 @@ def mohr2D(r2D: dict, theta: float | None = None) -> go.Figure:
         y=0.55 * R * d45[1],
         text=f"ρ = {num(R)}",
         showarrow=False,
-        font=dict(color=fg, size=10),
+        font=dict(color=fg, size=12),
         xanchor="right",
         yanchor="bottom",
         bgcolor="white",
@@ -354,7 +354,7 @@ def mohr2D(r2D: dict, theta: float | None = None) -> go.Figure:
         y=0.05 * ext,
         text=f"{n1} = {num(c + R)}",
         showarrow=False,
-        font=dict(color=fg, size=10),
+        font=dict(color=fg, size=12),
         xanchor="left",
         yanchor="bottom",
     )
@@ -363,7 +363,7 @@ def mohr2D(r2D: dict, theta: float | None = None) -> go.Figure:
         y=0.05 * ext,
         text=f"{n2} = {num(c - R)}",
         showarrow=False,
-        font=dict(color=fg, size=10),
+        font=dict(color=fg, size=12),
         xanchor="right",
         yanchor="bottom",
     )
@@ -392,7 +392,7 @@ def mohr2D(r2D: dict, theta: float | None = None) -> go.Figure:
             y=0.42 * R * math.sin(am),
             text=f"2θ = {num(2 * theta * 180 / math.pi)}°",
             showarrow=False,
-            font=dict(color=violet, size=10),
+            font=dict(color=violet, size=12),
             bgcolor="white",
         )
         up = 1 if Pf[1] >= 0 else -1
@@ -410,7 +410,7 @@ def mohr2D(r2D: dict, theta: float | None = None) -> go.Figure:
             y=Pf[1] + up * 0.09 * ext,
             text=f"{s} = {num(Pf[0])}, {t} = {num(Pf[1])}",
             showarrow=False,
-            font=dict(color=violet, size=10),
+            font=dict(color=violet, size=12),
             xanchor="right" if Pf[0] >= c else "left",
             yanchor="bottom" if up > 0 else "top",
             bgcolor="white",
@@ -511,7 +511,7 @@ def mohr3D(m3: dict, point=None) -> go.Figure:
                 y=0.06 * ext,
                 text=f"{tn[j]} = {num(p[j])}",
                 showarrow=False,
-                font=dict(color=fg, size=10),
+                font=dict(color=fg, size=12),
                 xanchor="center",
                 yanchor="bottom",
                 bgcolor="white",
@@ -522,7 +522,7 @@ def mohr3D(m3: dict, point=None) -> go.Figure:
                 y=0.05 * ext,
                 text=f"{tn[j]} = {num(p[j])}",
                 showarrow=False,
-                font=dict(color=fg, size=10),
+                font=dict(color=fg, size=12),
                 xanchor="left",
                 yanchor="bottom",
             )
@@ -533,7 +533,7 @@ def mohr3D(m3: dict, point=None) -> go.Figure:
             y=ra[2],
             text=f"τ<sub>max</sub> = {num(ra[2])} MPa",
             showarrow=False,
-            font=dict(color=fg, size=10),
+            font=dict(color=fg, size=12),
             xanchor="center",
             yanchor="bottom",
             bgcolor="white",
@@ -554,7 +554,7 @@ def mohr3D(m3: dict, point=None) -> go.Figure:
             y=q[1] + 0.06 * ext,
             text=f"({num(q[0])}, {num(q[1])})",
             showarrow=False,
-            font=dict(color=rgb(_ROUGE), size=10),
+            font=dict(color=rgb(_ROUGE), size=12),
             xanchor="center",
             yanchor="bottom",
             bgcolor="white",
@@ -633,10 +633,10 @@ def yieldLocus(loci: dict, point=None) -> go.Figure:
         )
     )
     fig.add_annotation(
-        x=a, y=0, text=num(a), showarrow=False, font=dict(color=fg, size=10), xanchor="left", yanchor="top"
+        x=a, y=0, text=num(a), showarrow=False, font=dict(color=fg, size=12), xanchor="left", yanchor="top"
     )
     fig.add_annotation(
-        x=0, y=a, text=num(a), showarrow=False, font=dict(color=fg, size=10), xanchor="left", yanchor="bottom"
+        x=0, y=a, text=num(a), showarrow=False, font=dict(color=fg, size=12), xanchor="left", yanchor="bottom"
     )
     if q is not None:
         violet = rgb(_VIOLET)
@@ -655,7 +655,7 @@ def yieldLocus(loci: dict, point=None) -> go.Figure:
             y=q[1] - 0.07 * ext,
             text=f"({num(q[0])}, {num(q[1])})",
             showarrow=False,
-            font=dict(color=violet, size=10),
+            font=dict(color=violet, size=12),
             xanchor="center",
             yanchor="top",
             bgcolor="white",
@@ -695,6 +695,11 @@ def truss(truss: dict, tsol: dict | None = None, scale: float | None = None) -> 
     fg = COULEUR["trait"]
     hasN = tsol is not None and "N" in tsol
     fig = go.Figure()
+    # unités du dessin par pixel (approchées, plutôt grandes) et boîtes des étiquettes déjà posées : les étiquettes de
+    # charges et de réactions s'écartent de celles-ci (N des barres, noms de nœuds) au lieu de les recouvrir
+    etendue = (X3.max(axis=0) - X3.min(axis=0)) + np.array([0.24, 0.6, 0.6]) * span  # taille de la zone tracée
+    k = max(etendue[0] / 520, etendue[1] / 330) if not dim3 else 0.0
+    boites: list = []
 
     # déformée amplifiée
     if tsol is not None and "displacements" in tsol and scale != 0:
@@ -743,19 +748,23 @@ def truss(truss: dict, tsol: dict | None = None, scale: float | None = None) -> 
         vus.add(nomBarre)
         if hasN:
             milieu = X3[bars[b]].mean(axis=0)
+            if not dim3:
+                boites.append(boite_texte(milieu[0], milieu[1], f"N{b + 1} = {num(float(tsol['N'][b]) / 1e3)}", k))
             fig.add_trace(
                 _trace(
                     milieu[None, :],
                     dim3,
                     mode="text",
                     text=[f"N<sub>{b + 1}</sub> = {num(float(tsol['N'][b]) / 1e3)}"],
-                    textfont=dict(color=col, size=9),
+                    textfont=dict(color=col, size=12),
                     showlegend=False,
                     hoverinfo="skip",
                 )
             )
 
     # nœuds et noms
+    if not dim3:
+        boites += [boite_texte(X[i, 0], X[i, 1] + 2 * k, f"  {nm}", k, "bottom", "left") for i, nm in enumerate(noms)]
     fig.add_trace(
         _trace(
             X3,
@@ -773,7 +782,7 @@ def truss(truss: dict, tsol: dict | None = None, scale: float | None = None) -> 
             mode="text",
             text=[f"  {nm}" for nm in noms],
             textposition="top right",
-            textfont=dict(color=fg, size=11),
+            textfont=dict(color=fg, size=12),
             showlegend=False,
             hoverinfo="skip",
         )
@@ -843,19 +852,23 @@ def truss(truss: dict, tsol: dict | None = None, scale: float | None = None) -> 
                         True,
                         mode="text",
                         text=[txt],
-                        textfont=dict(color=col, size=9),
+                        textfont=dict(color=col, size=12),
                         showlegend=False,
                         hoverinfo="skip",
                     )
                 )
             else:
                 arrow(fig, p1[:2], p2[:2], col, 2)
+                bas = u[1] > 0  # flèche vers le haut : le texte est sous la queue, sinon au-dessus
+                bte = boite_texte(p1[0], p1[1], txt, k, "top" if bas else "bottom")
+                dy = libre_vertical(bte, boites, -1.0 if bas else 1.0, 0.5 * 15.0 * k, 3 * k)
+                boites.append((bte[0], bte[1], bte[2] + dy, bte[3] + dy))
                 fig.add_annotation(
                     x=p1[0],
-                    y=p1[1],
+                    y=p1[1] + dy,
                     text=txt,
                     showarrow=False,
-                    font=dict(color=col, size=9),
+                    font=dict(color=col, size=12),
                     xanchor="center",
                     yanchor="top" if u[1] > 0 else "bottom",
                 )

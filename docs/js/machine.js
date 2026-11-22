@@ -133,12 +133,12 @@
       return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", "data-id": repere(c), texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.transfert(c) }));
     }
     if (c.type === "extra") { // calcul complémentaire (combinaisons, Eurocode 3…) : son résultat s'affiche sous le résultat principal
-      return el("div", { class: "action" }, el("button", { type: "button", class: "primaire", "data-id": repere(c), texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.extra(c) }));
+      return el("div", { class: "action" }, el("button", { type: "button", class: "secondaire", "data-id": repere(c), texte: c.libelle, aide: c.aide || undefined, onclick: () => outils.extra(c) })); // secondaire : « Calculer » reste le seul primaire
     }
     // sécurité : coefficient s ou marge en % (marge = s − 1), au choix ; la saisie garde toujours s
     const enMarge = !!c.securite && securiteEnMarge();
     const regle = enMarge ? { ...c, min: 0, max: null, minExclu: false, unite: "%" } : c;
-    const input = el("input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false" });
+    const input = el("input", { type: "text", inputmode: App.clavierNombre(regle.min), autocomplete: "off", spellcheck: "false" });
     input.value = affiche(enMarge && typeof valeur === "number" ? 100 * (valeur - 1) : valeur);
     input.dataset.id = c.id; // repère pour le mode guidé (js/guide.js)
     // l'étiquette englobe aussi la liste « Coefficient s / Marge » : c'est elle qui la reçoit, le champ garde son propre nom
@@ -253,7 +253,7 @@
     const publier = () => changer(c.id, cases.flat().some((i) => i.dataset.refuse) ? NaN : copie(m));
     const corps = el("tbody"); // rempli plus bas : les cellules ont besoin de lui pour la ligne de statut
     corps.append(...m.map((ligne, i) => el("tr", {}, el("th", { scope: "row", texte: c.noms[i] }), ligne.map((v, j) => {
-      const input = el("input", { type: "text", inputmode: "decimal", "aria-label": `σ${c.noms[i]}${c.noms[j]}` });
+      const input = el("input", { type: "text", inputmode: "text", "aria-label": `σ${c.noms[i]}${c.noms[j]}` }); // contraintes : négatives possibles
       input.value = affiche(v);
       input.dataset.colonne = c.noms[j];
       const validation = validationCellule(input, corps, statut);
@@ -329,7 +329,7 @@
         s.addEventListener("change", () => { ligne[k.id] = s.value; majPolaire(ligne, k.id); publier(); });
         return s;
       }
-      const i = el("input", { type: "text", "aria-label": k.libelle, inputmode: k.genre === "nombre" ? "decimal" : undefined });
+      const i = el("input", { type: "text", "aria-label": k.libelle, inputmode: k.genre === "nombre" ? App.clavierNombre(k.min) : undefined });
       i.value = k.genre === "nombre" ? affiche(ligne[k.id]) : (ligne[k.id] ?? "");
       i.dataset.colonne = k.libelle;
       i.validation = validationCellule(i, corps, statut);
@@ -421,7 +421,18 @@
     let calculee = null; // empreinte de la saisie du dernier résultat affiché
     const zoneSchema = el("div", { class: "schema" });
     const zoneMessage = el("div");
-    const zoneResultat = el("div", { class: "resultat", "aria-live": "polite" });
+    const zoneResultat = el("div", { class: "resultat" });
+    // Seule la phrase du bilan est annoncée aux lecteurs d'écran (pas tout le résultat), 800 ms après le dernier calcul.
+    const annonce = el("p", { class: "cache", role: "status", "aria-atomic": "true" });
+    let minuterieAnnonce = null;
+    const annoncer = (texte, force = false) => {
+      clearTimeout(minuterieAnnonce);
+      minuterieAnnonce = setTimeout(() => {
+        if (annonce.textContent === texte && !force) return; // même phrase : rien de neuf à dire
+        annonce.textContent = "";
+        setTimeout(() => { annonce.textContent = texte; }, 50);
+      }, 800);
+    };
     let minuterie = null;
     let minuterieCalcul = null; // calcul différé des pages à bouton : un clic de plus remplace le précédent
     let offreAnnuler = false; // un message « Annuler » est affiché
@@ -479,7 +490,7 @@
       // champ refusé : on attend 700 ms (le temps de finir de taper « -12,5 ») avant de griser le résultat affiché
       minuterie = setTimeout(() => (auto ? relancer() : apercu()), invalides.size ? 700 : auto ? 250 : 400);
     };
-    const zoneExtras = el("div", { class: "extras", "aria-live": "polite" });
+    const zoneExtras = el("div", { class: "extras" });
     const extras = {}; // calcul → { saisie au moment du calcul, bloc affiché }
     const extrasEnCours = new Map(); // calcul différé d'un complément → fonction qui l'annule
     const outils = {
@@ -515,6 +526,7 @@
           bloc.replaceChildren(titreExtra());
           if (!r.ok) return bloc.append(App.message("erreur", r.erreur));
           bloc.append(...construireResultat(r.sortie, c.calcul, "", true));
+          annoncer(`${c.titre || c.libelle} : ${phraseAnnonce(r.sortie)}`, true);
           extras[c.calcul] = { empreinte: JSON.stringify(saisie), bloc };
         }, 30);
         extrasEnCours.set(c.calcul, () => { clearTimeout(attente); bloc.remove(); });
@@ -567,7 +579,8 @@
       el("button", { type: "button", class: "lien-champ", "data-aller": id, texte: nomChamp(id), aide: "Va au champ à corriger.", onclick: () => aller(id) })]);
     const blocage = (debut) => [debut + " ", ...listeInvalides(), "."];
 
-    const formulaire = el("form", { class: "saisie", onsubmit: (e) => { e.preventDefault(); relancer(true); } });
+    // Entrée dans un champ d'une page automatique ne fait pas défiler vers le résultat (déjà à jour) ; « Calculer » le fait.
+    const formulaire = el("form", { class: "saisie", onsubmit: (e) => { e.preventDefault(); relancer(!auto); } });
     function dessinerChamps() {
       // le champ qui avait le focus (et la position du curseur) le retrouve une fois les champs recréés
       const actif = document.activeElement;
@@ -718,7 +731,7 @@
             } finally { bouton.disabled = false; if (!bouton.dataset.libelle) bouton.textContent = libelle; }
           } }));
       }
-      return el("div", { class: "fichiers" }, el("h4", { texte: "Fichiers" }), el("div", { class: "ligne" }, boutons), entree);
+      return el("div", { class: "fichiers" }, el("h2", { class: "titre-mineur", texte: "Fichiers" }), el("div", { class: "ligne" }, boutons), entree);
     }
 
     function apercu() {
@@ -777,6 +790,7 @@
         if (matPerime) { matPerime = null; afficherPerime(); }
         if (!r.ok) { zoneResultat.replaceChildren(App.message("erreur", r.erreur)); if (parClic) montrer(); return; }
         afficherResultat(r.sortie);
+        annoncer(phraseAnnonce(r.sortie), parClic);
         if (r.sortie.options) majOptions(r.sortie);
         if (!auto && f.apercu) apercu();
         if (parClic) setTimeout(montrer, 60); // après le nouveau schéma, qui change la hauteur de la page
@@ -810,7 +824,7 @@
       const col = titreResultat.closest(".colonne-resultat");
       // grand écran : la colonne de droite défile seule ; sinon c'est la page qui défile
       const interne = () => col && getComputedStyle(col).overflowY === "auto" && col.scrollHeight > col.clientHeight + 4;
-      const ecart = () => titreResultat.getBoundingClientRect().top - (interne() ? col.getBoundingClientRect().top + 4 : 112);
+      const ecart = () => titreResultat.getBoundingClientRect().top - (interne() ? col.getBoundingClientRect().top + 4 : App.hautBarre() + 12);
       const aller = (behavior) => {
         if (interne()) col.scrollTo({ top: col.scrollTop + ecart(), behavior });
         else titreResultat.scrollIntoView({ block: "start", behavior });
@@ -827,6 +841,18 @@
     const nf = (x, chiffres = 3) => (Number.isFinite(x) ? App.exposants(String(Number(x.toPrecision(chiffres))).replace(".", ",")) : "∞");
     // réserve = 1 − taux en % ; un taux non nul arrondi à « 100 » s'écrit « > 99,9 » (100 % ferait croire à une charge nulle)
     const reserve = (taux) => { const r = nf(100 * (1 - taux)); return taux > 0 && r === "100" ? "> 99,9" : r; };
+
+    // Phrase lue par le lecteur d'écran après un calcul : « Vérifié : 3 modes de ruine sur 3 admissibles », ou le verdict.
+    function phraseAnnonce(s) {
+      const crit = s.criteres || [];
+      if (crit.length) {
+        const ko = crit.filter((c) => !c.ok).length;
+        if (ko) return `Non vérifié : ${ko} mode${ko > 1 ? "s" : ""} de ruine sur ${crit.length} non admissible${ko > 1 ? "s" : ""}`;
+        const pastille = s.ok === true ? "Vérifié" : "Indicatif";
+        return crit.length > 1 ? `${pastille} : ${crit.length} modes de ruine sur ${crit.length} admissibles` : `${pastille} : le mode de ruine est admissible`;
+      }
+      return (s.ok === true ? "Vérifié. " : s.ok === false ? "Non vérifié. " : "") + App.decimalesFr(String(s.status || ""));
+    }
 
     // Diagramme des modes de ruine : une ligne par critère, barre du taux de travail, coefficient de sécurité ou marge s − 1
     // (résistance), ou réserve 1 − taux (durée, rigidité, vitesse, norme…). Les études d'une même page ont un sous-titre.
@@ -861,8 +887,10 @@
         if (c.genre === "resistance" && c.sens === "max" && c.s_obtenu > 0 && c.s_obtenu < 1)
           marge.push(el("span", { class: "depasse-limite", texte: `dépasse la limite du matériau de ${nf(100 * (1 / c.s_obtenu - 1))} %`,
             aide: "Valeur calculée divisée par la limite du matériau (Re, sans sécurité), moins 1." }));
+        const aideLigne = [barre, ...marge].map((x) => x.dataset && x.dataset.aide).filter(Boolean).join(" ");
         lignes.push(el("li", { class: "mode " + (c.ok ? "ok" : "ko") + (c === pire && crit.length > 1 ? " pire" : "") },
-          el("span", { class: "mode-nom", texte: c.mode }),
+          // UN seul arrêt de tabulation par ligne : le nom du mode porte l'aide de la jauge et des chiffres (lecteur d'écran compris)
+          el("span", { class: "mode-nom", texte: c.mode, tabindex: "0", aide: aideLigne }),
           el("span", { class: "mode-etat", texte: c.ok ? "Admissible" : "Non admissible" }),
           barre,
           el("span", { class: "mode-chiffres" },
@@ -925,7 +953,7 @@
       const p = el("div", { class: "corps-explications" });
       p0.append(App.boutonImage(p, "explications.png"), p);
       if ((s.explications || []).length) {
-        p.append(el("h4", { texte: "Équations appliquées à vos données" }),
+        p.append(el("h3", { class: "titre-mineur", texte: "Équations appliquées à vos données" }),
           el("p", { class: "legende", texte: "Chaque grandeur est refaite à la main, puis comparée au résultat du solveur." }));
         for (const r of s.explications) {
           if (r.titre) { p.append(el("h4", { class: "sous-titre", texte: r.titre })); continue; }
@@ -933,13 +961,13 @@
             el("p", { class: "legende " + (r.ok ? "concorde" : "ecart"), texte: App.decimalesFr(r.note) }));
         }
       }
-      if ((s.latex || []).length) p.append(el("h4", { texte: "Formules appliquées à vos données" }), ...s.latex.map(App.formule));
+      if ((s.latex || []).length) p.append(el("h3", { class: "titre-mineur", texte: "Formules appliquées à vos données" }), ...s.latex.map(App.formule));
       if ((s.blocs || []).length) {
         const d = el("details", { class: "groupe" }, el("summary", { texte: "Équations écrites par le solveur" }));
         for (const b of s.blocs) d.append(el("h4", { texte: b.nom }), ...b.formules.map(App.formule));
         p.append(d);
       }
-      if ((s.rapport || []).length) p.append(el("h4", { texte: "Démarche" }), el("ul", {}, s.rapport.filter((l) => String(l).trim()).map((l) => el("li", { texte: App.decimalesFr(l) }))));
+      if ((s.rapport || []).length) p.append(el("h3", { class: "titre-mineur", texte: "Démarche" }), el("ul", {}, s.rapport.filter((l) => String(l).trim()).map((l) => el("li", { texte: App.decimalesFr(l) }))));
     }
 
     // Exports placés juste sous le verdict : dossier de validation, bloc-notes, Excel de validation.
@@ -1016,6 +1044,10 @@
         el("span", { class: "ia-fleche", "aria-hidden": "true", texte: "›" }),
         el("span", { class: "ia-libelle", texte: "Demander à une IA" }));
       const conteneur = el("div", { class: "ia-flottant" }, panneau, bouton);
+      // première visite de la session : le libellé complet se montre 5 s, puis la languette se réduit à sa flèche
+      let vu = false;
+      try { vu = sessionStorage.getItem("mecastruct.ia.vu") === "1"; sessionStorage.setItem("mecastruct.ia.vu", "1"); } catch (e) { /* sans mémoire de session */ }
+      if (!vu) { conteneur.classList.add("annonce"); setTimeout(() => conteneur.classList.remove("annonce"), 5000); }
       const fermer = () => { panneau.hidden = true; conteneur.classList.remove("ouvert"); bouton.setAttribute("aria-expanded", "false"); };
       bouton.addEventListener("click", async () => {
         if (!panneau.hidden) return fermer(); // second clic : on referme et on réduit
@@ -1027,21 +1059,19 @@
         conteneur.classList.toggle("ouvert", ok);
         bouton.setAttribute("aria-expanded", String(ok));
       });
-      // fermeture : Échap, clic ailleurs, défilement de la page, changement d'onglet ; les écouteurs se retirent
-      // d'eux-mêmes quand la page a disparu
+      // fermeture : Échap ou clic ailleurs (pas le défilement : sur mobile il suit un geste du doigt) ; les écouteurs se
+      // retirent d'eux-mêmes quand la page a disparu
       const surDocument = (e) => {
         if (!conteneur.isConnected) {
           document.removeEventListener("keydown", surDocument); document.removeEventListener("click", surDocument);
-          window.removeEventListener("scroll", surDocument);
           return;
         }
-        if (e.type === "keydown") { if (e.key === "Escape") fermer(); }
-        else if (e.type === "scroll") { if (!panneau.hidden) fermer(); }
+        // Échap : un seul composant réagit par appui (le guide ignore un Échap déjà pris ici)
+        if (e.type === "keydown") { if (e.key === "Escape" && !panneau.hidden) { e.preventDefault(); fermer(); } }
         else if (!conteneur.contains(e.target) || (e.target.closest && e.target.closest(".onglets"))) fermer();
       };
       document.addEventListener("keydown", surDocument);
       document.addEventListener("click", surDocument);
-      window.addEventListener("scroll", surDocument, { passive: true });
       return conteneur;
     }
 
@@ -1050,10 +1080,12 @@
     // Pages à schéma : le schéma vit dans un panneau « Représentation » escamotable, à droite de la zone principale
     // (grand écran) ou en section repliable avant les champs (petit écran). Replier ne retire rien du DOM : le formulaire,
     // le schéma et leurs positions de défilement restent en place, seul le CSS (classe « replie ») change la largeur.
+    const grand = matchMedia("(min-width: 1500px)"); // trois colonnes (saisie, résultat, panneau à droite) : même seuil que style.css
     function panneauSchema() {
       const cleMemo = "panneau." + ident;
       const gardee = App.memoire.lire(cleMemo, null);
-      let replie = !!(gardee && typeof gardee === "object" && gardee.replie === true);
+      // rien de mémorisé : replié tant que le panneau n'est qu'un bloc au-dessus des champs (moins de 1500 px), déplié à droite sinon
+      let replie = gardee && typeof gardee === "object" ? gardee.replie === true : !grand.matches;
       const idPanneau = "panneau-schema-" + ident;
       const poignee = el("button", { type: "button", class: "poignee", "aria-controls": idPanneau },
         el("span", { class: "poignee-fleche", "aria-hidden": "true", texte: "›" }),
@@ -1092,15 +1124,14 @@
       el("div", { class: "colonne-saisie" }, formulaire),
       el("div", { class: "colonne-resultat" },
         auto ? null : el("div", { class: "actions-schema" }, el("button", { type: "button", class: "primaire", texte: "Calculer", aide: "Lance le calcul.", onclick: () => relancer(true) })),
-        titreResultat, zoneResultat, zoneExtras)];
+        titreResultat, annonce, zoneResultat, zoneExtras)];
     const principale = panneau ? el("div", { class: "zone-principale" }, colonnes) : null; // sans schéma : colonnes directement dans .calcul
-    const grand = matchMedia("(min-width: 1100px)");
     const bloc = el("div", { class: "calcul" + (panneau ? " avec-schema" : "") }, boutonIA(),
       panneau && !grand.matches ? panneau.cadre : null, // petit écran : avant les champs
       principale || colonnes,
       panneau && grand.matches ? panneau.cadre : null); // grand écran : à droite
     if (panneau) {
-      const placer = () => { // le panneau change de place (sans être recréé) quand la fenêtre passe le seuil de 1100 px
+      const placer = () => { // le panneau change de place (sans être recréé) quand la fenêtre passe le seuil de 1500 px
         if (!bloc.isConnected) { grand.removeEventListener("change", placer); return; }
         if (grand.matches) bloc.append(panneau.cadre); else bloc.insertBefore(panneau.cadre, principale);
         panneau.redimensionner();

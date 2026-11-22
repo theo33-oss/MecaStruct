@@ -14,7 +14,7 @@
     const lue = App.memoire.lire("conv", {});
     const garde = lue && typeof lue === "object" && !Array.isArray(lue) ? lue : {}; // jamais « null » ni un tableau
     const grandeur = el("select", {}, cat.grandeurs.map((g) => el("option", { value: g.nom, texte: g.nom })));
-    const valeur = el("input", { type: "text", inputmode: "decimal" });
+    const valeur = el("input", { type: "text", inputmode: "text" }); // températures : valeur négative possible, le clavier « decimal » de l'iPhone n'a pas de signe moins
     const de = el("select"), vers = el("select");
     const resultat = el("div", { "aria-live": "polite" });
 

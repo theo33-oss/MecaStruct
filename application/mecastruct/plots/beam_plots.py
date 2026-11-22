@@ -11,7 +11,19 @@ from plotly.subplots import make_subplots
 
 from mecastruct.core.errors import MecaStructError
 from mecastruct.core.pp import asPP, ppEval, ppSample
-from mecastruct.plots._common import COULEUR, arcArrow, arrow, comp, label, num, polyShape, support, teinte
+from mecastruct.plots._common import (
+    COULEUR,
+    arcArrow,
+    arrow,
+    boite_texte,
+    comp,
+    label,
+    libre_vertical,
+    num,
+    polyShape,
+    support,
+    teinte,
+)
 
 _ID = "MecaStruct:PlotEngine:invalidInput"
 _TOUTES = ("N", "Ty", "Tz", "Mt", "Mfy", "Mfz")
@@ -32,7 +44,7 @@ def _arrondi(x: float) -> int:
 
 
 def _txt(
-    fig: go.Figure, x: float, y: float, texte: str, couleur: str, ancrage_x="center", ancrage_y="bottom", taille=10
+    fig: go.Figure, x: float, y: float, texte: str, couleur: str, ancrage_x="center", ancrage_y="bottom", taille=12
 ):
     """Texte HTML ancré en coordonnées de données (ancrage_x : left/center/right ; ancrage_y : top/middle/bottom)."""
     fig.add_annotation(
@@ -82,9 +94,9 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
             phi = -math.pi / 2 if x < L / 2 else math.pi / 2
         support(fig, (x, 0.0), typ, h, phi, fg)
         if typ == "encastrement":
-            _txt(fig, x + math.copysign(1.8 * h, phi), -1.6 * h, label(nm), fg, "center", "top", 11)
+            _txt(fig, x + math.copysign(1.8 * h, phi), -1.6 * h, label(nm), fg, "center", "top", 12)
         else:
-            _txt(fig, x - 0.9 * h, -0.5 * h, label(nm), fg, "right", "middle", 11)
+            _txt(fig, x - 0.9 * h, -0.5 * h, label(nm), fg, "right", "middle", 12)
         yBot = min(yBot, -1.6 * h)
         note = ""
         if (sup.get("spring") or 0) > 0:
@@ -98,7 +110,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
         if any(dd):
             note = f"{note} tassement (mm) : {' '.join(num(v * 1e3) for v in dd)}".strip()
         if note:
-            _txt(fig, x, yBot - 0.4 * h, note, fg, "center", "top", 8)
+            _txt(fig, x, yBot - 0.4 * h, note, fg, "center", "top", 12)
             yBot -= 1.6 * h
 
     # ---- rotules intermédiaires
@@ -121,6 +133,12 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
         (float(np.max(np.abs(np.polyval(np.asarray(d["coeffs"], dtype=float).ravel(), np.linspace(0, d["b"] - d["a"], 50))))) for d in dl), default=0.0
     )
     placed = []  # [a, b, sommet] des charges déjà tracées
+    # unités du dessin par pixel (approchées, plutôt grandes) et boîtes des étiquettes de charges réparties : les étiquettes
+    # de forces ponctuelles s'élèvent au-dessus de celles-ci au lieu de les recouvrir
+    k = 1.3 * L / 520
+    etiq: list = []
+    # abscisses des forces verticales : le texte d'une charge répartie ne doit pas être traversé par leur flèche
+    xForces = [float(p["pos"]) for p in model.get("pointLoads") or [] if (p.get("Fy") or 0.0) != 0]
     for i, d in enumerate(dl, start=1):
         a, b = float(d["a"]), float(d["b"])
         cles += [a, b]
@@ -151,8 +169,21 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
                 else:
                     arrow(fig, (xk, base), (xk, base + hk), cDist, 1)
             if c.size == 1:
-                _txt(fig, (a + b) / 2, env.max() + 0.02 * L, f"{label(nm)} = {num(c[0] / 1e3)} kN/m", cDist)
+                t1 = f"{label(nm)} = {num(c[0] / 1e3)} kN/m"
+                xc = (a + b) / 2
+                bt = boite_texte(xc, env.max() + 0.02 * L, t1, k, "bottom")
+                demi = (bt[1] - bt[0]) / 2
+                for xf in xForces:  # une flèche traverse le texte : on le pousse d'un côté ou de l'autre de la flèche
+                    if bt[0] - 4 * k < xf < bt[1] + 4 * k:
+                        xc = min((xf + 4 * k + demi, xf - 4 * k - demi), key=lambda v: abs(v - xc))
+                        bt = boite_texte(xc, env.max() + 0.02 * L, t1, k, "bottom")
+                etiq.append(bt)
+                _txt(fig, xc, env.max() + 0.02 * L, t1, cDist)
             else:
+                etiq.append(boite_texte(a, env[0] + 0.02 * L, f"{label(nm)}({num(a)}) = {num(ps[0] / 1e3)} kN/m", k, "bottom", "left"))
+                tb = f"{label(nm)}({num(b)}) = {num(ps[-1] / 1e3)} kN/m"
+                bb = boite_texte(b, env[-1] + 0.02 * L, tb, k, "bottom", "left")
+                etiq.append((bb[0] - (bb[1] - bb[0]), b, bb[2], bb[3]))  # ancré à droite
                 _txt(
                     fig,
                     a,
@@ -161,7 +192,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
                     cDist,
                     "left",
                     "bottom",
-                    9,
+                    12,
                 )
                 _txt(
                     fig,
@@ -171,7 +202,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
                     cDist,
                     "right",
                     "bottom",
-                    9,
+                    12,
                 )
             yTop = max(yTop, env.max() + 0.08 * L)
             placed.append((a, b, env.max() + 0.07 * L))
@@ -188,7 +219,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
                     arrow(fig, p0, p1, cDist, 1)
                 else:
                     arrow(fig, p1, p0, cDist, 1)
-            _txt(fig, (a + b) / 2, 0.05 * L, f"p<sub>x</sub> : {label(nm)}", cDist, taille=9)
+            _txt(fig, (a + b) / 2, 0.05 * L, f"p<sub>x</sub> : {label(nm)}", cDist, taille=12)
             yTop = max(yTop, 0.1 * L)
         else:
             nArr = min(_FLECHES_MAX, max(3, _arrondi(10 * (b - a) / L)))
@@ -212,7 +243,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
                     hoverinfo="skip",
                 )
             )
-            _txt(fig, (a + b) / 2, 0.05 * L, f"p<sub>z</sub> : {label(nm)}", cDist, taille=9)
+            _txt(fig, (a + b) / 2, 0.05 * L, f"p<sub>z</sub> : {label(nm)}", cDist, taille=12)
             yTop = max(yTop, 0.1 * L)
 
     # ---- forces ponctuelles
@@ -230,8 +261,10 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
                 arrow(fig, (x, 0.0), (x + Ha * dx, Ha * dy), cLoad, 2)
             F = float(p.get("F") or 0.0)
             quoi = f"F = {num(abs(F) / 1e3)} kN à {num(float(p.get('ang') or 0.0))}°" if F else f"{num(n / 1e3)} kN"
-            _txt(fig, x - Ha * dx if Fy < 0 else x + Ha * dx, (Ha * abs(dy)) + 0.015 * L, f"{nm} : {quoi}", cLoad)
-            yTop = max(yTop, Ha * abs(dy) + 0.09 * L)
+            xt, yt, tt = x - Ha * dx if Fy < 0 else x + Ha * dx, (Ha * abs(dy)) + 0.015 * L, f"{nm} : {quoi}"
+            yt += libre_vertical(boite_texte(xt, yt, tt, k, "bottom"), etiq, 1.0, 7.5 * k, 3 * k)
+            _txt(fig, xt, yt, tt, cLoad)
+            yTop = max(yTop, yt + 0.075 * L)
             avecForces = True
             Fx = Fy = 0.0
         if Fy != 0:
@@ -239,8 +272,11 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
                 arrow(fig, (x, Ha), (x, 0.0), cLoad, 2)
             else:
                 arrow(fig, (x, 0.0), (x, Ha), cLoad, 2)
-            _txt(fig, x, Ha + 0.015 * L, f"{comp(nm, 'y')} = {num(Fy / 1e3)} kN", cLoad)
-            yTop = max(yTop, Ha + 0.09 * L)
+            tt = f"{comp(nm, 'y')} = {num(Fy / 1e3)} kN"
+            yt = Ha + 0.015 * L
+            yt += libre_vertical(boite_texte(x, yt, tt, k, "bottom"), etiq, 1.0, 7.5 * k, 3 * k)
+            _txt(fig, x, yt, tt, cLoad)
+            yTop = max(yTop, yt + 0.075 * L)
             avecForces = True
         if Fx != 0:
             yx = 0.012 * L
@@ -375,7 +411,7 @@ def beamSchematic(model: dict, sol: dict | None = None) -> go.Figure:
     for texte, xs, ys in (("x", 58, 0), ("y", 0, 58), ("⊙ z", -22, -14)):
         fig.add_annotation(text=f"<b>{texte}</b>", showarrow=False, xshift=xs, yshift=ys, font=dict(size=13, color=fg),
                            xref="paper", yref="paper", x=1.05, y=0.1)
-    fig.add_annotation(text="x : axe de la poutre", showarrow=False, xshift=34, yshift=-26, font=dict(size=10, color=fg),
+    fig.add_annotation(text="x : axe de la poutre", showarrow=False, xshift=34, yshift=-26, font=dict(size=12, color=fg),
                        xref="paper", yref="paper", x=1.05, y=0.1)
     fig.update_layout(
         title_text="Schéma de la poutre",
@@ -406,7 +442,7 @@ def _extremum(fig: go.Figure, s: float, v: float, L: float, sorte: str, c: str, 
         col=1,
         text=f"{comp(c, sorte)} = {num(v)} {unite} en s = {num(s)} m",
         showarrow=False,
-        font=dict(color=couleur, size=9),
+        font=dict(color=couleur, size=12),
         xanchor="right" if s > 0.6 * L else "left",
         yanchor="bottom" if sorte == "max" else "top",
         yshift=6 if sorte == "max" else -6,
@@ -663,7 +699,7 @@ def deflection(model: dict, d: dict) -> go.Figure:
             col=1,
             text=f"f<sub>max</sub> = {num(abs(vf))} mm en s = {num(sf)} m",
             showarrow=False,
-            font=dict(color=cS, size=11),
+            font=dict(color=cS, size=12),
             xanchor="center",
             yanchor="top",
             yshift=-8,
