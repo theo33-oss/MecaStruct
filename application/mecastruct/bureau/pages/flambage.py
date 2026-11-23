@@ -18,6 +18,7 @@ REGIMES = {
     "rankine": ("Poutre moyenne : formule de Rankine", "info"),
     "euler": ("Poutre élancée : formule d'Euler", "succes"),
 }
+COURBES = {c: f"{c} (α = {a:.2f})".replace(".", ",") for c, a in buckling.facteursImperfection().items()}
 CONDITIONS = {c["Condition"]: f"{c['Libelle']} (L' = {c['CoefficientTexte']} L)" for c in buckling.listConditions()}
 
 
@@ -76,12 +77,29 @@ class PageFlambage(PageCalcul):
             c.num("Fla", "P", "P appliquée (compression > 0, 0 = aucune)", "kN")
             c.num("Fla", "s", "Coefficient de sécurité s", "-")
 
+        def eurocode(c: Zone) -> None:
+            c.check("Fla", "ec3", "Vérifier aussi par les courbes de l'Eurocode 3",
+                    help="Ajoute au résultat Ncr, λ̄, Φ, χ et Nb,Rd = χ·A·fy/γM1, et un mode de ruine NEd / Nb,Rd (NEd = P). "
+                         "Euler et Rankine restent calculés.", on_change=self.rafraichirSaisie)  # fmt: skip
+            actif = bool(saisie.get("ec3"))
+            c.choice("Fla", "courbe", "Courbe de flambement", list(COURBES), format_func=COURBES.get, actif=actif,
+                     help="Choisir la courbe dans le tableau 6.2 de l'EN 1993-1-1 (à vérifier sur la norme).")  # fmt: skip
+            c.num("Fla", "gM1", "γM1, coefficient partiel (stabilité)", "-", min_value=0.0, actif=actif,
+                  help="1,0 : valeur recommandée de l'EN 1993-1-1, reprise par la page Poutres pour l'EN et la France. "
+                       "Autre pays : voir l'annexe nationale.")  # fmt: skip
+            c.legende(
+                "Choisir la courbe dans le tableau 6.2 de l'EN 1993-1-1 (à vérifier sur la norme) : MecaStruct ne la "
+                "choisit pas selon le profilé. γM1 est saisi comme dans la page Poutres (1,0 : valeur de l'EN et de la France)."
+            )
+
         z.bouton("Calculer", self.calculer, primaire=True)
         z.erreurGardee("erreur.Fla")
         dossier.file_bar(z, "Fla")
         dossier.example_picker(z, "Fla")
         z.repliable("Section", ouvert=True, rendu=section, cle="Fla.section")
         z.repliable("Poutre comprimée", ouvert=True, rendu=poutre, cle="Fla.poutre")
+        z.repliable("Eurocode 3 : courbes de flambement (EN 1993-1-1, 6.3.1)", ouvert=bool(saisie.get("ec3")),
+                    rendu=eurocode, cle="Fla.ec3")  # fmt: skip
 
     def saisie(self, z: Zone) -> None:
         self.champs(z)
@@ -99,26 +117,36 @@ class PageFlambage(PageCalcul):
         z.plot(other_plots.bucklingCurve(c, b))
         z.plot(other_plots.bucklingMode(b))
         z.tableau(res["tables"]["Synthèse"])
+        e = res["result"].get("ec3")
 
         def demonstration(d: Zone) -> None:
             d.legende(b["modeText"])
             d.formules(b["derivation"])
 
+        def formules(d: Zone) -> None:
+            d.formules(b["latex"])
+            if e:
+                d.legende(f"Eurocode 3 : courbe {e['curve']} choisie par l'utilisateur (tableau 6.2 non appliqué, à vérifier sur la norme).")
+                d.formules(e["latex"])
+
         z.onglets(
             {
                 "Démonstration": demonstration,
                 "Rapport": lambda d: d.rapport(res["result"]["rapport"]),
-                "Formules": lambda d: d.formules(b["latex"]),
+                "Formules": formules,
             }
         )
 
     def visualisation(self, z: Zone) -> None:
         res = state.result("Fla")
         if res is not None and math.isfinite(res["result"]["analysis"]["P"]):  # P = 0 : aucune charge, pas de verdict
-            b = res["result"]["analysis"]
+            b, e = res["result"]["analysis"], res["result"].get("ec3")
             mot = "vérifié" if b["ok"] else "NON vérifié"
-            modes_resultat(z, "Fla", res, status=f"P = {b['P'] / 1e3:.5g} kN, Padm = {b['Padm'] / 1e3:.5g} kN : {mot}",
-                           ok=bool(b["ok"]))  # fmt: skip
+            status, ok = f"P = {b['P'] / 1e3:.5g} kN, Padm = {b['Padm'] / 1e3:.5g} kN : {mot}", bool(b["ok"])
+            if e and e["ok"] is not None:  # un seul mode non admissible rend le calcul « NON vérifié »
+                status += f" — NEd/Nb,Rd = {e['ratio']:.4g} (EC3) : {'vérifié' if e['ok'] else 'NON vérifié'}"
+                ok = ok and bool(e["ok"])
+            modes_resultat(z, "Fla", res, status=status, ok=ok)
         dossier.validation_button(z, "Fla")
         dossier.explanation_panel(z, "Fla")
         if state.result("Fla") is not None:

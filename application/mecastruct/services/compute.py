@@ -933,6 +933,10 @@ def defaultBucklingInput() -> dict:
         "cond": "articule-articule",
         "P": 300.0,
         "s": 2.0,
+        # flambement par les courbes de l'Eurocode 3 (ajout facultatif : un ancien fichier sans ces champs s'ouvre)
+        "ec3": False,
+        "courbe": "b",
+        "gM1": 1.0,
     }
 
 
@@ -985,14 +989,29 @@ def computeBuckling(saisie: dict, dm: DataManager) -> dict:
             ("Stabilité (P ≤ Padm)", bool(b["ok"]), ""),
         ]
         head += f" — P = {b['P'] / 1e3:.5g} kN : {_okText(bool(b['ok']))}"
-    result = {
-        "analysis": b,
-        "curve": c,
-        "rapport": _rapport(
-            [head],
-            [("=== Démarche (moteur, SI) ===", b["report"]), ("=== Courbe de stabilité ===", c["report"])],
-        ),
-    }
+    blocs = [("=== Démarche (moteur, SI) ===", b["report"]), ("=== Courbe de stabilité ===", c["report"])]
+    result = {"analysis": b, "curve": c}
+    if F.get("ec3"):  # Eurocode 3 en plus d'Euler/Rankine : courbe choisie par l'utilisateur (tableau 6.2 non appliqué)
+        pe = {"E": p["E"], "fy": p["Re"], "A": p["S"], "I": b["Imin"], "Lcr": b["Lp"], "curve": F.get("courbe", "b"),
+              "gM1": F.get("gM1", 1.0)}  # fmt: skip
+        if "P" in p:
+            pe["NEd"] = abs(p["P"])
+        e = buckling.eurocode3(pe)
+        result["ec3"] = e
+        rows += [
+            (f"EC3 : courbe {e['curve']}, α", e["alpha"], "-"),
+            ("EC3 : Ncr", e["Ncr"] / 1e3, "kN"),
+            ("EC3 : λ̄ = √(A·fy/Ncr)", e["lambda"], "-"),
+            ("EC3 : Φ", e["Phi"], "-"),
+            ("EC3 : χ", e["chi"], "-"),
+            ("EC3 : Nb,Rd = χ·A·fy/γM1", e["NbRd"] / 1e3, "kN"),
+        ]
+        head += f" — Nb,Rd (EC3) = {e['NbRd'] / 1e3:.5g} kN, χ = {e['chi']:.4g}"
+        if e["ok"] is not None:
+            rows += [("EC3 : NEd/Nb,Rd", e["ratio"], "-"), ("Stabilité EC3 (NEd ≤ Nb,Rd)", bool(e["ok"]), "")]
+            head += f", NEd/Nb,Rd = {e['ratio']:.4g} : {_okText(bool(e['ok']))}"
+        blocs.append((e["report"][0], e["report"][1:]))
+    result["rapport"] = _rapport([head], blocs)
     return {"result": result, "tables": {"Synthèse": _kvTable(rows)}, "status": head}
 
 

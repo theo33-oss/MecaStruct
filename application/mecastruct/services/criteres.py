@@ -148,8 +148,11 @@ def _fle(s, calc):
 
 
 def _fla(s, calc):
-    a = calc["result"]["analysis"]
-    return [ligne("Flambage : charge P", a["P"] / 1e3, a["Padm"] / 1e3, "kN", a["s"])]
+    a, e = calc["result"]["analysis"], calc["result"].get("ec3")
+    lignes = [ligne("Flambage : charge P", a["P"] / 1e3, a["Padm"] / 1e3, "kN", a["s"])]
+    if e:  # Eurocode 3 coché : effort NEd face à Nb,Rd (γM1 déjà dans Nb,Rd, pas de coefficient s)
+        lignes.append(ligne("Flambement Eurocode 3 : NEd / Nb,Rd", e["NEd"] / 1e3, e["NbRd"] / 1e3, "kN", genre="limite"))
+    return lignes
 
 
 def _ten(s, calc):

@@ -24,7 +24,7 @@ const App = (() => {
     { id: "accueil", titre: "Accueil", genre: "accueil" },
     { id: "poutres", titre: "Poutres", famille: "structures", genre: "machine", calculs: ["beam", "ossature"], pont: "structures", texte: "Poutre 2D isostatique ou hyperstatique, ou ossature 3D : réactions, efforts, flèche, contraintes, Eurocode 3 (2D)." },
     { id: "treillis", titre: "Treillis", famille: "structures", genre: "machine", calculs: ["truss"], pont: "structures", texte: "Efforts dans les barres et déplacements des nœuds." },
-    { id: "flambage", titre: "Flambage", famille: "structures", genre: "machine", calculs: ["fla"], pont: "structures", texte: "Charge critique d'Euler, élancement, conditions aux limites." },
+    { id: "flambage", titre: "Flambage", famille: "structures", genre: "machine", calculs: ["fla"], pont: "structures", texte: "Charge critique d'Euler, courbes de l'Eurocode 3, élancement, conditions aux limites." },
     { id: "sections-page", titre: "Sections", famille: "sections", genre: "machine", calculs: ["sec"], pont: "structures", paquets: ["sympy"], texte: "Aire, centre de gravité, inerties et modules de sections simples, composées ou profilées." },
     { id: "sollicitations", titre: "Sollicitations", famille: "sections", genre: "machine", calculs: ["tra", "cis", "tor", "fle"], pont: "structures", texte: "Traction, cisaillement (clavette, goupille), torsion, flexion." },
     { id: "tenseurs", titre: "Tenseurs et critères", famille: "sections", genre: "machine", calculs: ["ten"], pont: "structures", paquets: ["sympy"], texte: "Contraintes principales, cercle de Mohr, Von Mises et Tresca." },

@@ -277,6 +277,50 @@ def _flambage() -> list[dict]:
     return lignes
 
 
+def _flambage_ec3() -> list[dict]:
+    """Courbes de flambement de l'Eurocode 3 : Φ, χ et Nb,Rd refaits à la main pour trois élancements réduits.
+
+    La barre est choisie pour que λ̄ = √(A·fy/Ncr) soit exactement la valeur voulue : I = A·fy·L² / (π²·E·λ̄²). Les
+    facteurs α sont ceux des courbes (a0 0,13 ; a 0,21 ; b 0,34 ; c 0,49 ; d 0,76), choisies ici comme le fait
+    l'utilisateur ; le tableau 6.2 qui les attribue aux profilés n'est pas utilisé (à vérifier sur la norme).
+    """
+    from mecastruct.core import buckling
+
+    A, fy, L = 1e-3, 235e6, 2.0
+    npl = A * fy
+    ref = "Formule de l'EN 1993-1-1 (6.3.1), refaite à la main ; courbe choisie, tableau 6.2 non utilisé"
+    p = "Flambage"
+    lignes = []
+    # (identifiant, courbe, α, λ̄, nom de la barre)
+    for ident, courbe, alpha, lam in (("ec3-b-lambda1", "b", 0.34, 1.0), ("ec3-d-lambda2", "d", 0.76, 2.0)):
+        I = npl * L**2 / (math.pi**2 * E_ACIER * lam**2)  # noqa: E741
+        e = buckling.eurocode3({"E": E_ACIER, "fy": fy, "A": A, "I": I, "Lcr": L, "curve": courbe, "gM1": 1.0})
+        phi = 0.5 * (1 + alpha * (lam - 0.2) + lam**2)
+        chi = 1 / (phi + math.sqrt(phi**2 - lam**2))
+        donnees = (f"barre A = 1 000 mm², fy = 235 MPa, E = 210 GPa, Lcr = 2 m, I réglée pour λ̄ = {lam:g}, "
+                   f"courbe {courbe} (α = {alpha:g}), γM1 = 1")  # fmt: skip
+        lignes += [
+            _ligne(f"flambage-{ident}-lambda", p, f"Eurocode 3, courbe {courbe} : élancement réduit λ̄", donnees,
+                   "λ̄ = √(A·fy / Ncr), Ncr = π²·E·I / Lcr²", ref, lam, e["lambda"], "sans unité"),
+            _ligne(f"flambage-{ident}-phi", p, f"Eurocode 3, courbe {courbe} : Φ", donnees,
+                   "Φ = 0,5·[1 + α·(λ̄ − 0,2) + λ̄²]", ref, phi, e["Phi"], "sans unité"),
+            _ligne(f"flambage-{ident}-chi", p, f"Eurocode 3, courbe {courbe} : coefficient de réduction χ", donnees,
+                   "χ = 1 / (Φ + √(Φ² − λ̄²))", ref, chi, e["chi"], "sans unité"),
+            _ligne(f"flambage-{ident}-nbrd", p, f"Eurocode 3, courbe {courbe} : résistance Nb,Rd", donnees,
+                   "Nb,Rd = χ·A·fy / γM1", ref, chi * npl, e["NbRd"], "kN", 1e-3),
+        ]
+    # λ̄ ≤ 0,2 : la formule donne χ ≥ 1, on retient χ = 1 et Nb,Rd = A·fy / γM1
+    lam, gm = 0.15, 1.2
+    I = npl * L**2 / (math.pi**2 * E_ACIER * lam**2)  # noqa: E741
+    e = buckling.eurocode3({"E": E_ACIER, "fy": fy, "A": A, "I": I, "Lcr": L, "curve": "a", "gM1": gm})
+    donnees = f"même barre, I réglée pour λ̄ = {lam:g} (≤ 0,2), courbe a, γM1 = {gm:g} (valeur d'essai)"
+    lignes.append(
+        _ligne("flambage-ec3-lambda-petit", p, "Eurocode 3 : λ̄ ≤ 0,2, pas de flambement (χ = 1), Nb,Rd", donnees,
+               "χ = 1 donc Nb,Rd = A·fy / γM1", ref, npl / gm, e["NbRd"], "kN", 1e-3)
+    )
+    return lignes
+
+
 # ------------------------------------------------------------------------------------------------- sections
 
 
@@ -477,6 +521,7 @@ _GROUPES: list[tuple[str, str, Callable[[], list[dict]]]] = [
     ("poutre-hyperstatique", "Poutres", _hyperstatiques),
     ("treillis", "Treillis", _treillis),
     ("flambage", "Flambage", _flambage),
+    ("flambage-ec3", "Flambage", _flambage_ec3),
     ("section", "Sections", _sections),
     ("sollicitations", "Sollicitations", _sollicitations),
     ("tenseur", "Tenseurs et critères", _tenseurs),

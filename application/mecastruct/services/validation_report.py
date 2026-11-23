@@ -508,6 +508,9 @@ def _inputsHTML(key: str, saisie: dict) -> str:
                     ("cond", "Conditions aux limites", "", cond),
                     ("P", "P appliquée (0 = aucune)", "kN"),
                     ("s", sig, "-"),
+                    ("ec3", "Vérifier aussi par les courbes de l'Eurocode 3", ""),
+                    ("courbe", "Courbe de flambement EC3 (choisie par l'utilisateur)", "", None, lambda x: x.get("ec3")),
+                    ("gM1", "γM1", "-", None, lambda x: x.get("ec3")),
                 ],
             ),
         )
@@ -1730,7 +1733,7 @@ def _handFla(saisie: dict, res: dict) -> list[dict]:
         Pc, reg = PR, "Rankine (20 ≤ λ < λlim)"
     else:
         Pc, reg = PE, "Euler (λ ≥ λlim)"
-    return [
+    rows = [
         _grp("Flambage (E, Re en MPa ; S en mm² ; I en mm⁴ ; L en mm ; charges en kN)"),
         _hc("Inertie minimale", r"I_{min}=\min(I_z,I_y)=\min(%s;%s)" % (n(Iz), n(Iy)), Imin, b["Imin"] * 1e12, "mm⁴"),
         _hc(
@@ -1773,6 +1776,67 @@ def _handFla(saisie: dict, res: dict) -> list[dict]:
             "kN",
         ),
     ]
+    if "ec3" in res["result"]:
+        rows += _handFlaEC3(saisie, res["result"]["ec3"], Imin, Lp)
+    return rows
+
+
+_ALPHA_EC3_REF = {"a0": 0.13, "a": 0.21, "b": 0.34, "c": 0.49, "d": 0.76}  # tableau 6.1, recopié pour la preuve à la main
+
+
+def _handFlaEC3(saisie: dict, e: dict, Imin: float, Lp: float) -> list[dict]:
+    """Contrôle à la main du flambement Eurocode 3 (E, fy en MPa ; A en mm² ; I en mm⁴ ; Lcr en mm ; efforts en kN)."""
+    n = _num
+    E, fy, A, g = saisie["E"] * 1e3, saisie["Re"], saisie["S"], saisie.get("gM1", 1.0)
+    cv = str(saisie.get("courbe", "b")).strip().lower()
+    al = _ALPHA_EC3_REF[cv]
+    Ncr = math.pi**2 * E * Imin / Lp**2
+    lam = math.sqrt(A * fy / Ncr)
+    Phi = 0.5 * (1 + al * (lam - 0.2) + lam**2)
+    chi = min(1.0, 1 / (Phi + math.sqrt(max(Phi**2 - lam**2, 0.0))))
+    Nb = chi * A * fy / g
+    rows = [
+        _grp(f"Flambement Eurocode 3, courbe {cv} (α = {al}) : tableau 6.2 non appliqué, courbe choisie par l'utilisateur"),
+        _hc(
+            "Charge critique d'Euler Ncr",
+            r"N_{cr}=\frac{\pi^2E\,I}{L_{cr}^2}=\frac{\pi^2\times%s\times%s}{%s^2}" % (n(E), n(Imin), n(Lp)),
+            Ncr / 1e3,
+            e["Ncr"] / 1e3,
+            "kN",
+        ),
+        _hc(
+            "Élancement réduit",
+            r"\bar\lambda=\sqrt{\frac{A\,f_y}{N_{cr}}}=\sqrt{\frac{%s\times%s}{%s}}" % (n(A), n(fy), n(Ncr)),
+            lam,
+            e["lambda"],
+        ),
+        _hc(
+            "Φ",
+            r"\Phi=0{,}5[1+\alpha(\bar\lambda-0{,}2)+\bar\lambda^2]=0{,}5[1+%s(%s-0{,}2)+%s^2]" % (n(al), n(lam), n(lam)),
+            Phi,
+            e["Phi"],
+        ),
+        _hc(
+            "Coefficient de réduction",
+            r"\chi=\min\left(1;\frac{1}{\Phi+\sqrt{\Phi^2-\bar\lambda^2}}\right)=\min\left(1;\frac{1}{%s+\sqrt{%s^2-%s^2}}\right)"
+            % (n(Phi), n(Phi), n(lam)),
+            chi,
+            e["chi"],
+        ),
+        _hc(
+            "Résistance au flambement",
+            r"N_{b,Rd}=\frac{\chi A f_y}{\gamma_{M1}}=\frac{%s\times%s\times%s}{%s}" % (n(chi), n(A), n(fy), n(g)),
+            Nb / 1e3,
+            e["NbRd"] / 1e3,
+            "kN",
+        ),
+    ]
+    if math.isfinite(e["NEd"]):
+        NEd = abs(saisie["P"])
+        rows.append(
+            _hc("Taux d'utilisation", r"\frac{N_{Ed}}{N_{b,Rd}}=\frac{%s}{%s}" % (n(NEd), n(Nb / 1e3)), NEd / (Nb / 1e3), e["ratio"])
+        )
+    return rows
 
 
 def _handTen(saisie: dict, res: dict) -> list[dict]:
@@ -3232,7 +3296,7 @@ def _latexBlocks(key: str, res: dict) -> list[tuple[str, list[str]]]:
         "Cis": ["result.shear", "result.jour", "result.bearing", "extras.key", "extras.pin"],
         "Tor": ["result"],
         "Fle": ["result.bend"],
-        "Fla": ["result.analysis"],
+        "Fla": ["result.analysis", "result.ec3"],
         "Ten": ["result.principal", "result.facet", "result.plane2D", "result.criteria"],
         "Hoo": ["result.mohr"],
         "Jau": ["result.gauge", "result.bridge", "result.rosette"],
@@ -3249,6 +3313,7 @@ def _latexBlocks(key: str, res: dict) -> list[tuple[str, list[str]]]:
         "key": "Clavette",
         "pin": "Goupille",
         "analysis": "Flambage",
+        "ec3": "Flambement Eurocode 3 (courbe choisie)",
         "principal": "Contraintes principales",
         "facet": "Facette",
         "plane2D": "Mohr plan",

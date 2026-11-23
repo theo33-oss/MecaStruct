@@ -36,8 +36,8 @@ TABLE = [
      "ossature|portique|structure 3d|cadre|barres|noeud|nœud|vue 3d|3d"),
     ("treillis", "", "", "Efforts dans les barres et déplacements des nœuds d'un treillis",
      "treillis|barre|barres|noeud|nœud|articulation|ferme|poutre en treillis|effort dans les barres"),
-    ("flambage", "", "", "Charge critique d'Euler, élancement et conditions aux limites",
-     "flambage|flambement|euler|charge critique|élancement|longueur de flambement|colonne|poteau|buckling|condition aux limites|stabilité"),
+    ("flambage", "", "", "Charge critique d'Euler, courbes de flambement de l'Eurocode 3, élancement et conditions aux limites",
+     "flambage|flambement|euler|charge critique|élancement|longueur de flambement|colonne|poteau|buckling|condition aux limites|stabilité|eurocode 3 flambement|flambement eurocode 3|ec3 flambement|courbe de flambement|courbes de flambement|courbe a0|coefficient de réduction|nb,rd|en 1993-1-1 6.3.1|6.3.1"),
     # ---- Sections et contraintes
     ("sections-page", "", "", "Aire, centre de gravité, inerties et modules d'une section",
      "section|sections|aire|centre de gravité|barycentre|inertie|moment quadratique|module de flexion|module de résistance|rayon de giration|section composée|huygens|steiner|profilé|profilé IPE|profilé HEA|ipe|hea|heb|upn|tube|rectangle|cercle"),

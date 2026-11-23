@@ -3,7 +3,7 @@
 INTROS = {
     "Poutres": "Poutre 2D isostatique ou hyperstatique, ou ossature 3D : réactions, efforts, flèche, contraintes, Eurocode 3 (2D).",
     "Treillis": "Efforts dans les barres, déplacements des nœuds, contrainte et flambage des barres.",
-    "Flambage": "Charge critique d'Euler, élancement, conditions aux limites.",
+    "Flambage": "Charge critique d'Euler, courbes de l'Eurocode 3, élancement, conditions aux limites.",
     "Sections": "Aire, centre de gravité, inerties et modules de sections simples, composées ou profilées.",
     "Sollicitations": "Traction, cisaillement (clavette, goupille), torsion, flexion.",
     "Tenseurs et critères": "Contraintes principales, cercle de Mohr, Von Mises et Tresca.",

@@ -54,6 +54,7 @@ def _etiq(valeurs, table):
 CAS = ["G", "Q", "W", "S"]
 COMPOSANTES = ["N", "Ty", "Tz", "Mt", "Mfy", "Mfz"]
 FAMILLES_PROFILES = ["IPE", "HEA", "HEB", "IPN", "UPN", "UAP"]
+COURBES_EC3 = buckling.facteursImperfection()  # courbes a0, a, b, c, d et leur α (EN 1993-1-1, tableau 6.1)
 
 
 # --------------------------------------------------------------------------------------------- outils communs
@@ -930,6 +931,15 @@ def _formulaires_rdm() -> dict:
                        liste("cond", "Conditions aux limites", [c["Condition"] for c in conditions],
                              etiquettes=[f"{c['Libelle']} (L' = {c['CoefficientTexte']} L)" for c in conditions]),
                        nb("P", "P appliquée (compression > 0, 0 = aucune)", "kN"), nb("s", "Coefficient de sécurité s", "")),
+                groupe("Eurocode 3 : courbes de flambement (EN 1993-1-1, 6.3.1)",
+                       case("ec3", "Vérifier aussi par les courbes de l'Eurocode 3",
+                            aide="Ajoute au résultat Ncr, λ̄, Φ, χ et Nb,Rd = χ·A·fy/γM1, et un mode de ruine NEd / Nb,Rd (NEd = P). Euler et Rankine restent calculés."),
+                       si(liste("courbe", "Courbe de flambement", list(COURBES_EC3), etiquettes=[f"{c} (α = {a:.2f})".replace(".", ",") for c, a in COURBES_EC3.items()],
+                                aide="Choisir la courbe dans le tableau 6.2 de l'EN 1993-1-1 (à vérifier sur la norme)."), "ec3", True),
+                       si(nb("gM1", "γM1, coefficient partiel (stabilité)", "", 0.0, exclu=True,
+                             aide="1,0 : valeur recommandée de l'EN 1993-1-1, reprise par la page Poutres pour l'EN et la France. Autre pays : voir l'annexe nationale."), "ec3", True),
+                       note="Choisir la courbe dans le tableau 6.2 de l'EN 1993-1-1 (à vérifier sur la norme) : MecaStruct ne la choisit pas selon le profilé. "
+                            "γM1 est saisi comme dans la page Poutres (1,0 : valeur de l'EN et de la France)."),
             ],
         },
         "ten": {

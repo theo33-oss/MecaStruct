@@ -3,7 +3,8 @@
 analyze : Euler, Rankine et compression simple selon l'arbre de décision du cours, avec mode propre et
 démonstration (v'' + k² v = 0) ; stabilityCurve : courbes de stabilité σcr(λ) ; listConditions et
 effectiveLengthCoefficient : conditions aux limites et coefficients L'/L ; hasSymbolic : SymPy disponible.
-Le chemin symbolique de MATLAB (dsolve, vpasolve) n'est pas porté : la racine kL est toujours numérique
+eurocode3 : flambement par les courbes a0 à d de l'EN 1993-1-1 (6.3.1), courbe choisie par l'utilisateur (ajout hors
+MATLAB). Le chemin symbolique de MATLAB (dsolve, vpasolve) n'est pas porté : la racine kL est toujours numérique
 (methodUsed = 'numérique'). Unités SI strictes ; chaque résultat contient `report` et `latex`.
 """
 
@@ -15,10 +16,14 @@ import numpy as np
 from scipy.optimize import brentq
 
 from mecastruct.core.data_manager import hasSymbolic  # noqa: F401 (API de BucklingEngine.hasSymbolic)
+from mecastruct.core.design_checks import _ALPHA as _ALPHA_DESIGN
 from mecastruct.core.errors import MecaStructError
 from mecastruct.core.utils import is_num
 
 _ID = "MecaStruct:BucklingEngine:"
+# Facteurs d'imperfection α des courbes de flambement de l'Eurocode 3 (EN 1993-1-1, tableau 6.1) : mêmes valeurs
+# que celles de la page Poutres (core/design_checks.py).
+_ALPHA_EC3 = _ALPHA_DESIGN
 _CHAMPS = ("E", "Re", "S", "Iz", "Iy", "L", "condition")
 _IDENTIFIANTS = ("encastre-libre", "articule-articule", "encastre-articule", "encastre-encastre")
 _ALIAS = {
@@ -890,6 +895,196 @@ def stabilityCurve(E: float, Re: float | None = None, lambdaVec=None, lambdaComp
         "report": rep,
         "latex": latex,
     }
+
+
+def facteursImperfection() -> dict[str, float]:
+    """Courbes de flambement de l'Eurocode 3 et leur facteur d'imperfection α : a0 0,13 ; a 0,21 ; b 0,34 ; c 0,49 ; d 0,76."""
+    return dict(_ALPHA_EC3)
+
+
+def _courbeEC3(c) -> str:
+    """Courbe de flambement de l'Eurocode 3 (a0, a, b, c ou d) : texte en minuscules, espaces tolérés ; sinon erreur claire."""
+    t = c.strip().lower() if isinstance(c, str) else ""
+    if t not in _ALPHA_EC3:
+        raise MecaStructError(
+            _ID + "courbe",
+            f"Courbe de flambement inconnue : '{c}'. Valeurs admises : a0, a, b, c, d "
+            "(à choisir dans le tableau 6.2 de l'EN 1993-1-1, à vérifier sur la norme).",
+        )
+    return t
+
+
+def eurocode3(p: dict) -> dict:
+    """Flambement par flexion d'une barre comprimée par les courbes de l'Eurocode 3 (EN 1993-1-1, 6.3.1).
+
+    Entrées (dict, SI) : E (Pa), fy (Pa, limite élastique), A (m²), I (m⁴, inertie du plan de flambement), Lcr (m,
+    longueur de flambement), curve (courbe a0, a, b, c ou d, choisie par l'utilisateur : le tableau 6.2 qui la donne
+    selon le profilé n'est PAS implémenté), gM1 (coefficient partiel γM1, défaut 1), NEd (N de compression,
+    optionnel ; None, vide ou NaN = absent ; le signe est ignoré).
+    Ncr = π²·E·I/Lcr² ; λ̄ = √(A·fy/Ncr) ; Φ = 0,5·[1 + α·(λ̄ − 0,2) + λ̄²] ; χ = min(1 ; 1/(Φ + √(Φ² − λ̄²))) ;
+    Nb,Rd = χ·A·fy/γM1. α : a0 0,13 ; a 0,21 ; b 0,34 ; c 0,49 ; d 0,76. Pour λ̄ ≤ 0,2 la formule donne χ ≥ 1 : on
+    retient χ = 1 (pas de flambement). Le critère NEd/Ncr ≤ 0,04 de 6.3.1.2(4) n'est pas appliqué (côté sécurité).
+    Sortie : dict curve, alpha, gM1, Ncr, lambda (λ̄), Phi, chiRaw, chi, NbRd, NEd, ratio (NEd/Nb,Rd), ok (None sans NEd),
+    report et latex. Erreur : MecaStruct:BucklingEngine:* si une donnée est absente ou invalide.
+    """
+    if not isinstance(p, dict):
+        raise MecaStructError(_ID + "invalidInput", "Les données du flambement Eurocode 3 doivent être une structure p.")
+    for champ in ("E", "fy", "A", "I", "Lcr", "curve"):
+        if champ not in p:
+            raise MecaStructError(_ID + "missingField", f"Champ obligatoire manquant pour l'Eurocode 3 : p.{champ}.")
+    E = _positif(p["E"], "E (module d'Young)")
+    fy = _positif(p["fy"], "fy (limite élastique)")
+    A = _positif(p["A"], "A (aire de la section)")
+    I = _positif(p["I"], "I (moment quadratique)")  # noqa: E741
+    Lcr = _positif(p["Lcr"], "Lcr (longueur de flambement)")
+    gM1 = 1.0 if _absent(p.get("gM1")) else _positif(p["gM1"], "γM1 (coefficient partiel)")
+    curve = _courbeEC3(p["curve"])
+    NEd = p.get("NEd")
+    hasN = not _absent(NEd)
+    if hasN:
+        if not is_num(NEd) or math.isinf(NEd):
+            raise MecaStructError(_ID + "invalidInput", "L'effort de compression NEd doit être un scalaire réel fini (N).")
+        hasN = not math.isnan(NEd)
+    NEd = abs(float(NEd)) if hasN else math.nan
+
+    alpha = _ALPHA_EC3[curve]
+    Ncr = math.pi**2 * E * I / Lcr**2
+    lam = math.sqrt(A * fy / Ncr)
+    Phi = 0.5 * (1 + alpha * (lam - 0.2) + lam**2)
+    chiRaw = 1 / (Phi + math.sqrt(max(Phi**2 - lam**2, 0.0)))
+    chi = min(1.0, chiRaw)
+    Npl = A * fy / gM1
+    NbRd = chi * Npl
+    ratio = NEd / NbRd if hasN else math.nan
+    ok = bool(ratio <= 1) if hasN else None
+    r = {
+        "curve": curve,
+        "alpha": alpha,
+        "gM1": gM1,
+        "E": E,
+        "fy": fy,
+        "A": A,
+        "I": I,
+        "Lcr": Lcr,
+        "Ncr": Ncr,
+        "lambda": lam,
+        "Phi": Phi,
+        "chiRaw": chiRaw,
+        "chi": chi,
+        "Npl": Npl,
+        "NbRd": NbRd,
+        "NEd": NEd,
+        "ratio": ratio,
+        "ok": ok,
+    }
+    r["report"] = _buildReportEC3(r)
+    r["latex"] = _buildLatexEC3(r)
+    return r
+
+
+def _buildReportEC3(r: dict) -> list[str]:
+    """Rapport texte en français de la vérification Eurocode 3 (démarche pas à pas)."""
+    rep = [
+        "=== Flambement : courbes de l'Eurocode 3 (EN 1993-1-1, 6.3.1) ===",
+        f"Données : E = {r['E']:.5g} Pa, fy = {r['fy']:.5g} Pa ({r['fy'] / 1e6:.4g} MPa), A = {r['A']:.5g} m², "
+        f"I = {r['I']:.5g} m⁴, Lcr = L' = {r['Lcr']:.5g} m, γM1 = {r['gM1']:.4g}",
+        f"Courbe de flambement choisie par l'utilisateur : {r['curve']} (α = {r['alpha']:.2f}). Le tableau 6.2 de "
+        "l'EN 1993-1-1, qui donne la courbe selon le profilé et l'axe, n'est pas appliqué : à vérifier sur la norme.",
+        f"1) Charge critique d'Euler : Ncr = π²·E·I/Lcr² = {r['Ncr']:.5g} N ({r['Ncr'] / 1e3:.5g} kN)",
+        f"2) Élancement réduit : λ̄ = √(A·fy/Ncr) = √({r['A']:.5g}×{r['fy']:.5g}/{r['Ncr']:.5g}) = {r['lambda']:.5g}",
+        f"3) Φ = 0,5·[1 + α·(λ̄ − 0,2) + λ̄²] = 0,5·[1 + {r['alpha']:.2f}×({r['lambda']:.5g} − 0,2) + "
+        f"{r['lambda']:.5g}²] = {r['Phi']:.5g}",
+        f"4) Coefficient de réduction : χ = 1/(Φ + √(Φ² − λ̄²)) = {r['chiRaw']:.5g}, borné à 1 : χ = {r['chi']:.5g}",
+    ]
+    if r["lambda"] <= 0.2:
+        rep.append("   λ̄ ≤ 0,2 : pas de risque de flambement par flexion, χ = 1 (la résistance est celle de la section).")
+    rep += [
+        f"5) Résistance de calcul au flambement : Nb,Rd = χ·A·fy/γM1 = {r['chi']:.5g}×{r['A']:.5g}×{r['fy']:.5g}/"
+        f"{r['gM1']:.4g} = {r['NbRd']:.5g} N ({r['NbRd'] / 1e3:.5g} kN)",
+    ]
+    if math.isfinite(r["NEd"]):
+        mot = "VÉRIFIÉ" if r["ok"] else "NON VÉRIFIÉ (risque de flambement)"
+        cmp = "≤" if r["ok"] else ">"
+        rep.append(
+            f"6) Vérification : NEd = {r['NEd']:.5g} N ({r['NEd'] / 1e3:.5g} kN) {cmp} Nb,Rd = {r['NbRd']:.5g} N ; "
+            f"taux NEd/Nb,Rd = {r['ratio']:.4f} → {mot}"
+        )
+    else:
+        rep.append("6) Aucun effort NEd fourni : seule la résistance Nb,Rd est calculée.")
+    return rep
+
+
+def _buildLatexEC3(r: dict) -> list[str]:
+    """Formules de l'Eurocode 3 avec leurs valeurs numériques, au format LaTeX (chaînes entre $)."""
+    lat = [
+        _ltx(
+            r"$N_{cr} = \frac{\pi^2\,E\,I}{L_{cr}^2} = \frac{\pi^2 \times ",
+            r["E"],
+            r" \times ",
+            r["I"],
+            r"}{\left(",
+            r["Lcr"],
+            r"\right)^2} = ",
+            r["Ncr"],
+            r"\ \mathrm{N}$",
+        ),
+        _ltx(
+            r"$\bar{\lambda} = \sqrt{\frac{A\,f_y}{N_{cr}}} = \sqrt{\frac{",
+            r["A"],
+            r" \times ",
+            r["fy"],
+            "}{",
+            r["Ncr"],
+            "}} = ",
+            r["lambda"],
+            "$",
+        ),
+        _ltx(
+            r"$\Phi = 0{,}5\left[1 + \alpha\,(\bar{\lambda} - 0{,}2) + \bar{\lambda}^2\right] = 0{,}5\left[1 + ",
+            r["alpha"],
+            r" \times (",
+            r["lambda"],
+            r" - 0{,}2) + ",
+            r["lambda"],
+            r"^2\right] = ",
+            r["Phi"],
+            "$",
+        ),
+        _ltx(
+            r"$\chi = \min\left(1\ ;\ \frac{1}{\Phi + \sqrt{\Phi^2 - \bar{\lambda}^2}}\right) = \min\left(1\ ;\ ",
+            r["chiRaw"],
+            r"\right) = ",
+            r["chi"],
+            "$",
+        ),
+        _ltx(
+            r"$N_{b,Rd} = \frac{\chi\,A\,f_y}{\gamma_{M1}} = \frac{",
+            r["chi"],
+            r" \times ",
+            r["A"],
+            r" \times ",
+            r["fy"],
+            "}{",
+            r["gM1"],
+            "} = ",
+            r["NbRd"],
+            r"\ \mathrm{N}$",
+        ),
+    ]
+    if math.isfinite(r["NEd"]):
+        cmp = r"\le" if r["ok"] else ">"
+        lat.append(
+            _ltx(
+                r"$\frac{N_{Ed}}{N_{b,Rd}} = \frac{",
+                r["NEd"],
+                "}{",
+                r["NbRd"],
+                "} = ",
+                r["ratio"],
+                " " + cmp + " 1$",
+            )
+        )
+    return lat
 
 
 def listConditions() -> list[dict]:
