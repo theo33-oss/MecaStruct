@@ -5,14 +5,26 @@ de travail avec un trait à 100 %, valeur pour limite admissible, taux, coeffici
 réserve 1 − taux (limite).
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from html import escape
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtGui import QColor, QCursor, QPainter, QPen
+from PySide6.QtWidgets import (
+    QFrame,
+    QGraphicsOpacityEffect,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QToolTip,
+    QVBoxLayout,
+    QWidget,
+)
 
 from mecastruct.bureau import state, theme
 from mecastruct.services import export_texte
+from mecastruct.services.decision import Decision
 
 
 def _couleurs(nom: str) -> tuple[str, str, str]:
@@ -124,3 +136,81 @@ class ModesRuine(QFrame):
         valeurs, taux, marge = export_texte.chiffres(c, state.lire("securite", "coef") == "marge")
         col.addWidget(_texte("   ·   ".join(x for x in (valeurs, taux, marge) if x), f"color:{theme.actuel()['discret']};font-size:9pt;"))
         return boite
+
+
+class BlocDecision(QFrame):
+    """Tête de résultat : verdict (texte, icône, couleur), coefficient de sécurité minimal, mode dimensionnant, paramètre
+    le plus influent, avertissement, action conseillée et lien « Aller à la cause » (comme le bloc « Décision » du site).
+
+    `aller(cibles)` donne le focus au champ ou au groupe désigné (vrai si trouvé), `peut(cibles)` dit si le lien a un
+    sens, `nom(champ)` donne le libellé d'un champ. Les cibles sont celles de services/decision.py."""
+
+    def __init__(self, d: Decision, aller: Callable[[list[str]], bool], peut: Callable[[list[str]], bool],
+                 nom: Callable[[str], str], perime: bool = False) -> None:  # fmt: skip
+        super().__init__()
+        self.decision = d
+        self.lienCause: QPushButton | None = None  # lien « Aller à la cause », s'il y a une cause à désigner
+        pal = theme.actuel()
+        etat = _couleurs("ok" if d.niveau == "ok" else "ko" if d.niveau == "ko" else "neutre")
+        self.setObjectName("decision")
+        self.setAccessibleName("Décision")
+        self.setStyleSheet(
+            f"#decision{{background:{pal['carte']};border:1px solid {pal['bord']};border-left:6px solid {etat[2]};"
+            "border-radius:8px;}"
+        )
+        col = QVBoxLayout(self)
+        col.setContentsMargins(12, 8, 12, 8)
+        col.setSpacing(4)
+        self.verdict = _pastille(f"{d.icone} {d.mot}", etat, "12pt")
+        self.verdict.setObjectName("decisionVerdict")
+        col.addWidget(self.verdict)
+        for fait in d.faits:
+            ligne = QHBoxLayout()
+            ligne.setSpacing(6)
+            intitule = QLabel(f"{fait.titre} :")  # sur une seule ligne : un libellé qui s'enroule rendrait la rangée haute
+            intitule.setStyleSheet(f"background:transparent;color:{pal['discret']};")
+            intitule.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+            ligne.addWidget(intitule)
+            if fait.champ is not None:  # paramètre le plus influent : lien vers le champ
+                lien = QPushButton(nom(fait.champ))
+                lien.setObjectName("lien")
+                lien.setCursor(Qt.CursorShape.PointingHandCursor)
+                lien.setToolTip("Va à ce champ.")
+                lien.clicked.connect(lambda _=False, c=fait.champ: self._aller(aller, [c]))
+                ligne.addWidget(lien)
+                ligne.addStretch(1)
+            else:
+                texte = f"<b>{escape(fait.valeur)}</b>" + (f" <span style='color:{pal['discret']};'>{escape(fait.sous)}</span>" if fait.sous else "")
+                lab = _texte(texte)
+                lab.setTextFormat(Qt.TextFormat.RichText)
+                ligne.addWidget(lab, 1)
+            col.addLayout(ligne)
+        if d.avertissement:
+            fond, encre = theme.couleur_message("avertissement")
+            lab = _texte(f"⚠ {d.avertissement}", f"background:{fond};color:{encre};padding:6px 10px;border-radius:6px;")
+            lab.setObjectName("decisionAvertissement")
+            col.addWidget(lab)
+        action = QHBoxLayout()
+        action.setSpacing(8)
+        lab = _texte(d.action)
+        lab.setObjectName("decisionAction")
+        action.addWidget(lab, 1)
+        if d.cause and peut(d.cause):
+            bouton = QPushButton("Aller à la cause")
+            bouton.setObjectName("lien")
+            bouton.setCursor(Qt.CursorShape.PointingHandCursor)
+            bouton.setAccessibleName(f"Aller à la cause : {d.nom_cause}")
+            bouton.setToolTip("Va au champ ou au groupe de champs qui influence le plus ce critère.")
+            bouton.clicked.connect(lambda _=False: self._aller(aller, d.cause))
+            self.lienCause = bouton
+            action.addWidget(bouton)
+        col.addLayout(action)
+        if perime:  # verdict d'une ancienne saisie : grisé
+            effet = QGraphicsOpacityEffect(self)
+            effet.setOpacity(0.6)
+            self.setGraphicsEffect(effet)
+
+    @staticmethod
+    def _aller(aller: Callable[[list[str]], bool], cibles: list[str]) -> None:
+        if not aller(cibles):
+            QToolTip.showText(QCursor.pos(), "Le champ à corriger n'est pas affiché avec la saisie actuelle.")

@@ -3,6 +3,8 @@
 Les champs de saisie de l'application restent en mm, m, kN et MPa ; les résultats aussi.
 """
 
+import math
+
 import pandas as pd
 from PySide6.QtWidgets import QApplication
 
@@ -61,6 +63,22 @@ def _libelles(nom: str) -> list[str]:
     return [u["label"] for u in _grandeur(nom)["units"]]
 
 
+def convertir(valeur: float, grandeur: str, de: str, vers: str) -> float:
+    """Valeur convertie ; refuse une température sous le zéro absolu et un résultat infini (mêmes messages que le site)."""
+    if grandeur == "Température absolue" and float(units.convertUnits(valeur, grandeur, de, "K")) < -1e-9:
+        raise MecaStructError(
+            "MecaStruct:App:invalidInput",
+            "Cette température est sous le zéro absolu (0 K, soit −273,15 °C ou −459,67 °F) : elle n'existe pas.",
+        )
+    resultat = float(units.convertUnits(valeur, grandeur, de, vers))
+    if not all(math.isfinite(float(units.convertUnits(valeur, grandeur, de, lib))) for lib in _libelles(grandeur)):
+        raise MecaStructError(
+            "MecaStruct:App:invalidInput",
+            "Valeur trop grande : un des résultats dépasse les nombres que le calcul sait écrire. Essayez une valeur plus petite.",
+        )
+    return resultat
+
+
 class PageConvertisseur(Page):
     def _unites_par_defaut(self) -> None:
         """Remet « De » et « Vers » sur les unités par défaut de la grandeur choisie (indices 1-based du catalogue)."""
@@ -92,7 +110,7 @@ class PageConvertisseur(Page):
         c5.bouton("Inverser", self._inverser)
         de, vers = state.v["conv.de"], state.v["conv.vers"]
         try:
-            resultat = units.convertUnits(valeur, grandeur, de, vers)
+            resultat = convertir(valeur, grandeur, de, vers)
             z.metrique(f"{valeur:.10g} {de} =", f"{float(resultat):.10g} {vers}")
             z.legende("Valeur à copier :")
             texte = f"{float(resultat):.10g}"

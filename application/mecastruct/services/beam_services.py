@@ -211,6 +211,39 @@ def beamThermal(saisie: dict, dm: DataManager) -> dict:
     return th
 
 
+def verifierBornes(saisie: dict) -> None:
+    """Refuse L, E, G, Re ≤ 0 et Kt < 1 avec un message clair (mêmes bornes que le formulaire du site).
+
+    Erreur : MecaStruct:App:invalidInput. Une clé absente n'est pas contrôlée."""
+    for cle, nom, unite in (("L", "La longueur L", "m"), ("E", "Le module d'Young E", "GPa"), ("G", "Le module de cisaillement G", "GPa"),
+                            ("Re", "La limite élastique Re", "MPa")):
+        if cle in saisie:
+            try:
+                v = float(saisie[cle])
+            except (TypeError, ValueError):
+                v = math.nan
+            if not v > 0:
+                raise MecaStructError(_ID, f"{nom} doit être strictement positif{'e' if cle in ('L', 'Re') else ''} ({cle} > 0 {unite}).")
+    if "Kt" in saisie:
+        try:
+            kt = float(saisie["Kt"])
+        except (TypeError, ValueError):
+            kt = math.nan
+        if not kt >= 1:
+            raise MecaStructError(_ID, "Le coefficient de concentration de contrainte Kt doit valoir au moins 1 (Kt = 1 sans trou ni épaulement).")
+
+
+def causeSiToutEnErreur(T: pd.DataFrame, enveloppe: bool = False) -> str | None:
+    """Cause (« Mécanisme : … ») si chaque ligne de la colonne « Résistance » est une erreur de calcul, sinon None.
+
+    `enveloppe` : le tableau finit par une ligne « Enveloppe » à ne pas compter (combinaisons). Sert à dire
+    « Mécanisme… » en clair au lieu d'un tableau de nan (poutre vide, appuis insuffisants)."""
+    verdicts = [str(v) for v in (T.iloc[:-1] if enveloppe else T)["Résistance"]]
+    if not verdicts or not all(v.startswith(("erreur", "Erreur de calcul")) for v in verdicts):
+        return None
+    return re.sub(r"^(erreur|Erreur de calcul \([^)]*\)) ?: ", "", verdicts[0])
+
+
 def buildBeamModel(saisie: dict, dm: DataManager, fac: dict | None = None) -> dict:
     """Modèle de poutre SI (readBeamModel) à partir de la saisie ; un cas dont le coefficient vaut 0 est omis.
 
@@ -220,11 +253,10 @@ def buildBeamModel(saisie: dict, dm: DataManager, fac: dict | None = None) -> di
     Erreur : MecaStruct:App:invalidInput (longueur, Iyz, valeurs, masse volumique, cas inconnu).
     """
     checkLimits(saisie)
+    verifierBornes(saisie)
     if fac is None:
         fac = {"G": 1.0, "Q": 1.0, "W": 1.0, "S": 1.0}
     L = float(saisie["L"])
-    if not L > 0:
-        raise MecaStructError(_ID, "La longueur L doit être strictement positive.")
     model = {
         "L": L,
         "E": toSI(saisie["E"], "GPa"),

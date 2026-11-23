@@ -8,29 +8,40 @@ import os
 import sys
 import traceback
 
-from PySide6.QtCore import QSettings, Qt, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QSettings, Qt, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWebEngineWidgets import QWebEngineView  # noqa: F401 : à importer avant QApplication
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
     QCheckBox,
+    QComboBox,
+    QFrame,
     QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QFrame,
-    QLabel,
     QMainWindow,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QSizePolicy,
     QStackedWidget,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-from mecastruct.bureau import state, theme, widgets
+from mecastruct.bureau import etudes, recherche, state, theme, widgets
+from mecastruct.services.pages_texte import INTROS
 
 URL_EN_LIGNE = "https://theo33-oss.github.io/MecaStruct/"  # la version en ligne, toujours à jour
+URL_DEPOT = "https://github.com/theo33-oss/MecaStruct"  # le projet sur GitHub
+TEXTE_PARTAGE = (  # le même que le bouton « Partager » du site (docs/app.js, partagerSite)
+    "MecaStruct RdM : calculs de résistance des matériaux et d'éléments de machines, dans le navigateur.\n"
+    f"Site : {URL_EN_LIGNE}\nProjet : {URL_DEPOT}"
+)
 
 # (identifiant = module de pages, libellé, classe) ; libellé seul = titre de groupe
 MENU = (  # les 5 familles du site (docs/app.js, FAMILLES), mêmes noms de pages
@@ -101,6 +112,13 @@ class Fenetre(QMainWindow):
         self.pile = QStackedWidget()
         colonne.addWidget(self.pile, 1)
         self.setCentralWidget(centre)
+        etudes.definir_pages(self.famille_de)
+        self.libelles = {i: lib for i, lib, _ in MENU if lib is not None}
+        self._index_recherche: recherche.Index | None = None
+        self.recherche_ouverte: recherche.Recherche | None = None
+        # Ctrl+K partout ; « / » seulement hors d'un champ de saisie (comme sur le site)
+        self._raccourci_k = QShortcut(QKeySequence("Ctrl+K"), self, self.rechercher)
+        self._raccourci_barre = QShortcut(QKeySequence("/"), self, self._barre_oblique)
         self.menu.currentRowChanged.connect(self._ouvrir)
         self.aller("accueil")
 
@@ -139,10 +157,14 @@ class Fenetre(QMainWindow):
         en_ligne.setObjectName("primaire")
         en_ligne.setToolTip("Ouvre la version dans le navigateur : sans installation, toujours à jour.")
         en_ligne.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(URL_EN_LIGNE)))
+        self.bouton_partager = QPushButton("Partager")
+        self.bouton_partager.setObjectName("bouton")
+        self.bouton_partager.setToolTip("Copie les liens du site et du projet GitHub : collez-les dans un message.")
+        self.bouton_partager.clicked.connect(self.partager)
         for w in (icone, marque):
             h.addWidget(w)
         h.addWidget(confiance, 1)
-        for w in (self.contraste, self.bouton_theme, en_ligne):
+        for w in (self.contraste, self.bouton_theme, self.bouton_partager, en_ligne):
             h.addWidget(w)
         self._texte_theme()
         return bandeau
@@ -164,7 +186,9 @@ class Fenetre(QMainWindow):
         self.rang_famille: dict[str, int] = {}
         self.boutons_pages: dict[str, QPushButton] = {}
         for nom, pages in self.familles.items():
-            b = self._bouton_menu(nom, "famille", lambda _=False, p=pages[0][0]: self.aller(p))
+            b = self._bouton_menu(
+                nom, "famille", lambda _=False, n=nom, p=pages[0][0]: self.aller(etudes.derniere_page(n, p))
+            )
             self.boutons_familles[nom] = b
             haut.addWidget(b)
             rangee = QWidget()
@@ -178,6 +202,17 @@ class Fenetre(QMainWindow):
             r.addStretch(1)
             self.rang_famille[nom] = self.sous.addWidget(rangee)
         haut.addStretch(1)
+        self.bouton_favori = QPushButton("☆ Favori")
+        self.bouton_favori.setObjectName("bouton")
+        self.bouton_favori.setCheckable(True)
+        self.bouton_favori.clicked.connect(self.basculer_favori)
+        self.bouton_recherche = QPushButton("Rechercher   Ctrl+K")
+        self.bouton_recherche.setObjectName("bouton")
+        self.bouton_recherche.setToolTip("Rechercher un calcul, une grandeur, une norme (Ctrl+K ou /)")
+        self.bouton_recherche.setAccessibleName("Rechercher un calcul, une grandeur, une norme")
+        self.bouton_recherche.clicked.connect(self.rechercher)
+        haut.addWidget(self.bouton_favori)
+        haut.addWidget(self.bouton_recherche)
         v.addLayout(haut)
         v.addWidget(self.sous)
         return barre
@@ -201,6 +236,66 @@ class Fenetre(QMainWindow):
         self.sous.setVisible(famille is not None)
         if famille is not None:
             self.sous.setCurrentIndex(self.rang_famille[famille])
+        etudes.noter_visite(ident)  # pages récentes et dernière page de la famille
+        self._maj_favori(ident)
+
+    # ---------------------------------------------------------------------------- recherche, favoris, partage
+
+    def _maj_favori(self, ident: str | None = None) -> None:
+        ident = ident or self.rangs.get(self.menu.currentRow())
+        possible = bool(ident) and etudes.peut_etre_favori(ident)
+        oui = possible and etudes.est_favori(ident)
+        self.bouton_favori.setEnabled(possible)
+        self.bouton_favori.setChecked(oui)
+        self.bouton_favori.setText("★ Favori" if oui else "☆ Favori")
+        if not possible:
+            self.bouton_favori.setToolTip("L'accueil n'a pas de favori")
+        elif oui:
+            self.bouton_favori.setToolTip("Retirer cette page des favoris")
+        else:
+            self.bouton_favori.setToolTip("Ajouter cette page aux favoris (visible sur l'accueil, dans « Mes études »)")
+
+    def basculer_favori(self) -> None:
+        ident = self.rangs.get(self.menu.currentRow())
+        if not ident or not etudes.peut_etre_favori(ident):
+            return
+        oui = etudes.basculer_favori(ident)
+        self._maj_favori(ident)
+        titre = self.libelles.get(ident, ident)
+        if oui:
+            texte = f"Ajouté aux favoris : {titre} (visible sur l'accueil, dans « Mes études »)"
+        else:
+            texte = f"Retiré des favoris : {titre}"
+        self.statusBar().showMessage(texte, 5000)
+
+    def index_recherche(self) -> recherche.Index:
+        if self._index_recherche is None:
+            self._index_recherche = recherche.Index(self.libelles, self.famille_de, INTROS)
+        return self._index_recherche
+
+    def rechercher(self) -> None:
+        """Ouvre la boîte de recherche (Ctrl+K, « / » ou le bouton de la barre du haut)."""
+        if self.recherche_ouverte is not None and self.recherche_ouverte.isVisible():
+            self.recherche_ouverte.champ.setFocus()
+            self.recherche_ouverte.champ.selectAll()
+            return
+        self.recherche_ouverte = recherche.Recherche(self, self.index_recherche())
+        self.recherche_ouverte.show()
+
+    def _barre_oblique(self) -> None:
+        """« / » ouvre la recherche, sauf quand on tape dans un champ (le « / » s'y écrit)."""
+        w = QApplication.focusWidget()
+        champ_de_saisie = (QLineEdit, QTextEdit, QPlainTextEdit, QAbstractSpinBox)
+        if isinstance(w, champ_de_saisie) or (isinstance(w, QComboBox) and w.isEditable()):
+            return
+        self.rechercher()
+
+    def partager(self) -> None:
+        """Copie les liens du site et du projet GitHub dans le presse-papiers et le dit (barre d'état, bouton)."""
+        QApplication.clipboard().setText(TEXTE_PARTAGE)
+        self.statusBar().showMessage("Liens du site et du projet copiés : collez-les dans votre message.", 6000)
+        self.bouton_partager.setText("Liens copiés ✓")
+        QTimer.singleShot(2000, self.bouton_partager, lambda: self.bouton_partager.setText("Partager"))
 
     # --------------------------------------------------------------------------------------------------- thème
 
@@ -272,6 +367,7 @@ def verifier(app: QApplication, fenetre: "Fenetre", sortie: str) -> int:
 
     from mecastruct.bureau import tache
 
+    etudes.suspendre()  # la vérification ne touche pas aux études de l'utilisateur
     erreurs: list[str] = []
     sys.excepthook = lambda g, e, t: erreurs.append("".join(traceback.format_exception(g, e, t))[-1500:])
 
@@ -342,6 +438,7 @@ def captures(app: QApplication, fenetre: "Fenetre", dossier: str) -> int:
 
     from mecastruct.bureau import tache
 
+    etudes.suspendre()  # les captures ne touchent pas aux études de l'utilisateur
     sortie = Path(dossier)
     sortie.mkdir(parents=True, exist_ok=True)
     fenetre.resize(1500, 950)

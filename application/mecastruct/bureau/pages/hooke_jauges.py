@@ -71,7 +71,7 @@ class Hooke(PageCalcul):
         z.repliable("Contraintes (MPa)", ouvert=True, rendu=contraintes, cle="Hoo.sig")
         z.repliable("Déformations planes (µdéf)", ouvert=mode == "planeStrain", rendu=deformations, cle="Hoo.def")
         z.repliable("Orthotrope (axes 1, 2, 3 = x, y, z)", ouvert=ortho, rendu=orthotrope, cle="Hoo.ortho")
-        z.bouton("Recharger l'exemple", self._recharge)
+        z.bouton("Charger l'exemple", self._recharge)
 
     def visualisation(self, z: Zone) -> None:
         synthese_resultat(z, "Hoo")
@@ -136,7 +136,7 @@ class Jauges(PageCalcul):
         z.repliable("Jauge (loi de Bridgman)", ouvert=True, rendu=jauge, cle="Jau.jauge")
         z.repliable("Pont de Wheatstone", ouvert=True, rendu=pont, cle="Jau.pont")
         z.repliable("Rosette", ouvert=True, rendu=rosette, cle="Jau.rosette")
-        z.bouton("Recharger l'exemple", lambda: dossier._charge_exemple("Jau"))
+        z.bouton("Charger l'exemple", lambda: dossier._charge_exemple("Jau"))
 
     def visualisation(self, z: Zone) -> None:
         synthese_resultat(z, "Jau")

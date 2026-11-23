@@ -3,9 +3,196 @@
 Sous les cartes : « Comment faire », le projet, les unités et conventions de signe, les limites et les sources.
 """
 
-from mecastruct.bureau import dossier, state
-from mecastruct.bureau.widgets import Page, Zone
+import os
+import sys
+from collections.abc import Callable
+
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer
+from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+
+from mecastruct.bureau import dossier, etudes, state, theme
+from mecastruct.bureau.widgets import Page, Zone, differer
 from mecastruct.services.pages_texte import FAMILLES, INTROS
+
+QWIDGETSIZE_MAX = 16777215
+
+
+def mouvement_reduit() -> bool:
+    """Vrai si le système demande de réduire les animations (Windows : « Effets d'animation » désactivés), ou si
+    MECASTRUCT_SANS_ANIMATION est défini : les cartes s'ouvrent alors sans transition, comme sur le site."""
+    if os.environ.get("MECASTRUCT_SANS_ANIMATION"):
+        return True
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            actif = ctypes.c_int(1)
+            if ctypes.windll.user32.SystemParametersInfoW(
+                0x1042, 0, ctypes.byref(actif), 0
+            ):  # SPI_GETCLIENTAREAANIMATION
+                return not actif.value
+        except (AttributeError, OSError):
+            pass
+    return False
+
+
+class CarteFamille(QFrame):
+    """Carte d'une famille de pages, repliée par défaut (même comportement que sur le site, docs/js/accueil.js).
+
+    Un clic ouvre la carte et la garde ouverte, un second la referme ; Échap la referme. Au survol de la souris elle s'ouvre
+    et se referme 250 ms après le départ du pointeur, sauf si un clic l'a gardée ouverte ou si le focus clavier est dedans.
+    Hauteur animée sur 200 ms ; sans animation quand le système réduit les mouvements."""
+
+    DELAI_FERMETURE = 250
+    DUREE = 200
+
+    def __init__(
+        self, titre: str, legende: str, pages: list[tuple[str, str, str]], aller: Callable[[str], None]
+    ) -> None:
+        super().__init__()
+        self.setObjectName("repli")
+        self.titre = titre
+        self._ouvert = False
+        self._epingle = False  # ouverte (ou gardée) par un clic ou le clavier
+        self._par_survol = False  # ouverte seulement par le survol
+        v = QVBoxLayout(self)
+        v.setContentsMargins(12, 8, 12, 8)
+        v.setSpacing(2)
+        if legende:
+            lab = QLabel(legende)
+            lab.setObjectName("legende")
+            lab.setWordWrap(True)
+            lab.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum)
+            v.addWidget(lab)
+        self.entete = QPushButton()
+        self.entete.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.entete.setStyleSheet(
+            "QPushButton{background:transparent;border:none;text-align:left;font-weight:bold;font-size:13pt;padding:4px 2px;}"
+            f"QPushButton:hover,QPushButton:focus{{color:{theme.actuel()['lien']};}}"
+        )
+        self.entete.clicked.connect(self.clic)
+        v.addWidget(self.entete)
+        self.corps = QWidget()
+        self.corps.setStyleSheet("background:transparent;")
+        c = QVBoxLayout(self.corps)
+        c.setContentsMargins(0, 0, 0, 4)
+        c.setSpacing(0)
+        for ident, libelle, intro in pages:
+            b = QPushButton(libelle)
+            b.setObjectName("lien")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(lambda _=False, i=ident: differer(lambda: aller(i)))
+            c.addWidget(b, 0, Qt.AlignmentFlag.AlignLeft)
+            if intro:
+                lab = QLabel(intro)
+                lab.setObjectName("legende")
+                lab.setWordWrap(True)
+                lab.setContentsMargins(8, 0, 0, 4)
+                lab.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum)
+                c.addWidget(lab)
+        v.addWidget(self.corps)
+        self.corps.setVisible(False)
+        self.corps.setMaximumHeight(0)
+        self._anim = QPropertyAnimation(self.corps, b"maximumHeight", self)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.finished.connect(self._fin)
+        self._minuterie = QTimer(self)
+        self._minuterie.setSingleShot(True)
+        self._minuterie.timeout.connect(self._depart)
+        self._maj_entete()
+
+    # --------------------------------------------------------------------------------------------- état
+
+    def ouverte(self) -> bool:
+        """Vrai si la carte est (ou va être, pendant l'animation) ouverte."""
+        return self._ouvert
+
+    def _maj_entete(self) -> None:
+        self.entete.setText(("▾  " if self._ouvert else "▸  ") + self.titre)
+        self.entete.setAccessibleName(f"{self.titre} : {'ouverte' if self._ouvert else 'repliée'}")
+
+    def _regler(self, ouvert: bool) -> None:
+        if ouvert == self._ouvert:
+            return
+        self._ouvert = ouvert
+        self._maj_entete()
+        self._anim.stop()
+        corps = self.corps
+        if mouvement_reduit():
+            corps.setVisible(ouvert)
+            corps.setMaximumHeight(QWIDGETSIZE_MAX)
+            return
+        depart = corps.height() if corps.isVisible() else 0
+        if ouvert:
+            corps.setMaximumHeight(depart)
+            corps.setVisible(True)
+            cible = self._hauteur_corps()
+        else:
+            cible = 0
+        self._anim.setDuration(self.DUREE)
+        self._anim.setStartValue(depart)
+        self._anim.setEndValue(cible)
+        self._anim.start()
+
+    def _hauteur_corps(self) -> int:
+        lay = self.corps.layout()
+        largeur = max(1, self.width() - 24)
+        h = lay.totalHeightForWidth(largeur) if lay.hasHeightForWidth() else lay.sizeHint().height()
+        return max(h, lay.sizeHint().height())
+
+    def _fin(self) -> None:
+        if self._ouvert:
+            self.corps.setMaximumHeight(QWIDGETSIZE_MAX)
+        else:
+            self.corps.setVisible(False)
+
+    def _fermer(self) -> None:
+        self._minuterie.stop()
+        self._epingle = self._par_survol = False
+        self._regler(False)
+
+    # ------------------------------------------------------------------------------------------ gestes
+
+    def clic(self) -> None:
+        self._minuterie.stop()
+        if self._ouvert and self._par_survol:  # ouverte par le survol : le clic la garde ouverte
+            self._par_survol, self._epingle = False, True
+        elif self._ouvert:  # le clic referme
+            self._fermer()
+        else:  # le clic ouvre et garde ouvert
+            self._epingle, self._par_survol = True, False
+            self._regler(True)
+
+    def survol_entre(self) -> None:
+        self._minuterie.stop()
+        if not self._ouvert:
+            self._par_survol, self._epingle = True, False
+            self._regler(True)
+
+    def survol_sort(self) -> None:
+        if self._par_survol:
+            self._minuterie.start(self.DELAI_FERMETURE)
+
+    def _depart(self) -> None:
+        """Le pointeur est parti depuis 250 ms : la carte ouverte par le survol se referme, sauf si le focus y est."""
+        focus = self.focusWidget()
+        if self._par_survol and not (focus is not None and focus.hasFocus()):
+            self._fermer()
+
+    def enterEvent(self, e) -> None:  # noqa: N802 : nom imposé par Qt
+        self.survol_entre()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e) -> None:  # noqa: N802 : nom imposé par Qt
+        self.survol_sort()
+        super().leaveEvent(e)
+
+    def keyPressEvent(self, e) -> None:  # noqa: N802 : nom imposé par Qt
+        if e.key() == Qt.Key.Key_Escape and self._ouvert:
+            self._fermer()
+            self.entete.setFocus()
+        else:
+            super().keyPressEvent(e)
 
 
 class PageAccueil(Page):
@@ -27,15 +214,20 @@ class PageAccueil(Page):
             "**Dans le navigateur** : aucune installation, toutes les pages, mêmes calculs. Le bouton « Version en "
             "ligne », en haut de la fenêtre, l'ouvre."
         )
+        etudes.section(z, self.fenetre)  # récents, favoris, copies nommées (comme « Mes études » du site)
+
+        z.sousTitre("Les cinq familles")
+        z.legende(
+            "Passez la souris sur une famille (ou cliquez) pour voir ses pages ; chaque famille rouvre sa dernière page."
+        )
+        self.cartes = []
         for famille, pages in self.fenetre.familles.items():
-            z.sousTitre(famille)
-            z.legende(FAMILLES.get(famille, ""))
-            for ident, libelle in pages:
-                if ident == "apropos":
-                    continue  # sur le site, « À propos » est en pied de page
-                z.lien(ident, libelle)
-                if libelle in INTROS:
-                    z.legende(INTROS[libelle])
+            lignes = [
+                (i, lib, INTROS.get(lib, "")) for i, lib in pages if i != "apropos"
+            ]  # « À propos » : pied de page du site
+            carte = CarteFamille(famille, FAMILLES.get(famille, ""), lignes, self.aller)
+            self.cartes.append(carte)
+            z._ajouter(carte)
 
         z.texte(
             "Chaque page est déjà remplie avec un exemple d'école : cliquez sur « Calculer » pour voir un résultat, "

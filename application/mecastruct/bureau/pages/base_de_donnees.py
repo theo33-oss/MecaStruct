@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
+from PySide6.QtWidgets import QMessageBox
 
 from mecastruct.bureau import state
 from mecastruct.bureau.widgets import Page, Zone
@@ -22,6 +23,22 @@ from mecastruct.services import compute
 from mecastruct.services.limits import checkLimits
 
 DOCS = Path(__file__).resolve().parents[3] / "aide"
+
+
+def filtre_materiaux(T: pd.DataFrame, categories: list, recherche: str) -> pd.DataFrame:
+    """Matériaux des catégories cochées (aucune cochée = aucun résultat) dont le nom contient la recherche (espaces rognés)."""
+    vue = T[T["Category"].isin(categories)]
+    recherche = (recherche or "").strip()
+    if recherche:
+        vue = vue[vue["Name"].str.contains(recherche, case=False, regex=False)]
+    return vue
+
+
+def _confirme(parent, texte: str) -> bool:
+    """Demande une confirmation (Oui / Non, Non par défaut) avant une suppression."""
+    rep = QMessageBox.question(parent, "Confirmer la suppression", texte,
+                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)  # fmt: skip
+    return rep == QMessageBox.StandardButton.Yes
 
 
 class PageBaseDeDonnees(Page):
@@ -54,9 +71,7 @@ class PageBaseDeDonnees(Page):
         state.v.setdefault("db.categories", categories)
         choisies = z.multi("Catégorie", categories, "db.categories", apres=self.rafraichirTout)
         recherche = z.saisie("Rechercher un matériau", "db.recherche", apres=self.rafraichirTout)
-        vue = T[T["Category"].isin(choisies)]
-        if recherche:
-            vue = vue[vue["Name"].str.contains(recherche, case=False, regex=False)]
+        vue = filtre_materiaux(T, choisies, recherche)
         z.tableau(
             pd.DataFrame(
                 {
@@ -122,6 +137,8 @@ class PageBaseDeDonnees(Page):
             cible = z.liste("Supprimer un matériau utilisateur", ajouts, "mat_suppr")
 
             def supprime() -> None:
+                if not _confirme(self, f"Supprimer le matériau « {cible} » ? Cette action est définitive."):
+                    return
                 dm.removeMaterial(cible)
                 self._message_suivant(f"Matériau « {cible} » supprimé.")
 

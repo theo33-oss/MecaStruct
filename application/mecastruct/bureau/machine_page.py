@@ -9,7 +9,7 @@ from typing import Any
 
 from mecastruct.bureau import exports, machine_dossier, state
 from mecastruct.bureau.page_calcul import PageCalcul, PageOnglets
-from mecastruct.bureau.widgets import Section, Zone
+from mecastruct.bureau.widgets import Section, Zone, schema_replier
 from mecastruct.services import sources
 
 SAISIE_MODIFIEE = "(saisie modifiée : cliquez sur Calculer)"
@@ -38,6 +38,7 @@ def saisie(page: str, defaut: dict) -> dict:
 def lance(pg: Any, page: str, defaut: dict, travail: Callable[[dict], dict]) -> None:
     """Calcule `page` avec la saisie courante ; garde le résultat et l'empreinte de la saisie, ou l'erreur."""
     s = saisie(page, defaut)
+    schema_replier(page)  # « Calculer » : le schéma se replie, il ne reste que les résultats (sauf choix mémorisé)
 
     def fin(res: dict) -> None:
         state.v[f"{page}.res"] = {"res": res, "empreinte": repr(s)}
@@ -56,12 +57,16 @@ def calcul(z: Zone, page: str, defaut: dict, travail: Callable[[dict], dict]) ->
 
 def apercu(z: Zone, dessin: Callable[[], Any]) -> None:
     """Schéma dessiné d'après la saisie actuelle : il suit chaque valeur modifiée, avant même « Calculer »."""
-    try:
-        fig = dessin()
-    except Exception as err:  # noqa: BLE001 : saisie incomplète ou hors du domaine dessinable : schéma omis
-        z.legende(f"Schéma indisponible : {getattr(err, 'message', err)}")
-        return
-    z.plot(fig)
+    def dessiner(c: Zone) -> None:
+        try:
+            fig = dessin()
+        except Exception as err:  # noqa: BLE001 : saisie incomplète ou hors du domaine dessinable : schéma omis
+            c.legende(f"Schéma indisponible : {getattr(err, 'message', err)}")
+            return
+        c.plot(fig)
+
+    # même clé que `lance` (identifiant du calcul) : le clic sur « Calculer » replie ce bloc
+    z.schema(getattr(z.page, "P", "") or type(z.page).__name__, dessiner)
 
 
 def resultats(z: Zone, page: str, s: dict, graphique: Callable[[dict], Any] | None = None, titre: str = "") -> None:
@@ -76,11 +81,13 @@ def resultats(z: Zone, page: str, s: dict, graphique: Callable[[dict], Any] | No
 
         crit = criteres.criteres(page, s, res)
         ok = None if page == "aju" else res["ok"]  # un ajustement n'est comparé à aucune limite : pas de « vérifié »
+        z.decision(page, crit, ok, s)  # bloc « Décision » en tête, comme sur le site
         if crit:
             z.modes(crit, res["status"], ok)
         else:
             z.statut(res["status"], ok)
     else:  # verdict coloré retiré : il ne vaut plus pour la saisie affichée
+        z.decision(page, [], None, s, perime=True)
         z.avertissement(
             "Saisie modifiée depuis le dernier calcul : les résultats affichés datent de l'ancienne saisie. "
             "Cliquez sur « Calculer » pour les actualiser."
@@ -97,11 +104,15 @@ def resultats(z: Zone, page: str, s: dict, graphique: Callable[[dict], Any] | No
 
 def explications(z: Zone, res: dict) -> None:
     """Formules appliquées aux données (avec les valeurs), puis la démarche détaillée du moteur."""
-    z.texte("**Formules appliquées à vos données**")
-    z.formules(res["result"]["latex"])
-    z.texte("**Démarche**")
-    for ligne in res["result"]["rapport"][1:]:
-        z.texte(f"- {ligne}")
+
+    def ecrire(c: Zone) -> None:
+        c.texte("**Formules appliquées à vos données**")
+        c.formules(res["result"]["latex"])
+        c.texte("**Démarche**")
+        for ligne in res["result"]["rapport"][1:]:
+            c.texte(f"- {ligne}")
+
+    z.copiable(ecrire, nom="Explications du calcul")
 
 
 class PageMachine(PageCalcul):

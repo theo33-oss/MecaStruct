@@ -35,7 +35,7 @@ def test_chaque_exemple_se_calcule(bureau, page, onglet, resultat):
 def test_hooke_chaque_mode_se_calcule(bureau, mode):
     _hooke(bureau)
     bureau.choisit("Loi", MODES[mode])
-    bureau.clique("Recharger l'exemple")
+    bureau.clique("Charger l'exemple")
     bureau.clique("Calculer")
     assert state.result("Hoo")["result"]["mode"] == mode
 

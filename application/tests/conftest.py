@@ -35,6 +35,15 @@ def pytest_collection_modifyitems(items):
             item.add_marker(pytest.mark.qt)
 
 
+@pytest.fixture(autouse=True)
+def etudes_isolees(tmp_path, monkeypatch):
+    """Les études du bureau (récents, favoris, copies) vont dans un fichier jetable : jamais dans le dossier de l'utilisateur."""
+    monkeypatch.setenv("MECASTRUCT_ETUDES", str(tmp_path / "etudes.json"))
+    monkeypatch.setenv("MECASTRUCT_REGLAGES", str(tmp_path / "reglages.ini"))  # choix mémorisés (schéma) : jamais dans le registre
+    monkeypatch.setenv("MECASTRUCT_SANS_ANIMATION", "1")  # cartes de l'accueil sans transition : état final immédiat
+    yield
+
+
 @pytest.fixture
 def bureau(qapp, qtbot):
     from tests.bureau_outils import Bureau

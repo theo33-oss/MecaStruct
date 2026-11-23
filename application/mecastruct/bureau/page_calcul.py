@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QTabWidget
 from mecastruct.bureau import state, tache
 from mecastruct.bureau.formula_panel import formula_panel
 from mecastruct.bureau.widgets import Page, Zone
+from mecastruct.services.decision import IDENT_DE_ONGLET
 from mecastruct.services.pages_texte import INTROS
 
 POSITIONS = ("Haut", "Bas")
@@ -25,7 +26,8 @@ class Volet(NamedTuple):
 
 def modes_resultat(z: Zone, tab: str, res: dict, status: str | None = None, ok: Any = "verdict", extras: dict | None = None,
                    ident: str | None = None, saisie: dict | None = None) -> None:  # fmt: skip
-    """Verdict de l'onglet `tab` : diagramme des modes de ruine, ou bandeau coloré s'il n'y a pas de limite à comparer.
+    """Verdict de l'onglet `tab` : bloc « Décision », puis diagramme des modes de ruine, ou bandeau coloré s'il n'y a pas
+    de limite à comparer.
 
     `ok` : « verdict » (lu dans la ligne d'état, comme sur le site), ou True, False, None. `extras` : résultats annexes
     (clavette et goupille pour le cisaillement). Saisie modifiée depuis le calcul : diagramme grisé.
@@ -40,8 +42,11 @@ def modes_resultat(z: Zone, tab: str, res: dict, status: str | None = None, ok: 
         crit = criteres.criteres(ident or tab, saisie, res if extras is None else {**res, "extras": extras})
     except Exception:  # noqa: BLE001 : un critère impossible à lire n'empêche pas d'afficher le calcul
         crit = []
+    perime = not state.is_current(tab)
+    # bloc « Décision » : même identifiant de calcul que le site (« tra », « cis », « truss »…)
+    z.decision(IDENT_DE_ONGLET.get(ident or tab, ident or tab), crit, ok, saisie, perime=perime)
     if crit:
-        z.modes(crit, status, ok, perime=not state.is_current(tab))
+        z.modes(crit, status, ok, perime=perime)
     else:
         z.statut(status, ok)
     if tab != "Beam":  # Poutres a ses propres valeurs clés

@@ -13,9 +13,11 @@ from mecastruct.bureau import dossier, state
 from mecastruct.bureau.page_calcul import PageCalcul, Volet, modes_resultat, panels
 from mecastruct.bureau.widgets import Zone, liste_col, nombre_col, texte_col
 from mecastruct.core import geometry
+from mecastruct.core.errors import MecaStructError
 from mecastruct.core.pp import asPP
 from mecastruct.plots import beam_plots, section_plots
 from mecastruct.services import beam_design, beam_services, sources
+from mecastruct.services.etiquettes import ETIQUETTES_APPUI
 from mecastruct.services.compute import _sectionLabel
 
 TYPES_APPUI = ["appui_simple", "rotule", "pivot", "pivot_glissant", "encastrement"]
@@ -38,6 +40,24 @@ NON_VERIFIE = (
     "Non vérifiés : voilement sous charges concentrées, flexion déviée, ELS, classe 4 ; annexe nationale : seules "
     "γM0 et γM1 sont paramétrables."
 )
+
+
+def _combinaisons(s: dict, dm) -> object:
+    """Combinaisons ; « Mécanisme… » en clair (même message que le site) si aucune ligne ne se calcule."""
+    T = beam_services.computeCombinations(s, dm)
+    cause = beam_services.causeSiToutEnErreur(T, enveloppe=True)
+    if cause:
+        raise MecaStructError("MecaStruct:App:invalidInput", cause)
+    return T
+
+
+def _plus_leger(s: dict, dm) -> object:
+    """Recherche du profilé le plus léger ; « Mécanisme… » en clair si aucun profilé ne peut être calculé."""
+    T, best = beam_design.findLightestProfile(s, dm, s["pfam"], s["pdef"])
+    cause = None if best is not None or T.empty else beam_services.causeSiToutEnErreur(T)
+    if cause:
+        raise MecaStructError("MecaStruct:App:invalidInput", cause)
+    return T, best
 
 
 def _cas() -> object:
@@ -202,10 +222,10 @@ class PagePoutres(PageCalcul):
         z.num("Beam", "L", "Longueur L", "m", help="Longueur de la poutre entre ses deux extrémités, en mètres.",
               min_value=0.0)  # fmt: skip
         z.choice("Beam", "mat", "Matériau", state.dm().listMaterials(), on_change=self._applique_materiau)
-        z.num("Beam", "E", "E", "GPa", help="Module d'Young : rigidité du matériau (acier : 210 GPa).")
-        z.num("Beam", "G", "G", "GPa", help="Module de cisaillement : G = E / (2(1+ν)).")
+        z.num("Beam", "E", "E", "GPa", help="Module d'Young : rigidité du matériau (acier : 210 GPa).", min_value=0.0)
+        z.num("Beam", "G", "G", "GPa", help="Module de cisaillement : G = E / (2(1+ν)).", min_value=0.0)
         z.num("Beam", "Re", "Re", "MPa",
-              help="Limite élastique : contrainte au-delà de laquelle le matériau se déforme définitivement.")  # fmt: skip
+              help="Limite élastique : contrainte au-delà de laquelle le matériau se déforme définitivement.", min_value=0.0)  # fmt: skip
 
     def _applique_origine(self) -> None:
         """Section de forme paramétrée ou de tige filetée : S, inerties et fibres sont recalculés (même règle que le site)."""
@@ -288,7 +308,7 @@ class PagePoutres(PageCalcul):
         )
         z.table(
             "Beam", "sup",
-            [nombre_col("pos", "Position (m)"), liste_col("type", "Type", TYPES_APPUI, "appui_simple"), texte_col("name", "Nom")],
+            [nombre_col("pos", "Position (m)"), liste_col("type", "Type", TYPES_APPUI, "appui_simple", ETIQUETTES_APPUI), texte_col("name", "Nom")],
             help="Appuis. appui_simple et pivot_glissant bloquent les déplacements transversaux y et z (la poutre glisse "
             "selon x) ; rotule et pivot bloquent x, y et z (rotations libres) ; encastrement bloque tout.",
         )  # fmt: skip
@@ -319,7 +339,8 @@ class PagePoutres(PageCalcul):
                 aide="Composantes tracées ; aucune choisie = celles qui ne sont pas nulles.")  # fmt: skip
         z.num("Beam", "s", "Coefficient de sécurité s", "-",
               help="Coefficient de sécurité : on exige σ ≤ Re / s (typiquement 1,5 à 3).")  # fmt: skip
-        z.num("Beam", "Kt", "Kt", "-", help="Coefficient de concentration de contrainte (1 si aucun trou ni épaulement).")
+        z.num("Beam", "Kt", "Kt", "-", help="Coefficient de concentration de contrainte (1 si aucun trou ni épaulement).",
+              min_value=1.0)
 
     def _saisie_charge_rapide(self, z: Zone) -> None:
         z.liste("Forme", list(FORMES), "Beam_qforme")
@@ -373,7 +394,7 @@ class PagePoutres(PageCalcul):
 
         def lance() -> None:
             s, dm = copy.deepcopy(state.saisie("Beam")), state.dm()
-            self.essaie("BeamCombo", lambda: beam_services.computeCombinations(s, dm), apres)
+            self.essaie("BeamCombo", lambda: _combinaisons(s, dm), apres)
 
         z.bouton("Calculer les combinaisons", lance)
 
@@ -417,7 +438,7 @@ class PagePoutres(PageCalcul):
 
         def lance() -> None:
             s, dm = copy.deepcopy(state.saisie("Beam")), state.dm()
-            self.essaie("BeamProf", lambda: beam_design.findLightestProfile(s, dm, s["pfam"], s["pdef"]), apres)
+            self.essaie("BeamProf", lambda: _plus_leger(s, dm), apres)
 
         z.bouton("Chercher le profilé le plus léger", lance)
 

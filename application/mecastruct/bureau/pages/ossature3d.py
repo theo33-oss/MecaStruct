@@ -14,6 +14,11 @@ from mecastruct.bureau import exports, state
 from mecastruct.bureau.widgets import Colonne, Zone, liste_col, nombre_col
 from mecastruct.core import frame3d
 from mecastruct.services import criteres, forces
+from mecastruct.services.etiquettes import (
+    ETIQUETTES_APPUI_3D,
+    ETIQUETTES_LIAISON,
+    ETIQUETTES_SECTION_3D,
+)
 from mecastruct.services.exemples_3d import EXPLICATIONS, exemples
 from mecastruct.services.ossature3d import (  # noqa: F401 : réexportés pour la page et les tests
     APPUIS,
@@ -35,6 +40,10 @@ from mecastruct.services.ossature3d import (  # noqa: F401 : réexportés pour l
 )
 
 
+def _etiq(valeurs: list[str], table: dict[str, str]) -> list[str]:
+    return [table.get(v, v) for v in valeurs]
+
+
 def _id(label_cle: str, label: str) -> Colonne:
     return Colonne(label_cle, label, "nombre", defaut=1, entier=True)
 
@@ -44,18 +53,18 @@ def _colonnes(dm) -> dict[str, list[Colonne]]:
     return {
         "noeuds": [
             _id("id", "id"), nombre_col("x", "x (mm)"), nombre_col("y", "y (mm)"), nombre_col("z", "z (mm)"),
-            liste_col("appui", "Appui", APPUIS, "libre"),
+            liste_col("appui", "Appui", APPUIS, "libre", _etiq(APPUIS, ETIQUETTES_APPUI_3D)),
             Colonne("ddl", "DDL perso", "texte", aide="Appui « perso » : 6 chiffres 0/1 pour ux uy uz θx θy θz (1 = bloqué)."),
         ],
         "pieces": [
             _id("id", "id"), _id("debut", "Nœud début"), _id("fin", "Nœud fin"),
             liste_col("materiau", "Matériau", dm.listMaterials(), "S235"),
-            liste_col("section", "Section", SECTIONS, "rond"),
+            liste_col("section", "Section", SECTIONS, "rond", _etiq(SECTIONS, ETIQUETTES_SECTION_3D)),
             Colonne("dimensions", "Dimensions (mm)", "texte", defaut="d=40",
                     aide="Exemples : " + " ; ".join(f"{k} : « {v} »" for k, v in EXEMPLES_DIM.items())),
             nombre_col("beta", "β (°)"),
-            liste_col("liaison_debut", "Liaison début", LIAISONS, "rigide"),
-            liste_col("liaison_fin", "Liaison fin", LIAISONS, "rigide"),
+            liste_col("liaison_debut", "Liaison début", LIAISONS, "rigide", _etiq(LIAISONS, ETIQUETTES_LIAISON)),
+            liste_col("liaison_fin", "Liaison fin", LIAISONS, "rigide", _etiq(LIAISONS, ETIQUETTES_LIAISON)),
         ],
         "charges_nodales": [
             _id("noeud", "Nœud"),
@@ -140,6 +149,7 @@ def _verdict(z: Zone, res: dict, data: dict) -> None:
         status = "Équilibre global vérifié (réactions + charges = 0). σ est comparée à Re sans coefficient de sécurité : à vous de juger la marge."
     else:
         status = f"Écart d'équilibre : ΣF = {np.round(eq['forces'], 6).tolist()} N, ΣM = {np.round(eq['moments'], 6).tolist()} N·m."
+    z.decision("ossature", crit, None if eq["ok"] else False, state.extra["P3D"])
     if crit:
         z.modes(crit, status, None if eq["ok"] else False)
     else:

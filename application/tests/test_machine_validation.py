@@ -115,7 +115,7 @@ def test_bouton_du_dossier(bureau, tmp_path):
         bureau.radio(fmt)
         cible = tmp_path / f"dossier{ext}"
         bureau.clavier_enregistrer(cible)
-        bureau.clique(next(b.text() for b in bureau._visibles(QAbstractButton) if b.text().startswith("Enregistrer le dossier")))
+        bureau.clique(next(b.text() for b in bureau._visibles(QAbstractButton) if "Enregistr" in b.text()))  # « ✓ Enregistré » pendant 2 s après un clic
         assert cible.stat().st_size > 0
     state.v["frn.F"] = 1000.0  # saisie modifiée : le dossier ne correspond plus
     bureau.page.rafraichirPied()

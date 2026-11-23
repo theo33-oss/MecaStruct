@@ -39,10 +39,12 @@ from mecastruct.services.sources import avec_sources
 
 TYPES_APPUI = ["appui_simple", "rotule", "pivot", "pivot_glissant", "encastrement"]
 # libellés lisibles (les valeurs internes, celles des fichiers de projet et de l'application de bureau, ne changent pas)
-ETIQUETTES_APPUI = ["Appui simple", "Rotule", "Pivot", "Pivot glissant", "Encastrement"]
-ETIQUETTES_APPUI_3D = {"libre": "Libre", "encastrement": "Encastrement", "rotule": "Rotule", "appui_z": "Appui vertical (z)", "perso": "Personnalisé (DDL)"}
-ETIQUETTES_LIAISON = {"rigide": "Rigide", "articulee": "Articulée"}
-ETIQUETTES_SECTION_3D = {"catalogue": "Profilé du catalogue", "rond": "Rond", "tube": "Tube", "rectangle": "Rectangle", "perso": "Personnalisée"}
+from mecastruct.services.etiquettes import (  # noqa: E402 : libellés partagés avec le bureau
+    ETIQUETTES_APPUI,
+    ETIQUETTES_APPUI_3D,
+    ETIQUETTES_LIAISON,
+    ETIQUETTES_SECTION_3D,
+)
 
 
 def _etiq(valeurs, table):

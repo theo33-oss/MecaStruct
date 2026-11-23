@@ -5,6 +5,7 @@ leur clé : une section reconstruite les retrouve, comme une page rouverte.
 """
 
 import math
+import os
 import re
 import tempfile
 import uuid
@@ -14,7 +15,7 @@ from typing import Any
 
 import pandas as pd
 from shiboken6 import isValid
-from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
@@ -73,6 +74,91 @@ def vider(disposition: Any) -> None:
             w.deleteLater()
         elif element.layout() is not None:
             vider(element.layout())
+
+
+DUREE_RETOUR_MS = 2000
+
+
+def message_barre(page: Any, texte: str, duree: int = 5000) -> None:
+    """Message dans la barre d'état de la fenêtre de `page` (sans effet si la page n'a pas de fenêtre)."""
+    barre = getattr(getattr(page, "fenetre", None), "statusBar", None)
+    if callable(barre):
+        barre().showMessage(texte, duree)
+
+
+def retour_bouton(bouton: QPushButton, ok: bool = True, texte: str | None = None, page: Any = None,
+                  message: str | None = None) -> None:  # fmt: skip
+    """Retour visible d'une copie, d'un enregistrement ou d'un export : le bouton passe au vert avec une coche pendant
+    2 s (au rouge avec une croix si `ok` est faux) et `message` s'écrit dans la barre d'état. Aucune animation : le
+    retour est un simple changement de couleur et de texte, donc il respecte aussi « réduire les animations » de Windows.
+    Comme « Liens copiés ✓ » du bouton Partager de la fenêtre."""
+    if bouton is None or not isValid(bouton):
+        return
+    if bouton.property("texte0") is None:
+        bouton.setProperty("texte0", bouton.text())
+        bouton.setProperty("style0", bouton.styleSheet())
+    jeton = int(bouton.property("jeton") or 0) + 1
+    bouton.setProperty("jeton", jeton)
+    fond, encre = theme.couleur_message("succes" if ok else "erreur")
+    bouton.setText(("✓ " if ok else "✗ ") + (texte or str(bouton.property("texte0"))))
+    bouton.setStyleSheet(f"background:{fond};color:{encre};border:1px solid {encre};")
+    if message:
+        message_barre(page, message)
+
+    def remettre() -> None:
+        if isValid(bouton) and bouton.property("jeton") == jeton:
+            bouton.setText(str(bouton.property("texte0")))
+            bouton.setStyleSheet(str(bouton.property("style0") or ""))
+            bouton.setProperty("texte0", None)
+
+    QTimer.singleShot(DUREE_RETOUR_MS, remettre)
+
+
+def copier_image(cible: QWidget, bouton: QPushButton | None = None, page: Any = None, nom: str = "Image") -> bool:
+    """Met une image PNG de `cible` dans le presse-papiers ; le bouton et la barre d'état disent le résultat."""
+    pixmap = cible.grab()
+    ok = not pixmap.isNull()
+    if ok:
+        QApplication.clipboard().setPixmap(pixmap)
+    if bouton is not None:
+        retour_bouton(bouton, ok, "Image copiée" if ok else "Copie impossible", page,
+                      f"{nom} : image copiée dans le presse-papiers." if ok else f"{nom} : la copie de l'image a échoué.")  # fmt: skip
+    return ok
+
+
+def _reglages() -> QSettings:
+    """Réglages de l'utilisateur ; MECASTRUCT_REGLAGES (fichier .ini) les redirige, pour les tests."""
+    if chemin := os.environ.get("MECASTRUCT_REGLAGES"):
+        return QSettings(chemin, QSettings.Format.IniFormat)
+    return QSettings("MecaStruct", "RdM Pro")
+
+
+def schema_etat(cle: str) -> tuple[bool, bool]:
+    """(schéma replié, choix mémorisé) de la page `cle`. Le choix mémorisé survit aux sessions (QSettings)."""
+    k = f"schema.{cle}"
+    if f"{k}.plie" not in state.v:
+        r = _reglages()
+        memo = bool(r.value(f"schema/{cle}/memo", False, type=bool))
+        state.v[f"{k}.memo"] = memo
+        state.v[f"{k}.plie"] = bool(r.value(f"schema/{cle}/plie", False, type=bool)) if memo else False
+    return bool(state.v[f"{k}.plie"]), bool(state.v.get(f"{k}.memo"))
+
+
+def schema_replier(cle: str) -> None:
+    """Un clic sur « Calculer » : le schéma se replie, sauf si le choix de la page est mémorisé."""
+    plie, memo = schema_etat(cle)
+    if not memo:
+        state.v[f"schema.{cle}.plie"] = True
+
+
+def _schema_ecrire(cle: str) -> None:
+    plie, memo = schema_etat(cle)
+    r = _reglages()
+    if memo:
+        r.setValue(f"schema/{cle}/memo", True)
+        r.setValue(f"schema/{cle}/plie", plie)
+    else:
+        r.remove(f"schema/{cle}")
 
 
 def contrasteEleve() -> bool:
@@ -189,9 +275,12 @@ class Colonne:
     """Colonne d'un TableauEditable : genre « texte », « nombre », « liste » ou « case » ; defaut = valeur d'une ligne neuve."""
 
     def __init__(self, cle: str, titre: str, genre: str = "texte", options: Sequence[str] = (), defaut: Any = None,
-                 aide: str = "", entier: bool = False, mini: float | None = None, libre: bool = False) -> None:  # fmt: skip
+                 aide: str = "", entier: bool = False, mini: float | None = None, libre: bool = False,
+                 etiquettes: Sequence[str] | None = None) -> None:  # fmt: skip
         self.cle, self.titre, self.genre, self.options = cle, titre, genre, list(options)
         self.aide, self.entier, self.mini, self.libre = aide, entier, mini, libre
+        # textes affichés à la place des valeurs (même ordre que options) ; la valeur interne reste celle qui est stockée
+        self.etiquettes = list(etiquettes) if etiquettes else None
         if defaut is None:
             defaut = {"nombre": 0.0, "case": False, "liste": self.options[0] if self.options else "", "texte": ""}[genre]
         self.defaut = defaut
@@ -209,12 +298,27 @@ def texte_col(cle: str, titre: str, defaut: str = "") -> Colonne:
     return Colonne(cle, titre, "texte", defaut=defaut)
 
 
-def liste_col(cle: str, titre: str, options: Sequence[str], defaut: str | None = None) -> Colonne:
-    return Colonne(cle, titre, "liste", options=options, defaut=defaut)
+def liste_col(cle: str, titre: str, options: Sequence[str], defaut: str | None = None,
+              etiquettes: Sequence[str] | None = None) -> Colonne:
+    return Colonne(cle, titre, "liste", options=options, defaut=defaut, etiquettes=etiquettes)
 
 
 def case_col(cle: str, titre: str, defaut: bool = True) -> Colonne:
     return Colonne(cle, titre, "case", defaut=defaut)
+
+
+def _etiquette(c: Colonne, valeur: Any) -> str:
+    """Texte affiché pour une valeur interne (la valeur elle-même si la colonne n'a pas de libellé pour elle)."""
+    if c.etiquettes and valeur in c.options:
+        return c.etiquettes[c.options.index(valeur)]
+    return str(valeur)
+
+
+def _valeur_de(c: Colonne, texte: str) -> str:
+    """Valeur interne d'un texte affiché (l'inverse de _etiquette)."""
+    if c.etiquettes and texte in c.etiquettes:
+        return c.options[c.etiquettes.index(texte)]
+    return texte
 
 
 class _DelegueListe(QStyledItemDelegate):
@@ -230,7 +334,7 @@ class _DelegueListe(QStyledItemDelegate):
             return super().createEditor(parent, option, index)
         boite = QComboBox(parent)
         boite.setEditable(col.libre)
-        boite.addItems(col.options)
+        boite.addItems(col.etiquettes or col.options)
         boite.activated.connect(lambda: self.commitData.emit(boite))
         return boite
 
@@ -310,7 +414,7 @@ class TableauEditable(QTableWidget):
                     item.setText(formatNombre(float(v), c.entier))
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 else:
-                    item.setText(str(v))
+                    item.setText(_etiquette(c, v))
                 self.setItem(i, j, item)
         self.blockSignals(False)
         self.resizeColumnsToContents()
@@ -355,7 +459,7 @@ class TableauEditable(QTableWidget):
                 self.blockSignals(False)
                 return
         else:
-            valeur = item.text().strip()
+            valeur = _valeur_de(c, item.text().strip()) if c.genre == "liste" else item.text().strip()
         if ligne.get(c.cle) != valeur:
             ligne[c.cle] = valeur
             if self.polaire:
@@ -478,6 +582,7 @@ class TeteRepli(QFrame):
         self._fleche = QLabel()
         self._fleche.setFixedWidth(14)
         lab = QLabel(titre)
+        self.libelle = lab
         lab.setWordWrap(True)
         lab.setStyleSheet("font-weight:bold;")
         lab.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum)
@@ -627,6 +732,29 @@ class Zone:
 
         self._ajouter(ModesRuine(criteres, statut, ok, perime))
 
+    def decision(self, cle: str, criteres: Sequence[dict], ok: bool | None, saisie: dict | None = None,
+                 perime: bool = False) -> None:  # fmt: skip
+        """Bloc « Décision » en tête d'un résultat (voir services/decision.py et bureau/modes.py).
+
+        `cle` : identifiant de calcul du site (« eng », « tra »…). `perime` : saisie modifiée depuis le calcul, le bloc
+        ne rend plus de verdict. Le lien « Aller à la cause » donne le focus au champ à modifier en premier."""
+        from mecastruct.bureau.modes import BlocDecision
+        from mecastruct.services import decision as dec
+
+        if perime:
+            d = dec.ancienne()
+        else:
+            d = dec.construire(cle, list(criteres), ok, saisie, state.lire("securite", "coef") == "marge")
+        page = self.page
+
+        def cibles(sites: list[str]) -> list[tuple[str, Any]]:
+            return [("groupe", (s[2:], *dec.GROUPES_BUREAU.get(s[2:], ()))) if s.startswith("g:") else ("champ", dec.cle_champ(cle, s))
+                    for s in sites]  # fmt: skip
+
+        self.copiable(lambda c: c._ajouter(BlocDecision(
+            d, aller=lambda sites: page.aller_au_champ(cibles(sites)), peut=lambda sites: page.peut_aller(cibles(sites)),
+            nom=lambda champ: page.libelles_champs.get(dec.cle_champ(cle, champ), champ), perime=perime)), nom="Décision")  # fmt: skip
+
     def statut(self, texte: str, ok: bool | None = None) -> None:
         """Ligne d'état : verte si ok, rouge si non ok, orange si inconnu (None)."""
         self.message("succes" if ok is True else "erreur" if ok is False else "avertissement", texte)
@@ -697,11 +825,79 @@ class Zone:
 
     def tableau(self, df: pd.DataFrame, formats: dict | None = None, couleurs: dict | None = None,
                 index: bool = False) -> None:  # fmt: skip
-        self._ajouter(TableauDonnees(df, formats, couleurs, index))
+        self.copiable(lambda c: c._ajouter(TableauDonnees(df, formats, couleurs, index)), nom="Tableau")
+
+    def copiable(self, rendu: Callable[["Zone"], None], titre: str | None = None, nom: str = "Image") -> QWidget:
+        """Bloc avec un bouton « Copier l'image » au-dessus : `rendu(zone)` écrit le contenu, que le bouton met en PNG
+        dans le presse-papiers (comme sur le site). `titre` : titre du bloc, sur la ligne du bouton."""
+        boite = QWidget()
+        v = QVBoxLayout(boite)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(2)
+        haut = QHBoxLayout()
+        if titre:
+            lab = QLabel(titre)
+            lab.setStyleSheet("font-weight:bold;")
+            haut.addWidget(lab)
+        haut.addStretch(1)
+        bouton = QPushButton("Copier l'image")
+        bouton.setObjectName("bouton")
+        bouton.setToolTip("Met une image de ce bloc dans le presse-papiers (à coller dans un compte rendu).")
+        haut.addWidget(bouton)
+        v.addLayout(haut)
+        corps = QWidget()
+        cv = QVBoxLayout(corps)
+        cv.setContentsMargins(0, 0, 0, 0)
+        v.addWidget(corps)
+        rendu(Zone(self.page, cv, self.section_))
+        bouton.clicked.connect(lambda: differer(lambda: copier_image(corps, bouton, self.page, nom)))
+        self._ajouter(boite)
+        return boite
+
+    def schema(self, cle: str, rendu: Callable[["Zone"], None]) -> None:
+        """Schéma dans un bloc repliable (« Masquer / Afficher le schéma »). Un clic sur « Calculer » le replie (voir
+        schema_replier) pour ne laisser que les résultats ; « Mémoriser ce choix pour cette page » garde le choix."""
+        plie, _ = schema_etat(cle)
+        tete = TeteRepli("Masquer le schéma", not plie)
+        tete.setProperty("schema", cle)
+        corps = QWidget()
+        v = QVBoxLayout(corps)
+        v.setContentsMargins(0, 0, 0, 0)
+        zone = Zone(self.page, v, self.section_)
+        case = QCheckBox("Mémoriser ce choix pour cette page")
+        case.setChecked(schema_etat(cle)[1])
+        case.setToolTip("Cochée : cette page garde le schéma visible ou replié, d'une fois sur l'autre. "
+                        "Sinon le schéma se replie à chaque nouveau calcul.")  # fmt: skip
+        bati = {"fait": False}
+
+        def montrer(ouvert: bool) -> None:
+            tete.actif = ouvert
+            tete.fleche(ouvert)
+            tete.libelle.setText("Masquer le schéma" if ouvert else "Afficher le schéma")
+            if ouvert and not bati["fait"]:
+                bati["fait"] = True
+                rendu(zone)
+                v.addWidget(case)
+            corps.setVisible(ouvert)
+
+        def basculer(ouvert: bool) -> None:
+            state.v[f"schema.{cle}.plie"] = not ouvert
+            montrer(ouvert)
+            _schema_ecrire(cle)
+
+        def memoriser(oui: bool) -> None:
+            state.v[f"schema.{cle}.memo"] = oui
+            _schema_ecrire(cle)
+
+        tete.toggled.connect(basculer)
+        case.toggled.connect(memoriser)
+        self._ajouter(tete)
+        self._ajouter(corps)
+        montrer(not plie)
 
     def plot(self, fig: Any) -> None:
         """Graphique Plotly interactif, suivi d'une description en texte (lecture d'écran)."""
-        self._ajouter(VueFigure(fig))
+        self.copiable(lambda c: c._ajouter(VueFigure(fig)), nom="Graphique")
         if resume := resume_graphique(fig):
             self.legende(resume)
 
@@ -716,11 +912,14 @@ class Zone:
 
     def rapport(self, lignes: Sequence[str]) -> None:
         """Rapport de calcul : les lignes « Résultats » et « Réaction » en encadré, les autres en chasse fixe."""
-        for ligne in lignes:
-            if ligne.startswith(("Résultats", "Réaction")):
-                self.info(ligne)
-            else:
-                self.brut(ligne)
+        def ecrire(c: "Zone") -> None:
+            for ligne in lignes:
+                if ligne.startswith(("Résultats", "Réaction")):
+                    c.info(ligne)
+                else:
+                    c.brut(ligne)
+
+        self.copiable(ecrire, nom="Rapport")
 
     def colonnes(self, poids: int | Sequence[int]) -> list["Zone"]:
         """Colonnes côte à côte (nombre, ou poids relatifs)."""
@@ -770,6 +969,15 @@ class Zone:
         tete.toggled.connect(basculer)
         self._ajouter(tete)
         self._ajouter(corps)
+        reg = getattr(self.page, "repliables", None)
+        if reg is not None:  # retrouvé par son titre : « Aller à la cause » le déplie
+
+            def deplier() -> None:
+                if not tete.actif:
+                    tete.actif = True
+                    basculer(True)
+
+            reg[titre] = {"tete": tete, "corps": corps, "ouvrir": deplier, "bati": bati}
         if ouvert and not bati["fait"]:
             bati["fait"] = True
             rendu(zone)
@@ -831,6 +1039,8 @@ class Zone:
                     actif: bool = True, aide: str | None = None) -> QPushButton:  # fmt: skip
         """Bouton d'enregistrement : demande où écrire le fichier ; donnees peut être une fonction (appelée au clic)."""
 
+        bouton: list[QPushButton] = []
+
         def ecrire() -> None:
             chemin, _ = QFileDialog.getSaveFileName(self.page, "Enregistrer", nomFichier)
             if not chemin:
@@ -839,11 +1049,16 @@ class Zone:
                 contenu = donnees() if callable(donnees) else donnees
                 Path(chemin).write_bytes(contenu.encode("utf-8") if isinstance(contenu, str) else contenu)
             except OSError as e:
+                retour_bouton(bouton[0], False, "Échec", self.page, f"Enregistrement impossible : {e}")
                 QMessageBox.warning(self.page, "Enregistrement impossible", str(e))
             except Exception as e:  # noqa: BLE001 : conversion de dossier ratée
+                retour_bouton(bouton[0], False, "Échec", self.page, "Export impossible.")
                 QMessageBox.warning(self.page, "Export impossible", str(getattr(e, "message", e)))
+            else:
+                retour_bouton(bouton[0], True, "Enregistré", self.page, f"Enregistré : {chemin}")
 
-        return self.bouton(libelle, ecrire, actif=actif, aide=aide)
+        bouton.append(self.bouton(libelle, ecrire, actif=actif, aide=aide))
+        return bouton[0]
 
     def ouvrirFichier(self, libelle: str, filtre: str, action: Callable[[list[tuple[str, bytes]]], None],
                       multiple: bool = False, aide: str | None = None) -> None:  # fmt: skip
@@ -860,7 +1075,15 @@ class Zone:
 
         self.bouton(libelle, ouvrir, aide=aide)
 
-    def _etiquette(self, libelle: str, w: QWidget, aide: str | None) -> QWidget:
+    def _enregistrer(self, cle: Any, w: QWidget, libelle: str) -> None:
+        """Retient le champ `cle` de la page : le lien « Aller à la cause » du bloc Décision lui donne le focus."""
+        champs = getattr(self.page, "champs_vivants", None)
+        if champs is not None and cle is not None:
+            champs[cle] = w
+            self.page.libelles_champs[cle] = libelle
+
+    def _etiquette(self, libelle: str, w: QWidget, aide: str | None, cle: Any = None) -> QWidget:
+        self._enregistrer(cle, w, libelle)
         w.setToolTip(aide or "")
         if libelle:
             lab = QLabel(libelle)
@@ -901,7 +1124,7 @@ class Zone:
             boite.setCurrentIndex(options.index(v))
         boite.activated.connect(lambda i: self._rappel(cle, options[i], apres))
         boite.wheelEvent = lambda e: e.ignore()  # la molette fait défiler la page, pas la liste
-        self._etiquette(libelle, boite, aide)
+        self._etiquette(libelle, boite, aide, cle)
         return v
 
     def radio(self, libelle: str, options: Sequence, cle: Any, format: Callable[[Any], str] = str, defaut: Any = None,
@@ -923,7 +1146,7 @@ class Zone:
         if not vertical:
             d.addStretch(1)
         boutons.idClicked.connect(lambda i: self._rappel(cle, options[i], apres))
-        self._etiquette(libelle, groupe, aide)
+        self._etiquette(libelle, groupe, aide, cle)
         return v
 
     def multi(self, libelle: str, options: Sequence, cle: Any, format: Callable[[Any], str] = str,
@@ -957,7 +1180,7 @@ class Zone:
         state.ecrire(cle, v)
         champ = ChampNombre(v, entier, mini, maxi, lambda x: self._rappel(cle, x, apres))
         champ.setEnabled(actif)
-        self._etiquette(libelle, champ, aide)
+        self._etiquette(libelle, champ, aide, cle)
         return v
 
     def saisie(self, libelle: str, cle: Any, defaut: str = "", apres: Callable[[], None] | None = None,
@@ -975,7 +1198,7 @@ class Zone:
                 self._rappel(cle, champ.text(), apres)
 
         champ.editingFinished.connect(valider)
-        self._etiquette(libelle, champ, aide)
+        self._etiquette(libelle, champ, aide, cle)
         return v
 
     def case(self, libelle: str, cle: Any, defaut: bool = False, apres: Callable[[], None] | None = None,
@@ -987,6 +1210,7 @@ class Zone:
         c.setToolTip(aide or "")
         c.toggled.connect(lambda x: self._rappel(cle, x, apres))
         self._ajouter(c)
+        self._enregistrer(cle, c, libelle)
         return v
 
     # --- gestes sur la saisie d'un onglet ---
@@ -1013,7 +1237,7 @@ class Zone:
                             lambda x: self._rappel(cle, 1.0 + x / 100.0 if marge else x, apres))  # fmt: skip
         champ.setEnabled(actif)
         self._etiquette("Sécurité exprimée en", boite, "Coefficient s, ou marge en % (marge = s − 1) : même réglage sur toutes les pages.")
-        self._etiquette("Marge de sécurité (%)" if marge else libelle, champ, aide)
+        self._etiquette("Marge de sécurité (%)" if marge else libelle, champ, aide, cle)
         return s
 
     def num(self, tab: str, champ: str, label: str, unit: str = "", help: str | None = None,
@@ -1158,9 +1382,84 @@ class Page(QWidget):
         self.sections: list[Section] = []
         self.suivis: list[Section] = []  # parties de la saisie qui suivent la saisie (valeurs clés)
         self.bati = False
+        self.champs_vivants: dict[Any, QWidget] = {}  # clé de saisie → champ affiché (lien « Aller à la cause »)
+        self.libelles_champs: dict[Any, str] = {}  # clé de saisie → libellé du champ (gardé entre deux affichages)
+        self.repliables: dict[str, dict] = {}  # titre d'un bloc repliable → ses éléments
 
     def aller(self, page: str) -> None:
         self.fenetre.aller(page)
+
+    # --- « Aller à la cause » : un champ (ou un groupe de champs) de la saisie reçoit le focus ---
+
+    def champ_vivant(self, cle: Any) -> QWidget | None:
+        """Champ `cle` actuellement affiché dans cette page, ou None (absent, détruit, retiré par un redessin)."""
+        w = self.champs_vivants.get(cle)
+        return w if w is not None and isValid(w) and w.window() is self.window() else None
+
+    def _volet_vivant(self, titres: Sequence[str]) -> dict | None:
+        for titre in titres:
+            v = self.repliables.get(titre)
+            if v and isValid(v["tete"]) and isValid(v["corps"]) and v["tete"].window() is self.window():
+                return v
+        return None
+
+    def _volet_a_ouvrir(self) -> dict | None:
+        """Un bloc repliable encore fermé, dont le contenu n'a pas été bâti : le champ cherché peut s'y trouver."""
+        for v in self.repliables.values():
+            if not v["bati"]["fait"] and isValid(v["tete"]) and v["tete"].window() is self.window():
+                return v
+        return None
+
+    def peut_aller(self, cibles: Sequence[tuple[str, Any]]) -> bool:
+        """Vrai si l'une des cibles (« champ », clé) ou (« groupe », titres) existe, ou peut se trouver dans un bloc fermé."""
+        for genre, v in cibles:
+            if (genre == "champ" and (self.champ_vivant(v) is not None or self._volet_a_ouvrir() is not None)) or (
+                genre == "groupe" and self._volet_vivant(v) is not None
+            ):
+                return True
+        return False
+
+    def aller_au_champ(self, cibles: Sequence[tuple[str, Any]]) -> bool:
+        """Donne le focus à la première cible affichée (un groupe : son premier champ), en dépliant au besoin. Faux si aucune."""
+        while True:
+            for genre, v in cibles:
+                w = self.champ_vivant(v) if genre == "champ" else self._ouvrir_groupe(v)
+                if w is not None:
+                    self._montrer(w)
+                    return True
+            volet = self._volet_a_ouvrir() if any(g == "champ" for g, _ in cibles) else None
+            if volet is None:
+                return False
+            volet["ouvrir"]()
+
+    def _ouvrir_groupe(self, titres: Sequence[str]) -> QWidget | None:
+        volet = self._volet_vivant(titres)
+        if volet is None:
+            return None
+        volet["ouvrir"]()
+        for w in volet["corps"].findChildren(QWidget):
+            if w.focusPolicy() != Qt.FocusPolicy.NoFocus and w.isEnabled():
+                return w
+        return volet["tete"]
+
+    def _montrer(self, w: QWidget) -> None:
+        """Focus, défilement jusqu'au champ et halo de deux secondes sur son cadre."""
+        w.setFocus(Qt.FocusReason.OtherFocusReason)
+        zone = w.parentWidget()
+        while zone is not None and not isinstance(zone, QScrollArea):
+            zone = zone.parentWidget()
+
+        def defiler() -> None:
+            if zone is not None and isValid(zone) and isValid(w):
+                zone.ensureWidgetVisible(w, 20, 80)
+
+        QTimer.singleShot(0, defiler)
+        cadre = w.parentWidget()
+        if cadre is not None and cadre.objectName() == "champ":
+            p = theme.actuel()
+            cadre.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+            cadre.setStyleSheet(f"#champ{{background:{p['info'][0]};border:2px solid {p['accent']};border-radius:6px;}}")
+            QTimer.singleShot(2000, lambda: cadre.setStyleSheet("") if isValid(cadre) else None)
 
     def afficher(self) -> None:
         """Appelée à chaque ouverture de la page : tout repart de l'état courant."""

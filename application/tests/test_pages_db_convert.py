@@ -41,7 +41,10 @@ def test_base_ajoute_un_materiau(bureau):
     assert bureau.a_texte("Matériau « Acier utilisateur » ajouté.")
 
 
-def test_base_supprime_un_materiau_utilisateur(bureau):
+def test_base_supprime_un_materiau_utilisateur(bureau, monkeypatch):
+    from mecastruct.bureau.pages import base_de_donnees
+
+    monkeypatch.setattr(base_de_donnees, "_confirme", lambda parent, texte: True)  # la confirmation est testée ailleurs
     bureau.ouvre("base_de_donnees")
     bureau.clique("Ajouter / remplacer")
     bureau.clique("Supprimer le matériau utilisateur choisi")
