@@ -87,6 +87,19 @@ def file_bar(z: Zone, tab: str) -> None:
             actif=bool(feuilles),
             aide=None if feuilles else "Aucun résultat à exporter : cliquez d'abord sur « Calculer ».",
         )
+        if tab == "Beam":  # mêmes valeurs que les graphiques et que le site : x, efforts, rotation, flèche
+            cle_point = "fichier.Beam.csvpoint"
+            c.case("Point décimal dans le CSV des diagrammes", cle_point, aide="Décoché : virgule décimale (Excel en français).")
+            prete = bool(res and res.get("sol"))
+            c.telecharger(
+                "Exporter les diagrammes (CSV)",
+                lambda: project_io.beamDiagramCsv(res["sol"], res.get("defl"), bool(state.lire(cle_point, False))),
+                "MecaStruct_Poutre_diagrammes.csv",
+                actif=prete,
+                aide="Fichier CSV (séparateur « ; », unités dans l'en-tête) : abscisse x, N, Ty, Tz, Mt, Mfy, Mfz, rotation "
+                "et flèche aux mêmes points que les graphiques." if prete
+                else "Aucun résultat à exporter : cliquez d'abord sur « Calculer ».",
+            )
 
     z.repliable("Fichiers", rendu=corps, cle=f"fichiers.{tab}")
     z.messageGarde(f"fichier.{tab}.problème.msg")

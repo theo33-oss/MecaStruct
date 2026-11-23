@@ -213,6 +213,34 @@ class VueFigure(QWebEngineView):
         self.load(QUrl.fromLocalFile(str(chemin)))
 
 
+# SVG de la figure affichée : plotly.js le fabrique lui-même (Plotly.Snapshot.toSVG), sans kaleido ni autre paquet.
+_JS_SVG = "(function(){var g=document.querySelector('.js-plotly-plot');return g&&window.Plotly?Plotly.Snapshot.toSVG(g,'svg',1):null;})()"
+
+
+def enregistrer_svg(corps: QWidget, bouton: QPushButton, page: Any, nom: str = "Graphique") -> None:
+    """Demande où écrire, puis enregistre en SVG la figure Plotly affichée dans `corps` ; le bouton dit le résultat."""
+    vue = corps.findChild(VueFigure)
+    if vue is None:
+        retour_bouton(bouton, False, "Image impossible", page, f"{nom} : aucun graphique à enregistrer.")
+        return
+    chemin, _ = QFileDialog.getSaveFileName(page, "Enregistrer l'image (SVG)", "MecaStruct_graphique.svg", "Image SVG (*.svg)")
+    if not chemin:
+        return
+
+    def ecrire(texte: Any) -> None:
+        if not (isinstance(texte, str) and texte.lstrip().startswith("<svg")):
+            retour_bouton(bouton, False, "Image impossible", page, f"{nom} : le graphique n'est pas encore tracé.")
+            return
+        try:
+            Path(chemin).write_text(texte, encoding="utf-8")
+        except OSError as e:
+            retour_bouton(bouton, False, "Échec", page, f"Enregistrement impossible : {e}")
+            return
+        retour_bouton(bouton, True, "SVG enregistré", page, f"Enregistré : {chemin}")
+
+    vue.page().runJavaScript(_JS_SVG, ecrire)
+
+
 _NOMBRE_POINT = re.compile(r"^[-−+]?\d+\.\d+(e[-+]?\d+)?$")
 
 
@@ -827,9 +855,11 @@ class Zone:
                 index: bool = False) -> None:  # fmt: skip
         self.copiable(lambda c: c._ajouter(TableauDonnees(df, formats, couleurs, index)), nom="Tableau")
 
-    def copiable(self, rendu: Callable[["Zone"], None], titre: str | None = None, nom: str = "Image") -> QWidget:
+    def copiable(self, rendu: Callable[["Zone"], None], titre: str | None = None, nom: str = "Image",
+                 svg: bool = False) -> QWidget:  # fmt: skip
         """Bloc avec un bouton « Copier l'image » au-dessus : `rendu(zone)` écrit le contenu, que le bouton met en PNG
-        dans le presse-papiers (comme sur le site). `titre` : titre du bloc, sur la ligne du bouton."""
+        dans le presse-papiers (comme sur le site). `titre` : titre du bloc, sur la ligne du bouton.
+        `svg` : ajoute « Télécharger l'image (SVG) » (bloc qui contient une figure Plotly)."""
         boite = QWidget()
         v = QVBoxLayout(boite)
         v.setContentsMargins(0, 0, 0, 0)
@@ -840,6 +870,12 @@ class Zone:
             lab.setStyleSheet("font-weight:bold;")
             haut.addWidget(lab)
         haut.addStretch(1)
+        bouton_svg = None
+        if svg:
+            bouton_svg = QPushButton("Télécharger l'image (SVG)")
+            bouton_svg.setObjectName("bouton")
+            bouton_svg.setToolTip("Enregistre ce graphique en image vectorielle (SVG), à insérer dans Word, LibreOffice ou Inkscape.")
+            haut.addWidget(bouton_svg)
         bouton = QPushButton("Copier l'image")
         bouton.setObjectName("bouton")
         bouton.setToolTip("Met une image de ce bloc dans le presse-papiers (à coller dans un compte rendu).")
@@ -851,6 +887,8 @@ class Zone:
         v.addWidget(corps)
         rendu(Zone(self.page, cv, self.section_))
         bouton.clicked.connect(lambda: differer(lambda: copier_image(corps, bouton, self.page, nom)))
+        if bouton_svg is not None:
+            bouton_svg.clicked.connect(lambda: differer(lambda: enregistrer_svg(corps, bouton_svg, self.page, nom)))
         self._ajouter(boite)
         return boite
 
@@ -897,7 +935,7 @@ class Zone:
 
     def plot(self, fig: Any) -> None:
         """Graphique Plotly interactif, suivi d'une description en texte (lecture d'écran)."""
-        self.copiable(lambda c: c._ajouter(VueFigure(fig)), nom="Graphique")
+        self.copiable(lambda c: c._ajouter(VueFigure(fig)), nom="Graphique", svg=True)
         if resume := resume_graphique(fig):
             self.legende(resume)
 

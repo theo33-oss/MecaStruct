@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from mecastruct import APP_NOM as APP
-from mecastruct import APPS_ACCEPTES
+from mecastruct import APPS_ACCEPTES, en_tete_fichier, schema_refuse
 from mecastruct.core.errors import MecaStructError
 from mecastruct.core.pp import ppEval
 from mecastruct.services.examples import loadExample
@@ -51,8 +51,16 @@ def _lit(text: str, nature: str) -> dict:
         raise MecaStructError(_ID, f"Ce fichier n'est pas {nature} MecaStruct ({quoi}).") from err
     if not isinstance(d, dict) or d.get("app") not in APPS_ACCEPTES:
         raise MecaStructError(_ID, f"Ce fichier n'est pas {nature} enregistré par {APP}.")
-    if not isinstance(d.get("version"), int) or d["version"] > FORMAT_VERSION:
+    if isinstance(d.get("version"), int) and d["version"] > FORMAT_VERSION:
+        raise MecaStructError(
+            _ID,
+            "Ce fichier vient d'une version plus récente de MecaStruct (autre version du format) : "
+            "mettez l'application à jour pour l'ouvrir.",
+        )
+    if not isinstance(d.get("version"), int):
         raise MecaStructError(_ID, "Ce fichier date d'une autre version de l'application (format non reconnu).")
+    if (refus := schema_refuse(d)) is not None:  # clé « schema_version » absente : version 1 ; clés inconnues : ignorées
+        raise MecaStructError(_ID, refus)
     return d
 
 
@@ -80,8 +88,8 @@ def _controle(tab: str, saisie: dict) -> None:
 
 
 def problemToJson(tab: str, saisie: dict) -> str:
-    """JSON d'un problème : la saisie de l'onglet `tab` (unités d'affichage), avec l'application et la version."""
-    return _json({"app": APP, "version": FORMAT_VERSION, "onglet": tab, "saisie": saisie})
+    """JSON d'un problème : la saisie de l'onglet `tab` (unités d'affichage), avec l'application, la version, le schéma et l'outil."""
+    return _json({"app": APP, "version": FORMAT_VERSION, **en_tete_fichier(), "onglet": tab, "saisie": saisie})
 
 
 def problemFromJson(text: str, tab: str | None = None) -> tuple[str, dict]:
@@ -103,7 +111,7 @@ def problemFromJson(text: str, tab: str | None = None) -> tuple[str, dict]:
 
 def projectToJson(saisies: dict[str, dict]) -> str:
     """JSON d'un projet : la saisie de chaque onglet de PROJECT_KEYS (clés absentes de `saisies` : erreur)."""
-    return _json({"app": APP, "version": FORMAT_VERSION, "projet": {k: saisies[k] for k in PROJECT_KEYS}})
+    return _json({"app": APP, "version": FORMAT_VERSION, **en_tete_fichier(), "projet": {k: saisies[k] for k in PROJECT_KEYS}})
 
 
 def projectFromJson(text: str) -> tuple[dict[str, dict], list[str]]:
@@ -160,6 +168,41 @@ def beamEffortSheets(sol: dict) -> dict[str, pd.DataFrame]:
     for c, u in zip(comps, unites, strict=True):
         eff[f"{c} ({u})"] = ppEval(sol[c], s) / 1e3
     return {"Enveloppe": env, "Efforts": eff}
+
+
+BOM = chr(0xFEFF)  # repère d'encodage UTF-8 que lit Excel
+
+
+def beamDiagramTable(sol: dict, defl: dict | None = None) -> pd.DataFrame:
+    """Diagrammes d'une poutre par abscisse : x, efforts (kN, kN·m) et, si `defl` est donné, rotation (mrad) et flèche (mm).
+
+    Mêmes abscisses et mêmes valeurs que la feuille « Efforts » (ppEval des polynômes du solveur) ; la rotation et la flèche
+    sont celles de la méthode d'intégration (`defl["integration"]`), les courbes du graphique « Déformée ». Plan xz : β et w.
+    """
+    comps = ("N", "Ty", "Tz", "Mt", "Mfy", "Mfz")
+    unites = ("kN", "kN", "kN", "kN·m", "kN·m", "kN·m")
+    breaks = np.asarray(sol["N"].breaks, dtype=float)
+    s = np.unique(np.concatenate([np.linspace(0.0, breaks[-1], 201), breaks]))
+    t = pd.DataFrame({"x (m)": s})
+    for c, u in zip(comps, unites, strict=True):
+        t[f"{c} ({u})"] = ppEval(sol[c], s) / 1e3
+    integ = (defl or {}).get("integration") or {}
+    if "alphaPP" in integ and "vPP" in integ:
+        a, v = ("β", "w") if str(defl.get("plane", "xy")).lower() == "xz" else ("α", "v")
+        t[f"Rotation {a} (mrad)"] = ppEval(integ["alphaPP"], s) * 1e3
+        t[f"Flèche {v} (mm)"] = ppEval(integ["vPP"], s) * 1e3
+    return t
+
+
+def beamDiagramCsv(sol: dict, defl: dict | None = None, point: bool = False) -> str:
+    """CSV des diagrammes d'une poutre (UTF-8 avec BOM pour Excel), séparateur « ; », unités dans l'en-tête.
+
+    Décimale : virgule (Excel en français) ou point si `point` est vrai. Erreur : MecaStruct:App:noResults sans solution.
+    """
+    if not sol:
+        raise MecaStructError("MecaStruct:App:noResults", "Aucun résultat à exporter : cliquez d'abord sur « Calculer ».")
+    t = beamDiagramTable(sol, defl)
+    return BOM + t.to_csv(sep=";", decimal="." if point else ",", index=False, lineterminator="\r\n")
 
 
 def resultSheets(tab: str, res: dict) -> dict[str, pd.DataFrame]:

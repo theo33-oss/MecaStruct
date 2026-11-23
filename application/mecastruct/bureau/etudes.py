@@ -25,6 +25,7 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QInputDialog, QLabel, QMessageBox, QPushButton, QWidget
 
+from mecastruct import schema_refuse
 from mecastruct.bureau import exports, state
 from mecastruct.bureau.widgets import differer
 from mecastruct.core.errors import MecaStructError
@@ -314,7 +315,7 @@ def ouvrir_copie(c: dict) -> str:
 
 def exporter() -> dict:
     """Toutes les études : favoris, récents, copies et saisies courantes de chaque calcul (fichier de la forme du site)."""
-    from mecastruct import __version__
+    from mecastruct import en_tete_fichier
 
     saisies = {}
     for calculs in CALCULS.values():
@@ -325,7 +326,7 @@ def exporter() -> dict:
                 continue
             if len(json.dumps(s)) <= MAX_TAILLE:
                 saisies[calcul] = s
-    return {"format": FORMAT, "version": 1, "outil": f"MecaStruct RdM {__version__}",
+    return {"format": FORMAT, "version": 1, **en_tete_fichier(),
             "exporte": datetime.now().astimezone().isoformat(timespec="seconds"),
             "favoris": [{"id": vers_site(f["id"]), "t": f["t"]} for f in favoris()],
             "recents": [{"id": vers_site(r["id"]), "t": r["t"]} for r in recents()],
@@ -345,6 +346,9 @@ def lire_import(texte: str) -> dict:
             "ok": False,
             "erreur": f"Ce fichier vient d'une autre version du format ({str(d.get('version'))[:10]}).",
         }
+
+    if (refus := schema_refuse(d)) is not None:  # clé « schema_version » absente : version 1 ; clés inconnues : ignorées
+        return {"ok": False, "erreur": refus}
 
     def liste(x: Any) -> list:
         return x if isinstance(x, list) else []

@@ -1,7 +1,7 @@
 """Dossier de validation HTML des pages de cours « Éléments de machines » : roulements, engrenages, trains
 épicycloïdaux, freins et embrayages, dimensionnement moteur.
 
-Même gabarit et mêmes 8 parties que validation_report. Une page regroupe plusieurs calculs : chaque partie donne un
+Même gabarit et mêmes 10 parties que validation_report. Une page regroupe plusieurs calculs : chaque partie donne un
 bloc par calcul, « non inclus » quand le calcul n'a pas de résultat à jour. Les contrôles à la main refont les
 formules du cours depuis la saisie, sans appeler les moteurs de mecastruct.core : ils prouvent que le solveur applique
 bien ces formules, pas que les formules conviennent au cas (c'est l'objet des hypothèses du §2). Aucun import de
@@ -21,9 +21,11 @@ from mecastruct.core.utils import load_json
 from mecastruct.services.validation_report import (
     _CHOIX,
     _SECTIONS,
+    _annexesHTML,
     _bilan,
     _champs,
     _chk,
+    _conclusionHTML,
     _esc,
     _grp,
     _hc,
@@ -738,6 +740,11 @@ def generate(titre: str, calculs: list[tuple[str, str, dict, dict | None]], dm) 
             if formules
             else '<p class="muted">Pas de formule écrite par le solveur pour ce calcul : voir le §3.</p>'
         )
+    parts["conclusion"] = "".join(
+        f"<h3>{_esc(nom)}</h3>" + (_conclusionHTML(res["status"], []) if res is not None else _NON_INCLUS)
+        for nom, _typ, _s, res in calculs
+    )
+    parts["annexes"] = _annexesHTML([(nom, typ) for nom, typ, _s, _r in calculs])
     sections = [{"id": i, "titre": t, "titre_court": t.split(". ", 1)[1], "html": parts[i]} for i, t in _SECTIONS]
     return _template().render(
         titre=titre,

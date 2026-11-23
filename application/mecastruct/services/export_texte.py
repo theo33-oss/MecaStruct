@@ -4,6 +4,7 @@ Les données viennent de la description du formulaire (pont/formulaire.py) : mê
 """
 
 import re
+import textwrap
 from datetime import datetime
 
 import pandas as pd
@@ -161,13 +162,58 @@ def lignes_criteres(crit: list[dict], en_marge: bool = False) -> list[str]:
     return _colonnes(["Mode de ruine", "Valeur et limite", "Taux", "Sécurité ou réserve", "Verdict"], lignes)
 
 
-def texte(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[dict], quand: datetime | None = None) -> str:
-    """Note de calcul en texte brut. `sortie` : {status, ok, tables (DataFrame), rapport}."""
+def hypotheses(formulaire: dict, ident: str = "") -> list[str]:
+    """Hypothèses et limites du modèle déjà écrites sur la page : sa note, puis la note de chaque groupe de champs.
+
+    La phrase de source du cours, que la page ajoute à sa note, est retirée : elle va dans les annexes."""
+    from mecastruct.services import sources
+
+    notes = [formulaire.get("note")] + [f"{g['titre']} : {g['note']}" for g in formulaire.get("groupes", []) if g.get("note")]
+    src = sources.source(ident)
+    propres = [" ".join((str(n).replace(src, "") if src else str(n)).split()) for n in notes if n]
+    return [n for n in propres if n]
+
+
+def conclusion(ident: str, saisie: dict, sortie: dict, crit: list[dict], en_marge: bool = False) -> list[str]:
+    """Lignes de la conclusion : le contenu du bloc « Décision » de la page (verdict, sécurité minimale, mode dimensionnant, action)."""
+    from mecastruct.services import decision  # à l'appel : decision importe ce module
+
+    d = decision.construire(ident, crit, sortie.get("ok"), saisie, en_marge)
+    lignes = [f"Décision : {d.mot}"]
+    if crit:
+        lignes.append(phrase_bilan(crit) + ".")
+    lignes += [f"{f.titre} : {f.valeur}" + (f" ({f.sous})" if f.sous else "") for f in d.faits if f.valeur]
+    if d.avertissement:
+        lignes.append(f"Attention : {d.avertissement}")
+    lignes.append(f"Action conseillée : {d.action}")
+    return lignes
+
+
+def texte(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[dict], quand: datetime | None = None,
+          ident: str = "") -> str:  # fmt: skip
+    """Note de calcul en texte brut. `sortie` : {status, ok, tables (DataFrame), rapport} ; `ident` : calcul de la page.
+
+    Parties : objet et conclusion en tête, hypothèses et limites, données, verdict et modes de ruine, résultats, démarche,
+    conclusion (bloc « Décision »), annexes (source du cours du calcul). Tout vient de la page : rien n'est ajouté.
+    """
+    from mecastruct.services import sources
+
     quand = quand or datetime.now()
     ok = sortie.get("ok")
     verdict = "VÉRIFIÉ" if ok is True else "NON VÉRIFIÉ" if ok is False else "sans verdict (calcul d'information)"
     L = [f"MecaStruct RdM {__version__} - {titre}", f"Calcul du {quand:%d/%m/%Y à %H h %M}", "-" * LARGEUR]
     en_marge = saisie.get("_securite") == "marge"  # réglage de la page : sécurité donnée en marge (%)
+    L += _titre("Objet et conclusion")
+    bilan = phrase_bilan(crit) if crit else ""
+    L += [f"Objet : calcul « {titre} » (données et hypothèses ci-dessous).",
+          f"Conclusion : {verdict}" + (f", {bilan[0].lower()}{bilan[1:]}" if bilan else "") + " (détail en fin de note)."]  # fmt: skip
+    L += _titre("Hypothèses et limites")
+    notes = hypotheses(formulaire, ident)
+    for n in notes:
+        L += [f"- {x}" if i == 0 else f"  {x}" for i, x in enumerate(textwrap.wrap(n, LARGEUR - 2))]
+    if not notes:
+        L.append("Aucune note de modèle sur cette page. Les données saisies sont celles de la section suivante.")
+    L.append("Limites générales de l'outil : fichier LIMITES.md du projet.")
     L += _titre("Données")
     groupe = None
     for d in donnees(formulaire, saisie):
@@ -192,6 +238,11 @@ def texte(titre: str, formulaire: dict, saisie: dict, sortie: dict, crit: list[d
     if rapport:
         L += _titre("Démarche du calcul")
         L += [x if x.startswith("===") else "- " + x for x in rapport]
+    L += _titre("Conclusion")
+    L += conclusion(ident, saisie, sortie, crit, en_marge)
+    L += _titre("Annexes : références")
+    L += textwrap.wrap(sources.source(ident), LARGEUR) or ["Aucune source de cours propre à ce calcul."]
+    L.append("Normes, cours et documents cités par l'application : page « Références ».")
     L += ["", "-" * LARGEUR, "Outil pédagogique et d'aide au pré-dimensionnement, fourni sans garantie :",
           "vérifiez les résultats avant tout usage réel. Limites : fichier LIMITES.md du projet."]  # fmt: skip
     return "﻿" + "\r\n".join(L) + "\r\n"

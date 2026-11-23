@@ -52,7 +52,7 @@ def declarer(ident: str) -> None:
 
         f, sortie, _ = _calcul(ident, s)
         return {"nom": _nom(f["titre"], "_note.txt"),
-                "texte": export_texte.texte(f["titre"], f, s, sortie, sortie.get("criteres") or [])}  # fmt: skip
+                "texte": export_texte.texte(f["titre"], f, s, sortie, sortie.get("criteres") or [], ident=ident)}  # fmt: skip
 
     @calcul(f"{ident}.ia")
     def ia(s):
@@ -60,7 +60,7 @@ def declarer(ident: str) -> None:
         from mecastruct.services import export_texte
 
         f, sortie, _ = _calcul(ident, s)
-        note = export_texte.texte(f["titre"], f, s, sortie, sortie.get("criteres") or [])
+        note = export_texte.texte(f["titre"], f, s, sortie, sortie.get("criteres") or [], ident=ident)
         return {"texte": export_texte.invite_ia(f["titre"], note)}
 
     @calcul(f"{ident}.validation")

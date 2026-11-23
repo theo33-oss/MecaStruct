@@ -141,6 +141,16 @@ def _enregistrer_communs(ident: str, tab: str) -> None:
         return {"nom": f"MecaStruct_{validation_report.meta(tab)['title'].replace(' ', '_')}_resultats.xlsx",
                 "base64": base64.b64encode(donnees).decode("ascii")}  # fmt: skip
 
+    if tab == "Beam":
+
+        @calcul(f"{ident}.csv")
+        def csvDiagrammes(s):
+            """CSV des diagrammes (x, efforts, rotation, flèche) : mêmes valeurs que le solveur de la page."""
+            point = bool(s.get("_point"))
+            calc = validation_report.recompute(tab, copy.deepcopy({k: v for k, v in s.items() if k != "_point"}), dm(), None)
+            return {"nom": f"MecaStruct_{validation_report.meta(tab)['title'].replace(' ', '_')}_diagrammes.csv",
+                    "texte": project_io.beamDiagramCsv(calc["sol"], calc["defl"], point)}  # fmt: skip
+
     exports.declarer(ident)
 
 

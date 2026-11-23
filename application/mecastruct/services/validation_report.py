@@ -1,9 +1,10 @@
 """Dossier de validation HTML d'un problème (port de ValidationReport.m, sans findBrowser ni toPDF).
 
-Pour chaque page de calcul, `recompute` refait le calcul, puis `generate` écrit un fichier HTML autonome en 8 parties :
+Pour chaque page de calcul, `recompute` refait le calcul, puis `generate` écrit un fichier HTML autonome en 10 parties :
 1. données saisies ; 2. hypothèses et contrôles d'applicabilité chiffrés ; 3. équations avec valeurs recalculées à la
 main (sans le solveur) puis comparées au solveur ; 4. tableaux de résultats ; 5. diagrammes ; 6. rapport détaillé du
-solveur ; 7. formules utilisées ; 8. grille d'avis du relecteur.
+solveur ; 7. formules utilisées ; 8. conclusion (bloc « Décision » de la page) ; 9. grille d'avis du relecteur ;
+10. annexes (sources des cours du calcul). Le titre, l'objet, le statut et le bilan sont en tête, avant le sommaire.
 
 Clés : 'Sec', 'Beam', 'Tr', 'Tra', 'Cis', 'Tor', 'Fle', 'Fla', 'Ten', 'Hoo', 'Jau' (celles de project_io.PROJECT_KEYS).
 `res` est le résultat de l'onglet (sortie de computeXxx) ; `res["extras"]` porte les résultats facultatifs :
@@ -26,7 +27,7 @@ from mecastruct.core import data_manager, geometry
 from mecastruct.core.beam_solver import solveBeam
 from mecastruct.core.errors import MecaStructError
 from mecastruct.core.pp import asPP, ppEval
-from mecastruct.services import beam_design, beam_services, compute
+from mecastruct.services import beam_design, beam_services, compute, sources
 from mecastruct.services.beam_services import buildBeamModel
 
 KEYS = ("Sec", "Beam", "Tr", "Tra", "Cis", "Tor", "Fle", "Fla", "Ten", "Hoo", "Jau")
@@ -46,7 +47,9 @@ _SECTIONS = (
     ("diagrammes", "5. Diagrammes"),
     ("rapport", "6. Rapport détaillé du solveur (étapes de calcul)"),
     ("formules", "7. Formules utilisées pour ce calcul"),
-    ("avis", "8. Avis du relecteur"),
+    ("conclusion", "8. Conclusion"),
+    ("avis", "9. Avis du relecteur"),
+    ("annexes", "10. Annexes : références"),
 )
 
 
@@ -3569,6 +3572,37 @@ def _reviewHTML() -> str:
     )
 
 
+def _conclusionHTML(statut: str, lignes: list[str]) -> str:
+    """Partie 8 : la ligne d'état du calcul puis les lignes du bloc « Décision » (verdict, sécurité minimale, action)."""
+    h = f'<div class="status">{_esc(statut)}</div>' if statut else ""
+    return h + ("<ul>" + "".join(f"<li>{_esc(x)}</li>" for x in lignes) + "</ul>" if lignes else "")
+
+
+def _conclusionStructure(key: str, saisie: dict, res: dict) -> str:
+    """Conclusion d'un onglet : même bloc « Décision » que la page et le bloc-notes (services/decision.py)."""
+    from mecastruct.services import criteres, export_texte
+
+    status = str(res.get("status", ""))
+    crit = criteres.criteres(key, saisie, res)
+    ok = criteres.verdict(status)
+    if key == "Cis":  # Jourawski, clavette et goupille comptent dans le verdict, comme sur la page
+        status, ok = criteres.completer_cisaillement(status, ok, crit)
+    ident = sources.IDENT_DE_CLE.get(key, key.lower())
+    return _conclusionHTML(export_texte.fr(status), export_texte.conclusion(ident, saisie, {"ok": ok}, crit))
+
+
+def _annexesHTML(calculs: list[tuple[str, str]]) -> str:
+    """Partie 10 : sources des cours de chaque calcul (services/sources.py) ; `calculs` = [(titre, clé du dossier)]."""
+    h = ""
+    for nom, cle in calculs:
+        src = sources.source(sources.IDENT_DE_CLE.get(cle, ""))
+        if src:
+            h += (f"<h3>{_esc(nom)}</h3>" if len(calculs) > 1 else "") + f"<p>{_esc(src)}</p>"
+    if not h:
+        h = '<p class="muted">Aucune source de cours propre à ce calcul.</p>'
+    return h + "<p>Normes, cours et documents cités par l'application : page « Références ».</p>"
+
+
 # ------------------------------------------------------------------------------------------ Assemblage
 
 
@@ -3645,7 +3679,9 @@ def generate(key: str, saisie: dict, res: dict, dm) -> str:
         "diagrammes": _sure(_plotsHTML, key, saisie, res),
         "rapport": _sure(lambda: _reportHTML(_rapportLignes(key, res))),
         "formules": _sure(_formulasHTML, m),
+        "conclusion": _sure(_conclusionStructure, key, saisie, res),
         "avis": _reviewHTML(),
+        "annexes": _sure(_annexesHTML, [(m["title"], key)]),
     }
     sections = [
         {

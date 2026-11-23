@@ -832,6 +832,20 @@
             } finally { bouton.disabled = false; if (!bouton.dataset.libelle) bouton.textContent = libelle; }
           } }));
       }
+      if (ident === "beam") { // Poutres : x, efforts, rotation et flèche par abscisse (mêmes valeurs que les graphiques)
+        const point = el("input", { type: "checkbox", id: "csv-point" });
+        point.checked = App.memoire.lire("csvPoint", false) === true;
+        point.addEventListener("change", () => App.memoire.ecrire("csvPoint", point.checked));
+        boutons.push(el("button", { type: "button", class: "secondaire petit", texte: "Exporter les diagrammes (CSV)",
+          aide: "Fichier CSV (séparateur « ; », unités dans l'en-tête) : abscisse x, N, Ty, Tz, Mt, Mfy, Mfz, rotation et flèche aux mêmes points que les graphiques. S'ouvre dans Excel et LibreOffice.",
+          onclick: (e) => {
+            const r = App.calculer(ident + ".csv", { ...saisie, _point: point.checked });
+            if (!r.ok) return signaler("erreur", r.erreur);
+            App.telecharger(r.sortie.nom, r.sortie.texte, "text/csv;charset=utf-8");
+            App.retour(e.currentTarget, true, "CSV téléchargé");
+          } }),
+          el("label", { class: "panneau-memo", for: "csv-point", aide: "Décoché : virgule décimale (Excel en français). Coché : point décimal." }, point, "Point décimal dans le CSV"));
+      }
       return el("div", { class: "fichiers" }, el("h2", { class: "titre-mineur", texte: "Fichiers" }), el("div", { class: "ligne" }, boutons),
         avertAncien("Résultat précédent : le lien et le fichier reprennent la saisie actuelle, pas le résultat affiché."), entree);
     }

@@ -54,6 +54,13 @@ SOURCES: dict[str, str] = {
 }
 
 
+# Clé d'un dossier de validation (onglet d'un projet, ou type de calcul de machine_validation) → identifiant du calcul.
+IDENT_DE_CLE = {"Sec": "sec", "Beam": "beam", "Tr": "truss", "Tra": "tra", "Cis": "cis", "Tor": "tor", "Fle": "fle",
+                "Fla": "fla", "Ten": "ten", "Hoo": "hoo", "Jau": "jau",
+                "bearing": "rlt", "bearingSet": "rlt_ens", "gearMesh": "eng", "gearTrain": "trn", "planetary": "epi",
+                "brake": "frn", "clutch": "emb", "motor": "mot"}  # fmt: skip
+
+
 def source(ident: str) -> str:
     """Phrase de source du calcul `ident` (texte vide s'il n'y en a pas)."""
     return SOURCES.get(ident, "")

@@ -287,8 +287,37 @@ const App = (() => {
       return "telechargee";
     } catch (e) { return "echec"; }
   }
+  // SVG (vectoriel) d'une figure Plotly : version claire (fond blanc, texte noir) quel que soit le thème affiché, à une largeur
+  // d'au moins 760 px pour que les textes gardent leur taille de 12 px et plus ; fait par Plotly.toImage, sans autre bibliothèque.
+  // Rend le texte SVG, ou null si `cible` n'est pas une figure tracée.
+  async function svgDeLaFigure(cible) {
+    if (!window.Plotly || !cible || !cible._figure) return null;
+    const { data, layout } = miseEnForme(cible._figure, false, "#000000", "#FFFFFF", null);
+    const hauteur = cible.dataset.hauteurAuto === "1" ? layout.height || cible._hauteurAuto || HAUTEUR_FIGURE : cible.clientHeight;
+    const url = await Plotly.toImage({ data, layout: { ...layout, width: Math.max(cible.clientWidth, 760), height: hauteur } }, { format: "svg" });
+    const corps = url.slice(url.indexOf(",") + 1);
+    if (/^data:image\/svg\+xml;base64,/.test(url)) return new TextDecoder().decode(Uint8Array.from(atob(corps), (c) => c.charCodeAt(0)));
+    return decodeURIComponent(corps);
+  }
+  // Bouton « Télécharger l'image (SVG) » d'un graphique ; `cible` : élément ou fonction qui le donne.
+  function boutonSvg(cible, nom = "graphique.svg") {
+    const b = el("button", { type: "button", class: "secondaire petit telecharger-svg", texte: "Télécharger l'image (SVG)",
+      aide: "Télécharge ce graphique en image vectorielle (SVG, fond blanc), à insérer dans Word, LibreOffice ou Inkscape sans perte de qualité." });
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        const svg = await svgDeLaFigure(typeof cible === "function" ? cible() : cible);
+        if (!svg) return confirmer(b, false, "", "Image impossible", "Image impossible : le graphique n'est pas encore tracé.");
+        telecharger(nom, svg, "image/svg+xml");
+        retour(b, true, "SVG téléchargé");
+      } catch (e) { confirmer(b, false, "", "Image impossible", "Image SVG impossible : " + (e && e.message ? e.message : "erreur du graphique") + "."); }
+      finally { b.disabled = false; }
+    });
+    return b;
+  }
   // Petite barre « Copier l'image » à placer juste au-dessus du bloc ; `cible` peut être un élément ou une fonction qui le donne.
-  function boutonImage(cible, nom = "mecastruct.png") {
+  // svg : ajoute « Télécharger l'image (SVG) » (graphiques Plotly seulement).
+  function boutonImage(cible, nom = "mecastruct.png", svg = false) {
     const b = el("button", { type: "button", class: "secondaire petit copie-image", texte: "Copier l'image",
       aide: "Met une image de ce bloc dans le presse-papiers : à coller dans Word, un mail, un compte rendu." });
     b.addEventListener("click", async () => {
@@ -299,11 +328,11 @@ const App = (() => {
       else if (r === "telechargee") confirmer(b, true, "Image téléchargée", "", "Copie refusée par le navigateur : l'image a été téléchargée à la place.");
       else confirmer(b, false, "", "Copie impossible");
     });
-    return el("div", { class: "barre-image" }, b);
+    return el("div", { class: "barre-image" }, svg ? boutonSvg(cible, nom.replace(/\.png$/, ".svg")) : null, b);
   }
   // Gros titre de bloc (h2) avec « Copier l'image » sur la même ligne, à droite.
-  function titreImage(texte, cible, nom, classe = "") {
-    return el("h2", { class: ("titre-bloc titre-image " + classe).trim() }, el("span", { texte }), boutonImage(cible, nom));
+  function titreImage(texte, cible, nom, classe = "", svg = false) {
+    return el("h2", { class: ("titre-bloc titre-image " + classe).trim() }, el("span", { texte }), boutonImage(cible, nom, svg));
   }
 
   // Tableau {entetes, lignes} du pont, avec un bouton qui le copie pour Excel (tabulations).
@@ -326,7 +355,30 @@ const App = (() => {
       const ok = await copier([t.entetes, ...t.lignes.map((l) => l.map(brut))].map((l) => l.join("\t")).join("\n"));
       confirmer(b, ok, "Tableau copié", "Copie impossible", "Tableau copié : à coller dans Excel.");
     });
-    return el("div", { class: "tableau" }, titre ? el("h3", { class: "titre-mineur", texte: titre }) : null, boutonImage(tab, "tableau.png"), el("div", { class: "defile" }, tab), b);
+    const fichier = el("button", { type: "button", class: "secondaire petit", texte: "Exporter le tableau (CSV)",
+      aide: "Télécharge le même tableau en fichier CSV (séparateur « ; », virgule décimale, UTF-8) : s'ouvre dans Excel et LibreOffice." });
+    fichier.addEventListener("click", () => {
+      const nomCsv = "MecaStruct_" + (String(titre || nom || t.titre || "tableau").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w]+/g, "_").replace(/^_+|_+$/g, "") || "tableau") + ".csv";
+      telecharger(nomCsv, csv(t.entetes, t.lignes), "text/csv;charset=utf-8");
+      retour(fichier, true, "CSV téléchargé");
+    });
+    return el("div", { class: "tableau" }, titre ? el("h3", { class: "titre-mineur", texte: titre }) : null, boutonImage(tab, "tableau.png"), el("div", { class: "defile" }, tab), b, fichier);
+  }
+
+  // CSV d'un tableau : séparateur « ; », guillemets si besoin, retours de ligne CRLF, repère UTF-8 (BOM) pour Excel. Les nombres
+  // perdent leurs espaces de milliers et gardent leur virgule (`point` : point décimal) ; le « − » typographique devient « - ».
+  // Un texte qui commence par = @ + - (hors nombre) est précédé d'une apostrophe : il ne peut pas devenir une formule.
+  function csv(entetes, lignes, point = false) {
+    const cellule = (c) => {
+      let t = c === null || c === undefined ? "" : String(c);
+      if (/^[−\-+]?\d{1,3}([   ]\d{3})+(,\d+)?$/.test(t.trim())) t = t.replace(/[   ]/g, "");
+      if (/^[−\-+]?\d+([,.]\d+)?(e[−\-+]?\d+)?$/i.test(t.trim())) {
+        t = t.trim().replace(/−/g, "-");
+        if (point) t = t.replace(",", ".");
+      } else if (/^[=@\t\r]/.test(t) || /^[+\-].+/.test(t)) t = "'" + t;
+      return /[";\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+    };
+    return "﻿" + [entetes, ...lignes].map((l) => l.map(cellule).join(";")).join("\r\n") + "\r\n";
   }
 
   // Formule LaTeX du calcul dessinée par KaTeX (texte brut si KaTeX n'est pas chargé).
@@ -517,7 +569,7 @@ const App = (() => {
     d.style.height = hauteur + "px"; d.dataset.hauteurAuto = "1"; d._hauteurAuto = hauteur;
     if (opts.decritPar) d.setAttribute("aria-describedby", opts.decritPar);
     requestAnimationFrame(() => tracer(d, f));
-    return avecBouton ? el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png"), d) : d;
+    return avecBouton ? el("div", { class: "figure-bloc" }, boutonImage(d, "graphique.png", true), d) : d;
   }
 
   // Onglets : liste = [{ id, titre, rendu(panneau) }] ; rendu à l'ouverture (Plotly a besoin d'un panneau visible).
@@ -1068,5 +1120,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, redimensionnerFigures, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, titreImage, tableau, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, exemple, bibliotheque, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, redimensionnerFigures, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, boutonSvg, svgDeLaFigure, titreImage, tableau, csv, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, exemple, bibliotheque, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();

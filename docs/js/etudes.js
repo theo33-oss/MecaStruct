@@ -6,12 +6,13 @@
 //   recents  : [{ id: "<page>", t: <ms> }]            5 dernières pages de calcul visitées, la plus récente d'abord
 //   favoris  : [{ id: "<page>", t: <ms> }]            pages marquées d'une étoile
 //   etudes   : [{ id, nom, page, calcul, cree, saisie }]   copies de saisie nommées (« Dupliquer »), 30 au plus
-// Fichier d'export : { format: "mecastruct-etudes", version: 1, outil, exporte, favoris, recents, copies, saisies: { "<calcul>": saisie } }
+// Fichier d'export : { format: "mecastruct-etudes", version: 1, schema_version: 1, outil, exporte, favoris, recents, copies, saisies: { "<calcul>": saisie } }
 // (« saisies » = toutes les saisie.<calcul> gardées dans ce navigateur).
 
 (() => {
   const { el } = App;
   const FORMAT = "mecastruct-etudes";
+  const SCHEMA_VERSION = 1; // numéro de format de l'export (« schema_version ») ; même valeur que mecastruct.SCHEMA_VERSION
   const MAX_RECENTS = 5, MAX_COPIES = 30, MAX_FAVORIS = 30, MAX_SAISIES = 60;
   const IDENT = /^[A-Za-z0-9_]{1,40}$/;
   const objet = (x) => !!x && typeof x === "object" && !Array.isArray(x);
@@ -278,7 +279,7 @@
   }
 
   function exporter() {
-    return { format: FORMAT, version: 1, outil: "MecaStruct RdM " + App.VERSION, exporte: new Date().toISOString(),
+    return { format: FORMAT, version: 1, schema_version: SCHEMA_VERSION, outil: "MecaStruct RdM " + App.VERSION, exporte: new Date().toISOString(),
       favoris: favoris(), recents: recents(), copies: copies(), saisies: Object.fromEntries(toutesLesSaisies()) };
   }
 
@@ -288,6 +289,14 @@
     try { d = JSON.parse(texte); } catch (e) { return { ok: false, erreur: "Ce fichier n'est pas du JSON valide." }; }
     if (!objet(d) || d.format !== FORMAT) return { ok: false, erreur: "Ce fichier n'est pas un export d'études MecaStruct." };
     if (d.version !== 1) return { ok: false, erreur: "Ce fichier vient d'une autre version du format (" + String(d.version).slice(0, 10) + ")." };
+    // « schema_version » absent : version 1 (anciens fichiers) ; clés inconnues : ignorées ; format plus récent : refusé
+    const sv = d.schema_version === undefined ? 1 : d.schema_version;
+    if (!Number.isInteger(sv) || sv < 1) return { ok: false, erreur: "Ce fichier a un numéro de format illisible : il ne s'ouvre pas ici." };
+    if (sv > SCHEMA_VERSION) {
+      const par = typeof d.outil === "string" && d.outil.trim() ? " (écrit par " + d.outil.slice(0, 60) + ")" : "";
+      return { ok: false, erreur: "Ce fichier vient d'une version plus récente de MecaStruct" + par + " : format " + sv + ", alors que cette version lit jusqu'au format "
+        + SCHEMA_VERSION + ". Mettez l'application à jour pour l'ouvrir." };
+    }
     const liste = (x) => (Array.isArray(x) ? x : []);
     const fav = liste(d.favoris).filter((r) => avecDate(r) && pageFavorite(r.id)).map((r) => ({ id: r.id, t: r.t }));
     const rec = liste(d.recents).filter((r) => avecDate(r) && pageCalcul(r.id)).map((r) => ({ id: r.id, t: r.t }));

@@ -260,7 +260,7 @@ body:has(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):foc
 .ia-panneau p { margin: 0 0 8px; font-size: .9rem; }
 .ia-panneau .ligne { display: flex; flex-wrap: wrap; gap: 6px 8px; }
 .ia-panneau[hidden] { display: none; }
-.barre-image { display: flex; justify-content: flex-end; margin: 4px 0 2px; }
+.barre-image { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin: 4px 0 2px; }
 .barre-image button { opacity: .85; }
 .barre-image button:hover, .barre-image button:focus-visible { opacity: 1; }
 .figure.figure-petite { min-height: 220px; }
