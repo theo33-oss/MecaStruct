@@ -33,6 +33,7 @@ from mecastruct.services import (
     project_io,
     valeurs_cles,
     validation_report,
+    verifications,
 )
 from mecastruct.services.examples import exampleNames, loadExample
 from mecastruct.services.sources import avec_sources
@@ -153,6 +154,13 @@ def materiau(s):
 def profils(s):
     """Noms des profilés d'une famille."""
     return list(dm().Profiles[s["famille"]]["Name"])
+
+
+@calcul("verifications")
+def verifications_independantes(_s):
+    """Page « Limites et vérifications » : cas à solution exacte, MecaStruct contre formule de manuel (services/verifications)."""
+    lignes = verifications.verifier()
+    return {"lignes": lignes, "resume": verifications.resume(lignes)}
 
 
 # ----------------------------------------------------------------------------------------------------- poutres

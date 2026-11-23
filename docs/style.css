@@ -307,6 +307,10 @@ details.repli > summary h2 { display: inline; font-size: inherit; margin: 0; pad
 .capture { margin: 16px 0; }
 .texte { max-width: 110ch; }
 .texte table { margin-bottom: 12px; }
+.verifications .defile { margin: 8px 0 14px; }
+.verifications table { font-size: .88rem; }
+.verifications td .legende { margin-top: 2px; }
+.verifications tr.verif-groupe th { background: var(--bord); color: var(--encre); font-size: .8rem; letter-spacing: .03em; text-transform: uppercase; }
 
 /* bulle d'aide */
 [data-aide]:not(button):not(a):not(label) { cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }

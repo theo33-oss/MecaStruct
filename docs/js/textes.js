@@ -4,7 +4,71 @@
 (() => {
   const { el } = App;
 
-  App.genre("texte", async (contenu, page, { perime = () => false } = {}) => {
+  // Section « Vérifications indépendantes » de la page Limites : cas à solution exacte (services/verifications.py), calculés
+  // à l'ouverture de la page seulement (le calcul des poutres demande scipy, chargé à ce moment-là).
+  function verifications(zone, page, { pret, perime }) {
+    const corps = el("div", {});
+    zone.append(el("section", { class: "verifications", "aria-labelledby": "verif-titre" },
+      el("h2", { id: "verif-titre", texte: "Vérifications indépendantes" }),
+      el("p", { texte: "Chaque ligne compare MecaStruct à une formule fermée de manuel, refaite à la main dans le code : aucune valeur ne vient d'une norme ni de la mémoire. L'écart est relatif ; la ligne est conforme quand il ne dépasse pas la tolérance (1e-9, soit de l'arrondi de calcul). Ces calculs sont refaits à chaque ouverture de cette page." }),
+      corps));
+
+    const tableau = (lignes) => {
+      const groupes = [...new Set(lignes.map((l) => l.page))];
+      const corpsTable = [];
+      for (const g of groupes) {
+        corpsTable.push(el("tr", { class: "verif-groupe" }, el("th", { scope: "colgroup", colspan: "6", texte: g })));
+        for (const l of lignes.filter((x) => x.page === g)) {
+          corpsTable.push(el("tr", { "data-id": l.id },
+            el("td", {}, el("strong", { texte: l.titre }),
+              l.donnees ? el("div", { class: "legende", texte: l.donnees }) : null,
+              l.reference ? el("div", { class: "legende", texte: l.reference }) : null,
+              l.erreur ? el("div", { class: "ecart", texte: l.erreur }) : null),
+            el("td", { texte: l.formule }),
+            el("td", { class: "num", texte: `${l.cible_txt} ${l.unite}` }),
+            el("td", { class: "num", texte: `${l.calculee_txt} ${l.unite}` }),
+            el("td", { class: "num", texte: l.ecart_txt }),
+            el("td", { class: "verdict " + (l.ok ? "succes" : "erreur"), texte: l.ok ? "✓ conforme" : "✗ hors tolérance" })));
+        }
+      }
+      return el("div", { class: "defile" }, el("table", { "aria-label": "Vérifications indépendantes de MecaStruct" },
+        el("thead", {}, el("tr", {}, ["Calcul", "Formule de manuel", "Valeur attendue", "Valeur MecaStruct", "Écart relatif", "Verdict"].map((t) => el("th", { scope: "col", texte: t })))),
+        el("tbody", {}, corpsTable)));
+    };
+
+    const afficher = async () => {
+      if (perime()) return;
+      corps.replaceChildren(App.message("info", "Calcul des vérifications… (la première fois, les bibliothèques de calcul se chargent : quelques secondes)"));
+      const prete = await App.preparer(page);
+      if (perime()) return;
+      if (!prete) {
+        corps.replaceChildren(App.messageEchec("Les bibliothèques de calcul n'ont pas pu se charger. Vérifiez la connexion Internet, puis réessayez."));
+        return;
+      }
+      const r = App.calculer("verifications");
+      if (perime()) return;
+      if (!r.ok) {
+        corps.replaceChildren(App.message("erreur", r.erreur));
+        return;
+      }
+      const { lignes, resume } = r.sortie;
+      const n = (k, mot) => `${k} ${mot}${k > 1 ? "s" : ""}`;
+      corps.replaceChildren(
+        App.message(resume.tout_ok ? "succes" : "erreur",
+          resume.tout_ok
+            ? `Les ${resume.total} vérifications sont conformes. Écart relatif maximal : ${resume.ecart_max_txt}.`
+            : `${n(resume.total - resume.ok, "vérification")} sur ${resume.total} hors tolérance : ne vous fiez pas aux pages concernées avant correction.`),
+        tableau(lignes));
+    };
+
+    if (pret) afficher();
+    else {
+      corps.append(App.attente("Le calcul se charge : les vérifications apparaîtront dans quelques secondes."));
+      document.addEventListener("mecastruct:pret", afficher, { once: true });
+    }
+  }
+
+  App.genre("texte", async (contenu, page, { pret, perime = () => false } = {}) => {
     const zone = el("article", { class: "texte" }, App.message("info", "Chargement…"));
     contenu.append(el("h1", { texte: page.titre }), zone); // le texte markdown commence au niveau h2
     try {
@@ -14,6 +78,7 @@
       const texte = await r.text();
       if (perime()) return;
       zone.innerHTML = App.markdown(texte); // markdown() échappe le texte avant de poser ses balises
+      if (page.verifications) verifications(zone, page, { pret, perime });
     } catch (e) {
       if (perime()) return;
       zone.replaceChildren(App.message("erreur", "Le texte n'a pas pu être chargé. Il est aussi sur GitHub : "),

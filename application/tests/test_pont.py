@@ -509,3 +509,15 @@ def test_liste_des_profilés_montre_le_profilé_de_la_section():
     ex = appel("beam.exemple", {"nom": "isostatique"})["sortie"]
     assert ex["section"]["name"] == "IPE 300" and ex["section"]["family"] == ex["pfam"] == "IPE"
     assert ex["section"]["name"] in appel("profils", {"famille": ex["pfam"]})["sortie"]
+
+
+def test_page_limites_les_verifications_independantes_sont_conformes():
+    """La page Limites (site) lit le calcul « verifications » : JSON valide, tout conforme, page déclarée dans app.js."""
+    r = appel("verifications")
+    assert r["ok"], r.get("erreur")
+    s = r["sortie"]
+    assert s["resume"]["tout_ok"] and s["resume"]["total"] == len(s["lignes"]) >= 40
+    assert all(x["ok"] and x["cible_txt"] and x["calculee_txt"] and x["formule"] for x in s["lignes"])
+    app = (DOCS / "app.js").read_text(encoding="utf-8")
+    assert re.search(r'id: "limites"[^\n]*pont: "structures"[^\n]*verifications: true', app)
+    assert "Vérifications indépendantes" in (DOCS / "js" / "textes.js").read_text(encoding="utf-8")

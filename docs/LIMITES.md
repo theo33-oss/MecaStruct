@@ -7,15 +7,24 @@ avant tout usage réel. Cette page dit ce qui a été vérifié, et contre quoi.
 
 | Page | Vérifié contre | Reste à vérifier |
 |---|---|---|
-| Poutres 2D | Application MATLAB d'origine (références « golden »), un cas refait à la main | Charge mobile absente des explications ; réactions surabondantes des poutres hyperstatiques non contrôlées |
+| Poutres 2D | Application MATLAB d'origine (références « golden »), un cas refait à la main ; recalcul à la main par formule de manuel (écart relatif ≤ 1e-9) : console chargée en bout (flèche PL³/3EI, rotation PL²/2EI, moment et réaction d'encastrement), deux appuis sous charge répartie (flèche 5qL⁴/384EI, moment qL²/8, réaction) et sous charge au milieu (flèche PL³/48EI, moment PL/4), encastrée-appuyée sous charge répartie (réaction 3qL/8, moment qL²/8) et bi-encastrée (moment qL²/12, flèche qL⁴/384EI) | Charge mobile absente des explications ; réactions surabondantes contrôlées seulement pour ces deux poutres hyperstatiques sous charge répartie, pas pour les autres appuis ni charges |
 | Ossature 3D | Équilibre global ΣF, ΣM | Pas de référence indépendante |
-| Treillis (efforts), Sections, Sollicitations, Flambage, Tenseurs, Hooke et jauges | Application MATLAB d'origine (références « golden ») | Pas de recalcul indépendant à la main |
+| Treillis (efforts) | Application MATLAB d'origine (références « golden ») ; recalcul à la main d'un treillis isostatique à deux barres (équilibre du nœud : efforts N₁ et N₂, réaction par le moment autour d'un appui) | Pas de recalcul indépendant d'un treillis hyperstatique (méthode des rigidités) ni d'un treillis 3D |
+| Sections | Application MATLAB d'origine (références « golden ») ; recalcul à la main par formule de manuel : rectangle (aire, Iz = bh³/12, Wz), disque (aire, I = πD⁴/64, W, J), tube (aire, I, W), contrainte de flexion simple et cisaillement de Jourawski du rectangle | Pas de recalcul indépendant des profilés du catalogue, des sections en I, T, U, L, creuses et composées, ni de la constante de torsion du rectangle |
+| Sollicitations | Application MATLAB d'origine (références « golden ») ; recalcul à la main : traction (σ = N/S, allongement NL/ES) et torsion d'un arbre plein (τ = 16T/πd³, angle TL/GJ) | Pas de recalcul indépendant du cisaillement (clavette, goupille), de la flexion déviée ou composée (la flexion simple du rectangle est dans la ligne Sections), ni de la dilatation thermique |
+| Flambage | Application MATLAB d'origine (références « golden ») ; recalcul à la main de la charge critique d'Euler π²EI/(KL)² : articulé-articulé (K = 1), encastré-libre (K = 2), encastré-encastré (K = 1/2) | Pas de recalcul indépendant de l'encastré-articulé (coefficient L'/L pris à 1/√2), de Rankine, de la limite de compression ni de la courbe de stabilité |
+| Tenseurs | Application MATLAB d'origine (références « golden ») ; recalcul à la main d'un état plan (σ1,2 = (σx+σy)/2 ± √(((σx−σy)/2)²+τ²), cisaillement maximal, Von Mises et Tresca pour σ3 = 0) | Pas de recalcul indépendant d'un tenseur 3D général, des directions principales ni des déformations planes |
+| Hooke et jauges | Application MATLAB d'origine (références « golden ») ; recalcul à la main : Hooke isotrope (traction uniaxiale, cisaillement pur), jauge ΔR/R = Kε, pont de Wheatstone en quart de pont (linéarisé et exact), rosette à 45° (déformations et contrainte principales) | Pas de recalcul indépendant de l'orthotropie, des demi-ponts et ponts complets, de la rosette à 60°, ni de la dilatation thermique |
 | Treillis (vérification des barres, depuis 1.4.0) | Formules refaites à la main dans les tests, dossier de validation et Excel de validation | Flambage d'Euler seul : barre articulée aux deux bouts, section unique, pas de Rankine ni d'Eurocode 3 ; flambage d'ensemble non vérifié |
 | Ajustements ISO 286 | Valeurs connues de l'ISO 286-2 (K7, N7, P7, M7, JS7, J7, js6, k6, h8, j6, f7, r6, p6, s6) | Colonnes a, b, cd, d, ef, fg, t, u, v, x, y, z, za, zb, zc non recoupées avec la norme |
 | Frettage | Valeurs du classeur Excel de l'auteur (à 1e-12 près) | Arbre plein : contrainte prise à 2p (prudent) |
 | Paliers lisses | Valeurs du classeur Excel de l'auteur | Limites P-V par famille de matériau à confirmer chez le fabricant |
 | Clavette normalisée | Formules classiques | Tableau ISO 773 ressaisi à la main : à vérifier sur la norme |
 | Roulements, Engrenages, Trains épicycloïdaux, Freins et embrayages, Dimensionnement moteur | Formules et exemples du cours de l'IUT de Bordeaux | Pas de catalogue de fabricant ; écarts relevés dans le cours (voir plus bas) |
+
+Les recalculs à la main cités ci-dessus sont refaits à chaque ouverture de la page « Limites et vérifications » (section
+« Vérifications indépendantes », sur le site et dans l'application de bureau) : formule de manuel, valeur attendue, valeur de
+MecaStruct, écart et verdict de chaque cas. Le code est dans `application/mecastruct/services/verifications.py`.
 
 ## Choix qui changent les résultats
 
