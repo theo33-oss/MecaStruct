@@ -608,3 +608,9 @@ button.lien-cause::after { content: " →"; white-space: pre; }
 @keyframes resume-entree { from { transform: translateY(100%); } to { transform: none; } }
 /* tactile : clavier virtuel ouvert, la barre s'efface (comme la languette IA) pour ne pas recouvrir le champ */
 @media (pointer: coarse) { body:has(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus, select:focus, textarea:focus) .barre-resume { display: none; } }
+
+/* page « Glossaire » : symbole en première colonne (en-tête de ligne, pas de bandeau sombre), filtre de largeur raisonnable */
+table.glossaire tbody th { background: var(--carte); color: var(--encre); border-bottom: 1px solid var(--bord); vertical-align: top; white-space: nowrap; font-weight: 600; }
+table.glossaire td.unite { white-space: nowrap; }
+#glossaire-filtre { width: 100%; max-width: 36rem; }
+.lien-glossaire { margin: 24px 0 0; }

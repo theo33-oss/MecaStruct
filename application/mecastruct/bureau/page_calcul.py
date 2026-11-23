@@ -3,15 +3,25 @@
 from collections.abc import Callable
 from typing import Any, NamedTuple
 
-from PySide6.QtWidgets import QTabWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QPushButton, QTabWidget
 
 from mecastruct.bureau import state, tache
 from mecastruct.bureau.formula_panel import formula_panel
-from mecastruct.bureau.widgets import Page, Zone
+from mecastruct.bureau.widgets import Page, Zone, differer
 from mecastruct.services.decision import IDENT_DE_ONGLET
 from mecastruct.services.pages_texte import INTROS
 
 POSITIONS = ("Haut", "Bas")
+
+
+def lien_glossaire(page: Page) -> None:
+    """« Voir le glossaire » discret au pied d'une page de calcul, comme sur le site."""
+    b = QPushButton("Voir le glossaire")
+    b.setObjectName("lien")
+    b.setCursor(Qt.CursorShape.PointingHandCursor)
+    b.clicked.connect(lambda: differer(lambda: page.aller("glossaire")))
+    page.d.addWidget(b, 0, Qt.AlignmentFlag.AlignLeft)
 
 
 class Volet(NamedTuple):
@@ -118,6 +128,8 @@ class PageCalcul(Page):
         if self.tab:
             state.abonner(self.tab, self.rafraichirTout)
         self.deuxPanneaux(self.entete, self.saisie, self.visu)
+        if not self.sous:
+            lien_glossaire(self)
         self.ajuste()
 
     def entete(self, z: Zone) -> None:
@@ -210,6 +222,7 @@ class PageOnglets(Page):
         self.onglets.setCurrentIndex(state.v.get(cle, 0))
         self.onglets.currentChanged.connect(lambda i: (state.v.__setitem__(cle, i), self.pages[i].afficher()))
         self.d.addWidget(self.onglets, 1)
+        lien_glossaire(self)
 
     def afficher(self) -> None:
         if not self.bati:

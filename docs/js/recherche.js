@@ -10,6 +10,9 @@
 (() => {
   const { el } = App;
 
+  // Symboles du glossaire (services/glossaire.py) : chacun mène à la page Glossaire. tests/test_glossaire.py vérifie que la liste suit le glossaire.
+  const SYMBOLES_GLOSSAIRE = "A|Am|a|B|b|b(y)|C|C0|C1|CM|Ca|Cc|CmLT|Cmy|D|d|E|e|F|Fa|Fi|Fr|f|fi|G|H|h|IGyz|It|Ix|Iy|Iyz|Iz|JR|Jm|Js|K|Kf|Kt|k|ky|kz|L|L'|L0|LG|Lcr|Lcr,y|Lh|Lij|ΔLmax|M|M0|MA|Mt|m|N|Nij|n|ni|P|Pc|Q(y)|q|q(x)|R|RB|Re|Ri|r|S|S0|Si|s|T|Ty|ΔT|t|U|Vin|v|Wz|Xi|xR|Z1|Z2|Z21|Z3|Z4|Z5|Z6|α|αP|β|δij|η|γ|γM0|γM1|ν|ρ|ρe|σ|σD|σe|σi|τ|τe|θ|ε|εi|φ";
+
   // [page, onglet (identifiant du calcul, "" si la page n'en a qu'un), étiquette, raison, mots]
   const TABLE = [
     // ---- Structures
@@ -87,6 +90,8 @@
       "mes ajouts|ajout|import|export|matériau utilisateur|fichier"],
     ["references", "", "", "Normes, cours et documents cités par l'application",
       "références|norme|normes|bibliographie|cours|eurocode 3|eurocode|iso 286|iso 898-1|iso 68-1|iso 281|en 1993|université de bordeaux|iut|source|document"],
+    ["glossaire", "", "", "Symboles des formules : nom, unité et pages où ils apparaissent",
+      "glossaire|symbole|symboles|notation|notations|nomenclature|signification|lettre grecque|lettres grecques|que veut dire|" + SYMBOLES_GLOSSAIRE],
     ["limites", "", "", "Ce qui est vérifié, contre quoi, et ce qui ne l'est pas",
       "limites|limite|vérifications|vérification|validation|tests|précision|matlab|erreur|hypothèses|domaine de validité"],
   ];
@@ -98,7 +103,10 @@
 
   // ---------- comparaison tolérante ----------
 
-  const norme = (t) => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/œ/g, "oe").replace(/[^a-z0-9]+/g, " ").trim();
+  // Lettres grecques écrites en toutes lettres (α → « alpha », σ → « sigma ») : « σ » et « sigma » trouvent le même symbole.
+  const GREC = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma sigma tau upsilon phi chi psi omega".split(" ");
+  const enGrec = (t) => String(t).replace(/[Α-Ωα-ωµ]/g, (c) => " " + (c === "µ" ? "mu" : GREC[c.toLowerCase().charCodeAt(0) - 945] || "") + " ");
+  const norme = (t) => enGrec(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/œ/g, "oe").replace(/[^a-z0-9]+/g, " ").trim();
 
   // Une entrée de recherche : ses mots normalisés, plus le titre de la page et de sa famille.
   const entrees = TABLE.map(([page, calc, etiquette, raison, mots], i) => {
@@ -306,6 +314,6 @@
     }, 80);
   }
 
-  App.recherche = { ouvrir: () => ouvrir(), chercher, monter };
+  App.recherche = { ouvrir: () => ouvrir(), chercher, monter, norme };
   monter();
 })();

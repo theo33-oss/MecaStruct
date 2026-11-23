@@ -51,6 +51,16 @@ def references(_s):
     return load_json("references.json")
 
 
+@calcul("glossaire")
+def glossaire(_s):
+    """Glossaire des symboles (symbole, LaTeX, nom, unité, pages du site, aide) : lu dans les formulaires et les fiches, comme sur le bureau.
+
+    La page du site charge d'abord la famille « structures » : sans elle, les formulaires des poutres, sections… manquent."""
+    from mecastruct.services import glossaire as g
+
+    return {"entrees": [{k: v for k, v in e.items() if k != "source"} for e in g.entrees()]}
+
+
 @calcul("fiche")
 def fiche_de_formules(s):
     """« Formulaire rapide » : fiches de formules (clés, fiche choisie, formules LaTeX, variables, notes)."""

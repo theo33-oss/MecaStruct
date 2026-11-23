@@ -19,6 +19,7 @@ INTROS = {
     "Matériaux et profilés": "Base de matériaux et de profilés normalisés.",
     "Convertisseur": "Conversion entre unités de toutes les grandeurs.",
     "Références": "Normes, cours et documents cités par l'application.",
+    "Glossaire": "Symboles des formules : nom, unité et pages où ils apparaissent.",
     "Limites et vérifications": "Ce qui est vérifié, contre quoi, et ce qui ne l'est pas.",
 }
 

@@ -24,5 +24,5 @@ def test_chaque_page_s_ouvre(bureau, page):
 
 
 def test_chaque_page_du_menu_a_sa_classe():
-    assert len(PAGES) == 21
+    assert len(PAGES) == 22
     assert len(set(PAGES)) == len(PAGES)

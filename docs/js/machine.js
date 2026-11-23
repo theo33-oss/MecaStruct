@@ -1478,5 +1478,6 @@
     }
     if (page.calculs.length === 1) contenu.append(blocCalcul(page.calculs[0], tous[page.calculs[0]]));
     else contenu.append(App.onglets(page.calculs.map((id) => ({ id, titre: tous[id].titre, rendu: (p) => p.append(blocCalcul(id, tous[id])) })), "page." + page.id));
+    contenu.append(el("p", { class: "legende lien-glossaire" }, el("a", { href: "#/glossaire", texte: "Voir le glossaire" })));
   });
 })();

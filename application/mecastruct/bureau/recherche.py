@@ -19,6 +19,9 @@ from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QListWidget, QListWidg
 from mecastruct.bureau import state, theme
 from mecastruct.bureau.etudes import vers_bureau
 
+# Symboles du glossaire (services/glossaire.py) : chacun mène à la page Glossaire. tests/test_glossaire.py vérifie que la liste suit le glossaire.
+SYMBOLES_GLOSSAIRE = "A|Am|a|B|b|b(y)|C|C0|C1|CM|Ca|Cc|CmLT|Cmy|D|d|E|e|F|Fa|Fi|Fr|f|fi|G|H|h|IGyz|It|Ix|Iy|Iyz|Iz|JR|Jm|Js|K|Kf|Kt|k|ky|kz|L|L'|L0|LG|Lcr|Lcr,y|Lh|Lij|ΔLmax|M|M0|MA|Mt|m|N|Nij|n|ni|P|Pc|Q(y)|q|q(x)|R|RB|Re|Ri|r|S|S0|Si|s|T|Ty|ΔT|t|U|Vin|v|Wz|Xi|xR|Z1|Z2|Z21|Z3|Z4|Z5|Z6|α|αP|β|δij|η|γ|γM0|γM1|ν|ρ|ρe|σ|σD|σe|σi|τ|τe|θ|ε|εi|φ"
+
 # [page, onglet (identifiant du calcul, "" si la page n'en a qu'un), étiquette, raison, mots]
 TABLE = [
     # ---- Structures
@@ -96,6 +99,8 @@ TABLE = [
      "mes ajouts|ajout|import|export|matériau utilisateur|fichier"),
     ("references", "", "", "Normes, cours et documents cités par l'application",
      "références|norme|normes|bibliographie|cours|eurocode 3|eurocode|iso 286|iso 898-1|iso 68-1|iso 281|en 1993|université de bordeaux|iut|source|document"),
+    ("glossaire", "", "", "Symboles des formules : nom, unité et pages où ils apparaissent",
+     "glossaire|symbole|symboles|notation|notations|nomenclature|signification|lettre grecque|lettres grecques|que veut dire|" + SYMBOLES_GLOSSAIRE),
     ("limites", "", "", "Ce qui est vérifié, contre quoi, et ce qui ne l'est pas",
      "limites|limite|vérifications|vérification|validation|tests|précision|matlab|erreur|hypothèses|domaine de validité"),
 ]  # fmt: skip
@@ -132,9 +137,13 @@ LIBELLE = "Rechercher un calcul, une grandeur, une norme"
 AIDE = "Exemples : flèche, H7, von mises, roulement, ISO 286, Eurocode 3. Flèches haut et bas pour choisir, Entrée pour ouvrir, Échap pour fermer."
 
 
+_GREC = dict(zip("αβγδεζηθικλμνξοπρςστυφχψω", "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma sigma tau upsilon phi chi psi omega".split(), strict=True)) | {"µ": "mu"}  # fmt: skip
+
+
 def norme(texte: Any) -> str:
     """Sans accents ni majuscules, ponctuation réduite à une espace (« Wöhler » → « wohler »)."""
-    t = unicodedata.normalize("NFD", str(texte))
+    t = "".join(f" {_GREC[c.lower()]} " if c.lower() in _GREC else c for c in str(texte))  # α → « alpha », σ → « sigma »
+    t = unicodedata.normalize("NFD", t)
     t = "".join(c for c in t if not 0x300 <= ord(c) <= 0x36F).lower().replace("œ", "oe")
     return re.sub(r"[^a-z0-9]+", " ", t).strip()
 

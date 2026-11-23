@@ -72,6 +72,7 @@ l'installateur Windows de chaque version est dans les [Releases](https://github.
 - Audit des saisies absurdes : le flambage ne gèle plus avec une section énorme ; s doit être strictement positif ; les nombres infinis (1e400) sont refusés ; Treillis nomme le nœud inexistant d'un appui, d'une charge ou d'une barre ; le train épicycloïdal refuse Ne = 0 ; une pièce non chargée affiche « marge illimitée ».
 - Finitions : exposants en « 2,487·10⁷ » au lieu de « 2,487e+07 » ; un message d'erreur ne cache plus le suivant ; messages de fichier vide ou illisible en français ; poutre en mécanisme : « Ajoutez ou déplacez un appui » ; lien de partage abîmé : la page invite à calculer ; liste « Coefficient s / Marge » plus grande au doigt.
 - Graphiques à hauteur réglable, liste d'exemples qui garde l'exemple chargé, cas personnalisé (tableaux vides).
+- Glossaire des symboles (site et bureau) : nouvelle page « Glossaire » dans « Données et aide », après les Références (symbole en LaTeX, nom, unité, pages, filtre au clavier) et lien « Voir le glossaire » au pied des pages de calcul. Chaque entrée est lue dans les libellés, unités et aides des champs et dans les variables du « Formulaire rapide » (`services/glossaire.py`), rien n'est écrit à la main : un symbole dont aucun texte ne donne le nom n'est pas listé. La recherche globale trouve la page par « glossaire », « symbole » et par chaque symbole (σ et « sigma » équivalents).
 
 ## 1.6.0 (16 novembre 2026)
 

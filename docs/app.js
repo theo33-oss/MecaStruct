@@ -39,6 +39,7 @@ const App = (() => {
     { id: "convertisseur", titre: "Convertisseur", famille: "donnees", genre: "convertisseur", texte: "Conversion entre unités de toutes les grandeurs." },
     { id: "base", titre: "Matériaux et profilés", famille: "donnees", genre: "base", texte: "Base de matériaux et de profilés normalisés." },
     { id: "references", titre: "Références", famille: "donnees", genre: "references", texte: "Normes, cours et documents cités par l'application." },
+    { id: "glossaire", titre: "Glossaire", famille: "donnees", genre: "glossaire", pont: "structures", texte: "Symboles des formules : nom, unité et pages où ils apparaissent." },
     { id: "limites", titre: "Limites et vérifications", famille: "donnees", genre: "texte", source: "LIMITES.md", pont: "structures", verifications: true, texte: "Ce qui est vérifié, contre quoi, et ce qui ne l'est pas." },
   ];
   const page = (id) => PAGES.find((p) => p.id === id);
@@ -1112,7 +1113,7 @@ const App = (() => {
     etat("");
     document.dispatchEvent(new Event("mecastruct:pret"));
     // fin du chargement : seules les pages qui dépendent du calcul se redessinent (l'accueil et les textes gardent leur défilement et leurs replis)
-    if (courante && ["machine", "convertisseur", "base", "references"].includes(courante.genre)) afficher();
+    if (courante && ["machine", "convertisseur", "base", "references", "glossaire"].includes(courante.genre)) afficher();
     prechargerPages();
   }
 
