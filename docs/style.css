@@ -316,6 +316,8 @@ label[data-aide] { cursor: help; }
 .lien-bouton { background: none; border: 0; padding: 0; font: inherit; color: var(--lien, inherit); text-decoration: underline; cursor: pointer; }
 .actions-schema { margin-bottom: 8px; }
 footer { margin-top: 40px; border-top: 1px solid var(--bord); padding-top: 8px; font-size: .9rem; }
+/* cibles d'au moins 24 px (WCAG 2.5.8), aussi à la souris : liens de l'accueil et du pied de page */
+footer a, .liste-pages a, .repli-accueil a { display: inline-block; min-height: 24px; line-height: 24px; }
 
 @media (max-width: 640px) {
   h1, .vedette h1 { font-size: 1.45rem; }

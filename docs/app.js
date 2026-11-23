@@ -962,7 +962,7 @@ const App = (() => {
 
   async function actualiserSite() {
     try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { /* pas de service worker */ }
-    try { for (const n of await caches.keys()) if (n !== "mecastruct-cdn") await caches.delete(n); } catch (e) { /* pas de cache */ }
+    try { for (const n of await caches.keys()) if (n.startsWith("mecastruct-") && n !== "mecastruct-cdn") await caches.delete(n); } catch (e) { /* pas de cache */ }
     location.replace(location.pathname + "?maj=" + Date.now() + location.hash);
   }
 

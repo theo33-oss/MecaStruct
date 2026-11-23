@@ -4,14 +4,15 @@
 // Bibliothèques des CDN (Pyodide, Plotly, KaTeX) : adresses à version figée, donc copie gardée d'abord.
 // Le numéro change avec construire_web.py (empreinte du zip) : les anciennes copies sont alors effacées.
 
-const VERSION = "mecastruct-1.7.0-96e2f8ff";
+const VERSION = "mecastruct-1.7.0-a76a1a08";
 const CDN_CACHE = "mecastruct-cdn"; // adresses à version figée : gardées d'une version du site à l'autre
 const CDN = ["https://cdn.jsdelivr.net/", "https://cdnjs.cloudflare.com/", "https://files.pythonhosted.org/", "https://pypi.org/"];
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {
   e.waitUntil((async () => {
-    for (const nom of await caches.keys()) if (nom !== VERSION && nom !== CDN_CACHE) await caches.delete(nom);
+    // seulement les copies de MecaStruct : l'origine (…github.io) est partagée avec d'autres projets, dont les caches restent intacts
+    for (const nom of await caches.keys()) if (nom.startsWith("mecastruct-") && nom !== VERSION && nom !== CDN_CACHE) await caches.delete(nom);
     await self.clients.claim();
   })());
 });
