@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏗️ MecaStruct RdM
+# MecaStruct RdM
 
 ### Cette pièce tient-elle, et avec quelle marge ?
 
@@ -17,23 +17,23 @@ et un dossier qui **refait le calcul à la main**. Tout est calculé dans votre 
 
 </div>
 
-## ✨ Pourquoi MecaStruct
+## Pourquoi MecaStruct
 
 | | |
 |---|---|
-| ✅ **Un verdict clair** | « Conforme » ou non, avec le taux de travail et le coefficient de sécurité obtenu face à celui demandé. |
-| 🧮 **Le calcul sous les yeux** | Chaque page affiche les formules remplies avec vos valeurs, pas à pas. |
-| 📝 **Un dossier justifié** | Le dossier de validation refait chaque grandeur à la main ; l'Excel de validation la refait par des formules. |
-| 🔒 **Rien ne sort de chez vous** | Aucun serveur, aucun cookie : tout est calculé sur votre poste. |
+| **Un verdict clair** | « Conforme » ou non, avec le taux de travail et le coefficient de sécurité obtenu face à celui demandé. |
+| **Le calcul sous les yeux** | Chaque page affiche les formules remplies avec vos valeurs, pas à pas. |
+| **Un dossier justifié** | Le dossier de validation refait chaque grandeur à la main ; l'Excel de validation la refait par des formules. |
+| **Rien ne sort de chez vous** | Aucun serveur, aucun cookie : tout est calculé sur votre poste. |
 
-## ⚡ Essayer en 1 minute
+## Essayer en 1 minute
 
 1. Ouvrez le **[site](https://theo33-oss.github.io/MecaStruct/)** (15 à 30 s au premier chargement, Internet nécessaire).
 2. Cliquez sur **Commencer par un ajustement ISO 286** : un exemple déjà calculé s'ouvre.
 3. Changez le diamètre ou la qualité : le résultat suit. À 50 mm, le serrage passe de -50 à -9 µm.
 4. Ouvrez **Explications du calcul**, puis exportez en **Bloc-notes** ou **Excel de validation**.
 
-## 🖼️ En images
+## En images
 
 <table>
   <tr>
@@ -48,17 +48,17 @@ et un dossier qui **refait le calcul à la main**. Tout est calculé dans votre 
   </tr>
 </table>
 
-## 🧭 Ce qu'il y a dedans
+## Ce qu'il y a dedans
 
 | Famille | Pages |
 |---|---|
-| 🏗️ Structures | **Poutres** (2D, ossature 3D, Eurocode 3, fatigue, charge mobile), **Treillis**, **Flambage** |
-| 📐 Sections et contraintes | **Sections**, **Sollicitations**, **Tenseurs et critères**, **Hooke et jauges** |
-| ⚙️ Liaisons et guidages | **Ajustements ISO 286**, **Frettage**, **Paliers lisses**, **Roulements** |
-| 🔧 Transmission | **Engrenages**, **Freins et embrayages**, **Dimensionnement moteur** |
-| 📚 Données et aide | **Convertisseur**, **Matériaux et profilés**, **Références**, **Limites et vérifications** |
+| Structures | **Poutres** (2D, ossature 3D, Eurocode 3, fatigue, charge mobile), **Treillis**, **Flambage** |
+| Sections et contraintes | **Sections**, **Sollicitations**, **Tenseurs et critères**, **Hooke et jauges** |
+| Liaisons et guidages | **Ajustements ISO 286**, **Frettage**, **Paliers lisses**, **Roulements** |
+| Transmission | **Engrenages**, **Freins et embrayages**, **Dimensionnement moteur** |
+| Données et aide | **Convertisseur**, **Matériaux et profilés**, **Références**, **Limites et vérifications** |
 
-## 💻 Navigateur ou bureau
+## Navigateur ou bureau
 
 | | Navigateur | Bureau (Windows) |
 |---|---|---|
@@ -69,14 +69,14 @@ et un dossier qui **refait le calcul à la main**. Tout est calculé dans votre 
 
 Même menu, mêmes pages, même calcul. Une étude enregistrée dans l'une s'ouvre dans l'autre.
 
-## ⚠️ Limites et avertissement
+## Limites et avertissement
 
 MecaStruct est un **outil pédagogique et d'aide au pré-dimensionnement**, fourni **sans garantie** :
 vérifiez les résultats avant tout usage réel. Le calcul est contrôlé par plus de 1 300 tests et par des recalculs à la main
 de formules de manuel. Ce qui est vérifié, et ce qui ne l'est pas, est écrit dans [LIMITES.md](LIMITES.md) ;
 les cours et normes cités sont dans la page Références. Les changements de version : [CHANGELOG.md](CHANGELOG.md).
 
-## 🛠️ Pour les développeurs
+## Pour les développeurs
 
 ```bash
 cd application
@@ -97,7 +97,7 @@ python -m venv .venv
 Le site charge le même code Python avec [Pyodide](https://pyodide.org) ; `python construire_web.py` le régénère.
 `python construire_bureau.py` fabrique l'application autonome ; une étiquette `v*` sur GitHub la publie.
 
-## 👤 Auteur et licence
+## Auteur et licence
 
 Projet de **Théo Brun**, portage en Python de son application MATLAB de résistance des matériaux.
 Du même auteur : [Chaînes de cotes 1D](https://github.com/theo33-oss/chaines-de-cotes-1D).
@@ -105,7 +105,7 @@ Licence [PolyForm Noncommercial 1.0.0](LICENSE) : usage non commercial libre, us
 
 ---
 
-## 🇬🇧 In English
+## In English
 
 **MecaStruct RdM** is a free strength-of-materials and machine-element calculator (beams, trusses, sections, buckling,
 ISO 286 fits, shrink fits, bearings, gears, brakes, motor sizing). It gives a plain-language verdict, the formulas
