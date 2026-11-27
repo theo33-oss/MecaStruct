@@ -73,8 +73,8 @@ Même menu, mêmes pages, même calcul. Une étude enregistrée dans l'une s'ouv
 ## ⚠️ Limites et avertissement
 
 MecaStruct est un **outil pédagogique et d'aide au pré-dimensionnement**, fourni **sans garantie** :
-vérifiez les résultats avant tout usage réel. Les moteurs sont comparés aux résultats d'une application MATLAB par
-plus de 1 300 tests. Ce qui est vérifié, et ce qui ne l'est pas, est écrit dans [LIMITES.md](LIMITES.md) ;
+vérifiez les résultats avant tout usage réel. Le calcul est contrôlé par plus de 1 300 tests et par des recalculs à la main
+de formules de manuel. Ce qui est vérifié, et ce qui ne l'est pas, est écrit dans [LIMITES.md](LIMITES.md) ;
 les cours et normes cités sont dans la page Références. Les changements de version : [CHANGELOG.md](CHANGELOG.md).
 
 ## 🛠️ Pour les développeurs
