@@ -7,12 +7,11 @@
 Résistance des matériaux et éléments de machines : un **verdict en toutes lettres**, les **formules remplies avec vos valeurs**
 et un dossier qui **refait le calcul à la main**. Tout est calculé dans votre navigateur.
 
-[![Ouvrir dans le navigateur](https://img.shields.io/badge/%E2%96%B6%20Ouvrir%20dans%20le%20navigateur-5C4B99?style=for-the-badge)](https://theo33-oss.github.io/MecaStruct/)
-[![Télécharger pour Windows](https://img.shields.io/badge/%E2%AC%87%20T%C3%A9l%C3%A9charger%20pour%20Windows-3D246C?style=for-the-badge)](https://github.com/theo33-oss/MecaStruct/releases/latest)
+**[Ouvrir dans le navigateur](https://theo33-oss.github.io/MecaStruct/)**
+&nbsp;·&nbsp;
+**[Télécharger l'installateur Windows](https://github.com/theo33-oss/MecaStruct/releases/download/v1.7.0/MecaStruct_Installation_1.7.0.exe)** (185 Mo)
 
-[![Tests](https://github.com/theo33-oss/MecaStruct/actions/workflows/tests.yml/badge.svg)](https://github.com/theo33-oss/MecaStruct/actions/workflows/tests.yml)
-[![Dernière version](https://img.shields.io/github/v/release/theo33-oss/MecaStruct?label=derni%C3%A8re%20version&color=3D246C)](https://github.com/theo33-oss/MecaStruct/releases/latest)
-[![Licence](https://img.shields.io/badge/licence-PolyForm%20Noncommercial%201.0.0-3D246C)](LICENSE)
+<sub>Version 1.7.0 · [Toutes les versions](https://github.com/theo33-oss/MecaStruct/releases) · [Limites](LIMITES.md) · [Licence PolyForm Noncommercial](LICENSE)</sub>
 
 <img src="application/captures/poutres_calcul.png" alt="Page Poutres : saisie, verdict et modes de ruine" width="900">
 
