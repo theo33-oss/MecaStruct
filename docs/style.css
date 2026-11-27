@@ -306,7 +306,8 @@ details.repli > summary h2 { display: inline; font-size: inherit; margin: 0; pad
 .liste-pages a { font-weight: 600; margin-right: 6px; }
 .capture img { max-width: 100%; height: auto; border: 1px solid var(--bord); border-radius: 8px; }
 .capture { margin: 16px 0; }
-.texte { max-width: 110ch; }
+.texte { max-width: none; } /* pages de texte : tableaux sur toute la largeur, plus de vide à droite */
+.texte > p, .texte > ul, .texte > ol, .texte > h3 + p { max-width: 120ch; } /* les paragraphes gardent une longueur de ligne lisible */
 .texte table { margin-bottom: 12px; }
 .verifications .defile { margin: 8px 0 14px; }
 .verifications table { font-size: .88rem; }
