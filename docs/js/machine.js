@@ -104,6 +104,52 @@
   window.addEventListener("hashchange", () => setTimeout(majPageResume, 500));
 
   // Repère data-id d'un champ (focus conservé quand les champs sont redessinés) ; les boutons n'ont pas toujours d'identifiant
+  // Poignée verticale (trois petits points) entre la saisie et le résultat, visible dès deux colonnes (1100 px) :
+  // glisser, flèches gauche et droite, double-clic pour revenir à la largeur d'origine. Le choix est gardé dans le navigateur.
+  function separerColonnes(bloc, colSaisie) {
+    const CLE = "mecastruct.largeur-saisie", MIN = 25, MAX = 65;
+    const sep = el("div", { class: "sep-colonnes" }, el("span", { class: "sep-points", texte: "⋮" }));
+    sep.setAttribute("role", "separator");
+    sep.setAttribute("aria-orientation", "vertical");
+    sep.setAttribute("aria-label", "Largeur de la saisie et du résultat : glisser, flèches gauche et droite, double-clic pour la largeur d'origine");
+    sep.setAttribute("aria-valuemin", String(MIN));
+    sep.setAttribute("aria-valuemax", String(MAX));
+    sep.tabIndex = 0;
+    sep.title = "Glisser pour changer la largeur (double-clic : largeur d'origine)";
+    colSaisie.after(sep);
+    const poser = (p) => {
+      if (p == null) { bloc.style.removeProperty("--part"); sep.removeAttribute("aria-valuenow"); return; }
+      p = Math.max(MIN, Math.min(MAX, Math.round(p * 10) / 10));
+      bloc.style.setProperty("--part", String(p));
+      sep.setAttribute("aria-valuenow", String(p));
+    };
+    const garder = (p) => { try { if (p == null) localStorage.removeItem(CLE); else localStorage.setItem(CLE, String(p)); } catch (e) { /* sans mémoire */ } };
+    const fin = () => window.dispatchEvent(new Event("resize")); // les graphiques Plotly se recalent sur la nouvelle largeur
+    try { const v = Number(localStorage.getItem(CLE)); if (v >= MIN && v <= MAX) poser(v); } catch (e) { /* sans mémoire */ }
+    const courant = () => Number(bloc.style.getPropertyValue("--part")) || Math.round((colSaisie.getBoundingClientRect().width / bloc.getBoundingClientRect().width) * 1000) / 10;
+    sep.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      sep.setPointerCapture(e.pointerId);
+      document.body.classList.add("glisse");
+      const bouge = (m) => { const r = bloc.getBoundingClientRect(); poser(((m.clientX - r.left) / r.width) * 100); };
+      const lache = () => {
+        sep.removeEventListener("pointermove", bouge); sep.removeEventListener("pointerup", lache); sep.removeEventListener("pointercancel", lache);
+        document.body.classList.remove("glisse");
+        garder(Number(bloc.style.getPropertyValue("--part")) || null); fin();
+      };
+      sep.addEventListener("pointermove", bouge); sep.addEventListener("pointerup", lache); sep.addEventListener("pointercancel", lache);
+    });
+    sep.addEventListener("dblclick", () => { poser(null); garder(null); fin(); });
+    sep.addEventListener("keydown", (e) => {
+      const d = { ArrowLeft: -2, ArrowRight: 2 }[e.key];
+      if (d === undefined && e.key !== "Home") return;
+      e.preventDefault();
+      if (e.key === "Home") { poser(null); garder(null); } else { poser(courant() + d); garder(Number(bloc.style.getPropertyValue("--part"))); }
+      fin();
+    });
+  }
+
   const repere = (c) => c.id ?? `${c.type}|${c.calcul || ""}|${c.libelle}`;
 
   function champ(c, saisie, changer, outils) {
@@ -1427,6 +1473,7 @@
       titreResultat, annonce, zoneDecision, zoneResultat, zoneExtras);
     const bloc = el("div", { class: "calcul" + (f.apercu ? " avec-schema" : "") }, boutonIA(), barreResume, colSaisie, colResultat);
     if (f.apercu) ctlSchema = blocSchema(bloc, colSaisie, colResultat);
+    separerColonnes(bloc, colSaisie); // poignée « ⋮ » entre la saisie et le résultat : glisser pour changer la largeur
     const lien = App.lienEtude();
     if (lien && lien.calcul === ident && App.pret) {
       App.oublierLien();

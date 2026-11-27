@@ -20,6 +20,7 @@
   --ombre: 0 1px 3px rgba(42, 27, 74, .12);
   --jauge-ok: #1E8E4A; --jauge-ko: #C62B36;
   --largeur: 100%; /* largeur du contenu : grandit avec l'écran : tout l'écran */
+  --ecart: 24px; --part-defaut: 41.7; /* écart et part de la saisie (en %) entre saisie et résultat */
   --resume-h: 52px; /* hauteur de la barre résumé du bas d'écran (petit écran) */
 }
 :root.resume-visible { --resume-bas: var(--resume-h); } /* posé par machine.js quand la barre est affichée : décale languette IA, messages, défilement */
@@ -153,11 +154,17 @@ details.source > summary { cursor: pointer; color: var(--lien); }
 
 /* page de calcul : saisie à gauche, résultat à droite */
 .calcul { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 24px; align-items: start; }
+.sep-colonnes { display: none; } /* une seule colonne : pas de poignée */
 /* un seul « Calculer » primaire visible : celui des champs en une colonne, celui de la colonne de résultat dès deux colonnes
    (l'autre reste dans le DOM : Entrée dans un champ valide toujours le formulaire) */
 .actions-schema { display: none; }
 @media (min-width: 1100px) {
-  .calcul { grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr); }
+  .calcul { grid-template-columns: minmax(340px, calc((100% - var(--ecart)) * var(--part, var(--part-defaut)) / 100)) var(--ecart) minmax(0, 1fr); gap: 0; }
+  /* poignée « ⋮ » : colonne de l'écart, sur toute la hauteur ; les points restent à l'écran quand on défile */
+  .sep-colonnes { display: flex; justify-content: center; align-self: stretch; cursor: col-resize; touch-action: none; user-select: none; color: var(--discret); border-radius: 6px; }
+  .sep-colonnes:hover, .sep-colonnes:focus-visible, body.glisse .sep-colonnes { background: var(--alt); color: var(--accent); }
+  .sep-points { position: sticky; top: calc(var(--barre, 100px) + 40vh); align-self: flex-start; font-size: 1.3rem; line-height: 1; }
+  body.glisse { cursor: col-resize; user-select: none; }
   /* la molette passe à la page quand la colonne est au bout (overscroll auto) : seule la colonne survolée défile tant qu'elle le peut */
   .colonne-resultat { position: sticky; top: calc(var(--barre, 100px) + 8px); max-height: calc(100vh - var(--barre, 100px) - 20px); overflow: auto; padding-right: 4px; overscroll-behavior: auto; }
   .actions-schema { display: block; }
@@ -619,12 +626,12 @@ table.glossaire td.unite { white-space: nowrap; }
 
 /* grands écrans : le contenu s'élargit et le texte grossit un peu, au lieu de rester une colonne étroite au milieu d'un grand vide */
 @media (min-width: 1800px) {
-  .calcul { gap: 0 32px; }
+  :root { --ecart: 32px; }
   .schema-corps .schema-figure { min-height: 380px; }
 }
 @media (min-width: 2300px) {
   html { font-size: 112.5%; }
-  .calcul { grid-template-columns: minmax(420px, 4fr) minmax(0, 7fr); }
+  :root { --part-defaut: 36.4; }
   .schema-corps .schema-figure { min-height: 460px; }
 }
 @media (min-width: 3000px) {
