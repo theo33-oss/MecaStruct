@@ -11,15 +11,17 @@
   // L'animation (hauteur et fondu) est faite en CSS (::details-content) ; sans elle, l'ouverture est simplement immédiate.
   const DELAI_FERMETURE = 250;
   const souris = () => matchMedia("(hover: hover) and (pointer: fine)").matches;
-  function carteRepliable(balise, classe, avant, titre, contenu) {
-    const resume = el("summary", {}, titre);
-    const d = el("details", { class: "repli repli-accueil" }, resume, contenu);
-    const carte = el(balise, { class: classe }, avant, d);
+  // `epingleDedans` : un clic dans le contenu (bouton d'une étude…) garde aussi la carte ouverte. Sert aussi à « Mes études ».
+  function repliAuSurvol(carte, d, resume, { epingleDedans = false } = {}) {
     let epingle = false;   // ouverte (ou gardée) par un clic ou le clavier
     let parSurvol = false; // ouverte seulement par le survol
     let minuterie = null;
     const annuler = () => { clearTimeout(minuterie); minuterie = null; };
     const refermer = () => { annuler(); epingle = false; parSurvol = false; d.open = false; };
+    if (epingleDedans) d.addEventListener("click", (e) => {
+      if (!parSurvol || resume.contains(e.target)) return;
+      annuler(); parSurvol = false; epingle = true;
+    });
     resume.addEventListener("click", (e) => {
       annuler();
       if (d.open && parSurvol) { // ouverte par le survol : le clic la garde ouverte (il ne la referme pas)
@@ -28,7 +30,8 @@
       else { epingle = true; parSurvol = false; }                 // le clic ouvre et garde ouvert
     });
     d.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !e.defaultPrevented && d.open && (d.contains(document.activeElement) || parSurvol)) {
+      if (e.key === "Escape" && !e.defaultPrevented && d.open && (d.contains(document.activeElement) || parSurvol)
+          && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) {
         refermer();
         if (d.contains(document.activeElement)) resume.focus();
       }
@@ -46,6 +49,14 @@
         if (parSurvol && !d.contains(document.activeElement)) refermer();
       }, DELAI_FERMETURE);
     });
+  }
+  App.repliAuSurvol = repliAuSurvol;
+
+  function carteRepliable(balise, classe, avant, titre, contenu) {
+    const resume = el("summary", {}, titre);
+    const d = el("details", { class: "repli repli-accueil" }, resume, contenu);
+    const carte = el(balise, { class: classe }, avant, d);
+    repliAuSurvol(carte, d, resume);
     return carte;
   }
 

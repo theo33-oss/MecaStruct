@@ -511,6 +511,19 @@ a.bouton[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
 #barre { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding-left: max(16px, calc((100% - var(--largeur)) / 2 + 16px)); padding-right: max(16px, calc((100% - var(--largeur)) / 2 + 16px)); } /* contenu centré sur 1440 px comme l'en-tête */
 #barre > #menu { grid-column: 1; margin: 0; min-width: 0; } /* sans marge auto : le menu remplit sa colonne et défile à l'intérieur */
 #barre > #sous { grid-column: 1 / -1; margin: 0; min-width: 0; }
+/* bandeau repliable (js/bandeau.js) : punaise en bas à droite ; détaché et au repos, une seule ligne « Famille › Page » */
+#barre.avec-verrou { grid-template-columns: minmax(0, 1fr) auto auto; }
+#barre.avec-verrou > #menu { grid-column: 1; grid-row: 1; }
+#barre.avec-verrou > .recherche-bouton { grid-column: 2; grid-row: 1; }
+#barre.avec-verrou > #sous { grid-column: 1 / 3; grid-row: 2; }
+.verrou { grid-column: 3; grid-row: 1 / span 2; align-self: end; display: inline-flex; align-items: center; justify-content: center; width: 32px; min-height: 32px; margin: 0 0 6px; padding: 0; }
+.fil { display: none; }
+#barre.repliable:not(.ouvert) > .verrou { grid-row: 1; margin: 6px 0; }
+#barre.repliable:not(.ouvert) > .recherche-bouton { margin: 3px 0; }
+#barre.repliable:not(.ouvert) > .fil { display: block; grid-column: 1; grid-row: 1; align-self: stretch; align-content: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+/* replié : le menu reste atteignable au clavier (il se rouvre dès qu'on y entre), mais ne prend plus de place */
+#barre.repliable:not(.ouvert) > :is(#menu, #sous) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#barre.repliable.ouvert { box-shadow: 0 8px 24px rgba(42, 27, 74, .25); }
 .recherche-bouton { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 4px 12px; font-weight: 600; }
 .recherche-icone { display: inline-flex; }
 kbd { font: inherit; font-size: .8em; padding: 0 5px; border: 1px solid var(--bord-fort); border-radius: 4px; background: var(--alt); color: var(--encre); line-height: 1.5; }

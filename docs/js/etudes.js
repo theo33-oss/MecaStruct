@@ -110,11 +110,10 @@
     if (!cartes) return;
     const corps = el("div", { class: "etudes-corps" });
     const resumeTitre = el("summary", {}, el("h2", { texte: "Mes études" }));
-    const details = el("details", { class: "repli etudes", open: !App.memoire.lire("etudes.ferme", false) }, resumeTitre, corps);
-    details.addEventListener("toggle", () => App.memoire.ecrire("etudes.ferme", !details.open));
-    details.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !e.defaultPrevented && details.open && details.contains(document.activeElement) && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) { details.open = false; resumeTitre.focus(); }
-    });
+    // repliée à l'arrivée, comme les autres cartes de l'accueil (js/accueil.js) ; un clic dedans la garde ouverte
+    const details = el("details", { class: "repli repli-accueil etudes" }, resumeTitre, corps);
+    const section = el("section", { class: "mes-etudes", "aria-label": "Mes études" }, details);
+    App.repliAuSurvol(section, details, resumeTitre, { epingleDedans: true });
     const rafraichir = (focus, niveau, texte) => {
       corps.replaceChildren(...construire(rafraichir));
       if (texte) corps.querySelector(".etudes-msg").replaceChildren(App.message(niveau, texte));
@@ -123,7 +122,7 @@
     };
     rafraichir();
     courante = { corps, rafraichir };
-    cartes.before(el("section", { class: "mes-etudes", "aria-label": "Mes études" }, details));
+    cartes.before(section);
   }
 
   // Une ligne : lien vers la page (ouvre la page telle quelle), repère de date, résumé, actions.

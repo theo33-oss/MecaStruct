@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#5C4B99" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#2C2348" media="(prefers-color-scheme: dark)">
 <meta name="zip" content="6e5b5d49">
-<meta name="build" content="f8c9c0f1">
+<meta name="build" content="24206125">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -25,7 +25,7 @@
 // thème posé avant l'affichage (pas de flash) : choix gardé, sinon réglage du système
 try { var t = localStorage.getItem("mecastruct.theme"); if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; document.documentElement.dataset.theme = t; } catch (e) { document.documentElement.dataset.theme = "light"; }
 </script>
-<link rel="stylesheet" href="style.css?v=bc6ac970">
+<link rel="stylesheet" href="style.css?v=bc384582">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous"></noscript>
 </head>
@@ -71,8 +71,8 @@ try { var t = localStorage.getItem("mecastruct.theme"); if (t !== "light" && t !
 <script id="script-pyodide" async src="https://cdn.jsdelivr.net/pyodide/v314.0.8/full/pyodide.js" integrity="sha384-0Tw0jFeRF+UzB1HbzjzDi5ZNMyMclQPHmYkEquv9V+lAj/rZBHxu1c35Uq28kDPo" crossorigin="anonymous" onerror="this.dataset.echec=1"></script>
 <script id="script-plotly" async src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@3.0.1/plotly.min.js" integrity="sha384-8cEu0XVLh4s92OG4Ua4ZS75MN//b+0KqyCrhQqaXgHMVHnKC3DNVhwUyH5spa1J2" crossorigin="anonymous" onerror="this.dataset.echec=1"></script>
 <script id="script-katex" async src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous" onerror="this.dataset.echec=1"></script>
-<script defer src="app.js?v=4bf5a6b0"></script>
-<script defer src="js/accueil.js?v=32e5310f"></script>
+<script defer src="app.js?v=bb1ea79e"></script>
+<script defer src="js/accueil.js?v=911c8fe9"></script>
 <script defer src="js/machine.js?v=0e293d4c"></script>
 <script defer src="js/guide.js?v=1b65412e"></script>
 <script defer src="js/comparer.js?v=c21d5e8c"></script>
@@ -81,7 +81,8 @@ try { var t = localStorage.getItem("mecastruct.theme"); if (t !== "light" && t !
 <script defer src="js/textes.js?v=2d3c59b4"></script>
 <script defer src="js/glossaire.js?v=4e855ea7"></script>
 <script defer src="js/recherche.js?v=30ad5470"></script>
-<script defer src="js/etudes.js?v=2075deaf"></script>
+<script defer src="js/etudes.js?v=987c0ae9"></script>
+<script defer src="js/bandeau.js?v=806f87ff"></script>
 <script>
 // Pyodide, Plotly et KaTeX (async) ne bloquent plus l'affichage ; les scripts du site (defer) s'exécutent dans l'ordre, puis le démarrage
 // construit le menu et l'accueil sans attendre les bibliothèques : App.demarrer les attend ensuite (App.bibliotheque).

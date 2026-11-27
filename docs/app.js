@@ -891,13 +891,17 @@ const App = (() => {
   // Hauteur du menu collant, en variable CSS --barre (décalages de défilement, colonnes collantes) : suit le menu quand il
   // passe sur une ou deux lignes ; 0 quand il n'est plus collant (paysage bas).
   let hauteurBarre = 0;
+  let majBarre = () => {};
   function mesurerBarre() {
     const barre = $("barre");
     if (!barre) return;
     const maj = () => {
-      hauteurBarre = getComputedStyle(barre).position === "sticky" ? Math.ceil(barre.getBoundingClientRect().height) : 0;
+      // marge basse négative : menu repliable ouvert par-dessus la page (js/bandeau.js), seule la ligne repliée compte
+      const style = getComputedStyle(barre);
+      hauteurBarre = style.position === "sticky" ? Math.ceil(barre.getBoundingClientRect().height + parseFloat(style.marginBottom)) : 0;
       document.documentElement.style.setProperty("--barre", hauteurBarre + "px");
     };
+    majBarre = maj;
     maj();
     if (window.ResizeObserver) new ResizeObserver(maj).observe(barre);
     window.addEventListener("resize", maj);
@@ -1121,5 +1125,5 @@ const App = (() => {
     genres[nom] = rendu;
   }
 
-  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, redimensionnerFigures, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, boutonSvg, svgDeLaFigure, titreImage, tableau, csv, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, exemple, bibliotheque, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
+  return { $, el, VERSION, clavierNombre, hautBarre: () => hauteurBarre, majBarre: () => majBarre(), redimensionnerFigures, DEPOT, FAMILLES, PAGES, page, nombre, fr, decimalesFr, exposants, echapper, markdown, memoire, sombre, message, copier, toast, retour, confirmer, copierImage, boutonImage, boutonSvg, svgDeLaFigure, titreImage, tableau, csv, formule, tracer, figure, onglets, calculer, genre, demarrer, attente, exemple, bibliotheque, messageEchec, mesures, paquets, preparer, telecharger, lireSaisie, ecrireSaisie, compresser, decompresser, lienEtude, oublierLien, pageCourante: () => courante, get pret() { return !!pont; } };
 })();
