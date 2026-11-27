@@ -19,7 +19,7 @@
   --err-fond: #FFD3D3; --err-texte: #6B0A12;
   --ombre: 0 1px 3px rgba(42, 27, 74, .12);
   --jauge-ok: #1E8E4A; --jauge-ko: #C62B36;
-  --largeur: 1440px; /* largeur du contenu : grandit avec l'écran (voir « grands écrans » en bas) */
+  --largeur: 100%; /* largeur du contenu : grandit avec l'écran : tout l'écran */
   --resume-h: 52px; /* hauteur de la barre résumé du bas d'écran (petit écran) */
 }
 :root.resume-visible { --resume-bas: var(--resume-h); } /* posé par machine.js quand la barre est affichée : décale languette IA, messages, défilement */
@@ -618,18 +618,15 @@ table.glossaire td.unite { white-space: nowrap; }
 
 /* grands écrans : le contenu s'élargit et le texte grossit un peu, au lieu de rester une colonne étroite au milieu d'un grand vide */
 @media (min-width: 1800px) {
-  :root { --largeur: 1700px; }
   .calcul { gap: 0 32px; }
   .schema-corps .schema-figure { min-height: 380px; }
 }
 @media (min-width: 2300px) {
-  :root { --largeur: 2100px; }
   html { font-size: 112.5%; }
   .calcul { grid-template-columns: minmax(420px, 4fr) minmax(0, 7fr); }
   .schema-corps .schema-figure { min-height: 460px; }
 }
 @media (min-width: 3000px) {
-  :root { --largeur: 2700px; }
   html { font-size: 131.25%; }
   .schema-corps .schema-figure { min-height: 560px; }
 }
