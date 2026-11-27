@@ -470,7 +470,7 @@ class PagePoutres(PageCalcul):
                  format_func={"enveloppe": "Enveloppe des combinaisons (ELU)",
                               "courant": "Dernier « Calculer » (non pondéré, indicatif)"}.get)  # fmt: skip
         z.legende(NON_VERIFIE)
-        z.legende("E du matériau choisi : 210 GPa pour les aciers (Eurocode 3, rapport de matériaux ; l'application MATLAB d'origine utilisait 190 GPa) ; l'EN 1993-1-1 (§3.2.6) prend 210 GPa.")
+        z.legende("E du matériau choisi : 210 GPa pour les aciers (Eurocode 3, rapport de matériaux) ; l'EN 1993-1-1 (§3.2.6) prend 210 GPa.")
 
         def apres(r) -> None:
             e = r[0]

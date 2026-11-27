@@ -348,14 +348,14 @@ C'est inférieur à 156,7 MPa : <span class="ok">vérifié</span>. Le faible M<s
 <h2 id="sources">15. Sur quoi reposent les calculs</h2>
 <table>
   <tr><th>Source</th><th>Ce qui en vient</th></tr>
-  <tr><td><strong>Votre cours de RDM</strong> (texte du « Master Prompt », recopié dans <code>docs/CAHIER_DES_CHARGES.md</code>)</td><td>Toutes les formules, les conventions de signe (torseur = actions à droite), l'arbre de décision du flambage (Euler / Rankine / λ<sub>lim</sub>), les valeurs des matériaux (E = 190 GPa pour les aciers dans l'application MATLAB d'origine ; la base actuelle prend 210 GPa, voir les limites), les pressions de matage et la formule de la goupille.</td></tr>
+  <tr><td><strong>Votre cours de RDM</strong> (texte du « Master Prompt », recopié dans <code>docs/CAHIER_DES_CHARGES.md</code>)</td><td>Toutes les formules, les conventions de signe (torseur = actions à droite), l'arbre de décision du flambage (Euler / Rankine / λ<sub>lim</sub>), les valeurs des matériaux (E = 210 GPa pour les aciers, voir les limites), les pressions de matage et la formule de la goupille.</td></tr>
   <tr><td><strong>Théorie classique de la RDM</strong> (manuels de référence, également présents sur le web)</td><td>Les formules standard, identiques partout : Navier ($\sigma = M y/I$), Huygens, Jourawski, Euler, Castigliano, Ménabréa, Mohr, Tresca, Von Mises et Hooke. Références utiles : le <em>Guide du calcul en mécanique</em> (Fanchon, Nathan), le <em>Mémotech</em> ou les cours de RDM des IUT GMP, et les articles de Wikipédia « Résistance des matériaux », « Flambage », « Cercle de Mohr » et « Critère de von Mises ».</td></tr>
   <tr><td><strong>Catalogues de profilés</strong> (tables Eurocode 3 / fabricants)</td><td>Les valeurs h, b, S, I et r des profilés IPE, HEA et HEB. Attention, les axes sont inversés : voir <a href="#pieges">Pièges</a>.</td></tr>
   <tr><td><strong>Vérification interne</strong></td><td>Chaque grandeur est calculée par 2 à 4 méthodes indépendantes (analytique, intégrale, énergétique), et le rapport affiche l'écart entre elles. Les tests automatiques comparent aussi les résultats aux formules connues. Exemple : poutre IPE 200, L = 4 m, q = 10 kN/m. La flèche vaut 8,169 mm par les 4 méthodes, soit exactement $5qL^4/(384EI)$.</td></tr>
 </table>
 <div class="box note"><strong>Valeurs du cours à connaître</strong> (elles diffèrent des valeurs usuelles) :
 <ul>
-  <li>Aciers S185 à S355 : la base prend E = 210 GPa (Eurocode 3, rapport de matériaux, mesures de TP). L'application MATLAB d'origine utilisait 190 GPa : ses flèches d'acier sont environ 10 % plus grandes. Aucun des cours de référence ne donne 190 GPa.</li>
+  <li>Aciers S185 à S355 : la base prend E = 210 GPa (Eurocode 3, rapport de matériaux, mesures de TP).</li>
   <li>Aluminium : E = 90 GPa dans le cours, contre 70 à 74 GPa habituellement.</li>
   <li>Titane TA6V : Re = 100 MPa dans le cours, contre environ 830 MPa en réalité.</li>
   <li>Plexiglas : G = 11 GPa dans le cours, alors qu'environ 1,1 GPa serait cohérent. L'application calcule G avec E/(2(1+ν)).</li>

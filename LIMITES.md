@@ -32,10 +32,8 @@ MecaStruct, écart et verdict de chaque cas. Le code est dans `application/mecas
   à la place. La convention est marge = s − 1 : 30 % de marge donne s = 1,30, et l'on exige σ ≤ Re / 1,30. Le calcul
   garde s ; la marge n'est qu'une autre façon de le saisir et de le lire. Le choix est gardé dans le navigateur.
 
-- **Aciers S185 à S355 : E = 210 GPa** (Eurocode 3) et G = E / (2(1 + ν)) = 80,77 GPa. L'application MATLAB d'origine
-  utilisait 190 GPa : les flèches d'acier diffèrent d'environ 10 %. Aucun des cours de référence ne donne 190 GPa : le
-  rapport de matériaux et la feuille de torsion donnent 210 GPa, et le TP de flexion trois points mesure 211 à 215 GPa
-  sur l'acier.
+- **Aciers S185 à S355 : E = 210 GPa** (Eurocode 3) et G = E / (2(1 + ν)) = 80,77 GPa. Le rapport de matériaux
+  et la feuille de torsion donnent 210 GPa, et le TP de flexion trois points mesure 211 à 215 GPa sur l'acier.
 - **Matériaux alignés sur les fiches (novembre 2026)** : EN-GJL-300 (α 7 → 11, E 100 → 110 GPa, ν 0,30 → 0,26),
   AlSi10Mg (α 26 → 21), FGS 400-15 (G 40 → 66 GPa), TA6V (E 116 → 110 GPa, α 9,0 → 8,6), laiton CuZn39Pb3
   (α 20,9 → 19,3), 42CrMo4 (α 12,0 → 11,1), inox 420 (α 11,0 → 10,5), PEEK (α 45 → 50), en µm/m/°C. Les écarts de
