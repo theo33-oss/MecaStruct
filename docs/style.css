@@ -19,6 +19,7 @@
   --err-fond: #FFD3D3; --err-texte: #6B0A12;
   --ombre: 0 1px 3px rgba(42, 27, 74, .12);
   --jauge-ok: #1E8E4A; --jauge-ko: #C62B36;
+  --largeur: 1440px; /* largeur du contenu : grandit avec l'écran (voir « grands écrans » en bas) */
   --resume-h: 52px; /* hauteur de la barre résumé du bas d'écran (petit écran) */
 }
 :root.resume-visible { --resume-bas: var(--resume-h); } /* posé par machine.js quand la barre est affichée : décale languette IA, messages, défilement */
@@ -46,8 +47,8 @@
 * { box-sizing: border-box; }
 /* --barre : hauteur du menu collant, mesurée par app.js (ResizeObserver) ; 100px tant qu'elle n'est pas connue */
 html { scroll-padding-top: calc(var(--barre, 100px) + 12px); scroll-padding-bottom: calc(var(--resume-bas, 0px) + 12px); }
-body { margin: 0; padding: 0 16px 32px; background: var(--fond); color: var(--encre); font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
-.entete, #menu, #sous, main, footer { max-width: 1440px; margin-left: auto; margin-right: auto; }
+body { margin: 0; padding: 0 16px 32px; background: var(--fond); color: var(--encre); font: 1rem/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+.entete, #menu, #sous, main, footer { max-width: var(--largeur); margin-left: auto; margin-right: auto; }
 a { color: var(--lien); }
 h1 { font-size: 1.8rem; margin: 20px 0 4px; line-height: 1.25; scroll-margin-top: 0; } /* le décalage sous la barre vient de scroll-padding-top (pas de double marge) */
 h1[tabindex="-1"]:focus { outline: none; } /* le focus va sur le titre après un changement de page : pas de cadre autour */
@@ -499,14 +500,14 @@ a.bouton[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
 
 /* ---------- lot G : recherche, favoris, « Mes études », raccourcis ---------- */
 /* barre du menu : familles à gauche, bouton de recherche à droite, pages de la famille dessous */
-#barre { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding-left: max(16px, calc((100% - 1440px) / 2 + 16px)); padding-right: max(16px, calc((100% - 1440px) / 2 + 16px)); } /* contenu centré sur 1440 px comme l'en-tête */
+#barre { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding-left: max(16px, calc((100% - var(--largeur)) / 2 + 16px)); padding-right: max(16px, calc((100% - var(--largeur)) / 2 + 16px)); } /* contenu centré sur 1440 px comme l'en-tête */
 #barre > #menu { grid-column: 1; margin: 0; min-width: 0; } /* sans marge auto : le menu remplit sa colonne et défile à l'intérieur */
 #barre > #sous { grid-column: 1 / -1; margin: 0; min-width: 0; }
 .recherche-bouton { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 4px 12px; font-weight: 600; }
 .recherche-icone { display: inline-flex; }
 kbd { font: inherit; font-size: .8em; padding: 0 5px; border: 1px solid var(--bord-fort); border-radius: 4px; background: var(--alt); color: var(--encre); line-height: 1.5; }
 .recherche-bouton kbd { font-weight: 400; }
-.recherche-panneau { position: absolute; top: 100%; right: max(16px, calc((100% - 1440px) / 2)); z-index: 40; width: min(560px, calc(100% - 32px)); padding: 10px 12px 12px; background: var(--carte); border: 2px solid var(--bord-fort); border-top: 0; border-radius: 0 0 10px 10px; box-shadow: 0 8px 24px rgba(42, 27, 74, .25); }
+.recherche-panneau { position: absolute; top: 100%; right: max(16px, calc((100% - var(--largeur)) / 2)); z-index: 40; width: min(560px, calc(100% - 32px)); padding: 10px 12px 12px; background: var(--carte); border: 2px solid var(--bord-fort); border-top: 0; border-radius: 0 0 10px 10px; box-shadow: 0 8px 24px rgba(42, 27, 74, .25); }
 .recherche-ligne { display: flex; gap: 8px; align-items: center; }
 .recherche-ligne input { flex: 1 1 auto; min-width: 0; }
 .recherche-aide { margin: 6px 2px 0; }
@@ -614,3 +615,21 @@ table.glossaire tbody th { background: var(--carte); color: var(--encre); border
 table.glossaire td.unite { white-space: nowrap; }
 #glossaire-filtre { width: 100%; max-width: 36rem; }
 .lien-glossaire { margin: 24px 0 0; }
+
+/* grands écrans : le contenu s'élargit et le texte grossit un peu, au lieu de rester une colonne étroite au milieu d'un grand vide */
+@media (min-width: 1800px) {
+  :root { --largeur: 1700px; }
+  .calcul { gap: 0 32px; }
+  .schema-corps .schema-figure { min-height: 380px; }
+}
+@media (min-width: 2300px) {
+  :root { --largeur: 2100px; }
+  html { font-size: 112.5%; }
+  .calcul { grid-template-columns: minmax(420px, 4fr) minmax(0, 7fr); }
+  .schema-corps .schema-figure { min-height: 460px; }
+}
+@media (min-width: 3000px) {
+  :root { --largeur: 2700px; }
+  html { font-size: 131.25%; }
+  .schema-corps .schema-figure { min-height: 560px; }
+}
