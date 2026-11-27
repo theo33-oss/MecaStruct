@@ -213,8 +213,8 @@ class PageSections(PageCalcul):
             z.succes("Section transmise aux pages Poutres et Flambage.")
             if envoi == "principaux":
                 z.info("Iyz ≠ 0 : Flambage reçoit les moments principaux I1 et I2 ; Poutres garde Iz, Iy et Iyz.")
-            z.lien("poutres", "📏 Ouvrir Poutres")
-            z.lien("flambage", "📐 Ouvrir Flambage")
+            z.lien("poutres", "Ouvrir Poutres")
+            z.lien("flambage", "Ouvrir Flambage")
 
     def visualisation(self, z: Zone) -> None:
         r = state.result("Sec")
